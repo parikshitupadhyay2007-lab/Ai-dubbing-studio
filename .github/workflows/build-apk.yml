@@ -40,9 +40,6 @@ jobs:
           import re
 
           path = Path("android/app/build.gradle.kts")
-          if not path.exists():
-              raise SystemExit("Gradle configuration not found")
-
           content = path.read_text()
 
           content, count = re.subn(
@@ -66,10 +63,6 @@ jobs:
         working-directory: android
         run: flutter pub get
 
-      - name: Build debug APK
-        working-directory: android
-        run: flutter build apk --debug
-        
       - name: Configure file picker SDK
         working-directory: android
         run: |
@@ -92,19 +85,26 @@ jobs:
                   'compileSdkVersion 36',
                   content
               )
+
               if count == 0:
                   content, count = re.subn(
                       r'compileSdk\s*=\s*\d+',
                       'compileSdk = 36',
                       content
                   )
+
               if count == 0:
                   raise SystemExit(
                       f"Could not update compileSdk in {path}"
                   )
+
               path.write_text(content)
               print(f"Updated {path} to SDK 36")
           PY
+
+      - name: Build debug APK
+        working-directory: android
+        run: flutter build apk --debug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
