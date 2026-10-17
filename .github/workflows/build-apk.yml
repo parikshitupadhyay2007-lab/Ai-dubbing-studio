@@ -1,3 +1,4 @@
+
 name: Build Android APK
 
 on:
@@ -22,15 +23,19 @@ jobs:
         with:
           channel: stable
 
-      - name: Verify uploaded files
+      - name: Verify project files
         run: |
           test -f android/pubspec.yaml
           test -f android/lib/main.dart
-          echo "Flutter project files found."
+          echo "Flutter project files found"
 
       - name: Generate Android platform files
         working-directory: android
         run: flutter create --platforms=android .
+
+      - name: Install dependencies
+        working-directory: android
+        run: flutter pub get
 
       - name: Configure Android SDK 36
         working-directory: android
@@ -39,8 +44,8 @@ jobs:
           from pathlib import Path
           import re
 
-          path = Path("android/app/build.gradle.kts")
-          content = path.read_text()
+          app = Path("android/app/build.gradle.kts")
+          content = app.read_text()
 
           content, count = re.subn(
               r'(?m)^(\s*)compileSdk\s*=\s*[^\r\n]+',
@@ -49,57 +54,55 @@ jobs:
           )
 
           if count != 1:
-              raise SystemExit(
-                  f"Expected one compileSdk setting, found {count}"
-              )
+              raise SystemExit("Could not configure app SDK")
 
-          path.write_text(content)
-          print("Android compileSdk successfully set to 36")
-          PY
+          app.write_text(content)
+          print("App compileSdk = 36")
 
-          grep -n 'compileSdk' android/app/build.gradle.kts
-
-      - name: Install dependencies
-        working-directory: android
-        run: flutter pub get
-
-      - name: Configure file picker SDK
-        working-directory: android
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-
-          pub_cache = Path.home() / ".pub-cache"
-          files = list(pub_cache.glob(
+          cache = Path.home() / ".pub-cache"
+          plugins = list(cache.glob(
               "hosted/pub.dev/file_picker-*/android/build.gradle"
           ))
 
-          if not files:
+          if not plugins:
               raise SystemExit("file_picker Gradle file not found")
 
-          for path in files:
-              content = path.read_text()
+          for plugin in plugins:
+              content = plugin.read_text()
+
+              pattern = (
+                  r'(?m)^(\s*)compileSdk(?:Version)?'
+                  r'\s*(?:=\s*|\s+)[^\r\n]+'
+              )
+
               content, count = re.subn(
-                  r'compileSdkVersion\s+\d+',
-                  'compileSdkVersion 36',
+                  pattern,
+                  r'\g<1>compileSdkVersion 36',
                   content
               )
 
               if count == 0:
                   content, count = re.subn(
-                      r'compileSdk\s*=\s*\d+',
-                      'compileSdk = 36',
-                      content
+                      r'(?m)^(\s*android\s*\{)',
+                      r'\g<1>\n    compileSdkVersion 36',
+                      content,
+                      count=1
                   )
 
               if count == 0:
                   raise SystemExit(
-                      f"Could not update compileSdk in {path}"
+                      f"Could not configure plugin: {plugin}"
                   )
 
-              path.write_text(content)
-              print(f"Updated {path} to SDK 36")
+              plugin.write_text(content)
+              print(f"Updated plugin: {plugin}")
+
+              matches = re.findall(
+                  r'(?m)^\s*compileSdk[^\r\n]*',
+                  content
+              )
+              print("Plugin SDK settings:", matches)
+
           PY
 
       - name: Build debug APK
