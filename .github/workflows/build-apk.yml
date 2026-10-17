@@ -33,6 +33,7 @@ jobs:
         run: |
           cd android
           flutter create --platforms=android .
+          sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 36/' android/app/build.gradle.kts
 
       - name: Install dependencies
         run: |
