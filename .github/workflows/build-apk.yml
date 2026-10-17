@@ -24,27 +24,51 @@ jobs:
 
       - name: Verify uploaded files
         run: |
-          ls -la
-          ls -la android
           test -f android/pubspec.yaml
           test -f android/lib/main.dart
+          echo "Flutter project files found."
 
       - name: Generate Android platform files
-        run: |
-          cd android
-          flutter create --platforms=android .
-          sed -i -E 's/compileSdk[[:space:]]*=[[:space:]]*flutter.compileSdkVersion/compileSdk = 36/; s/compileSdk[[:space:]]+flutter.compileSdkVersion/compileSdk 36/' android/app/build.gradle.kts
+        working-directory: android
+        run: flutter create --platforms=android .
 
+      - name: Configure Android SDK 36
+        working-directory: android
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path("android/app/build.gradle.kts")
+          if not path.exists():
+              raise SystemExit("Gradle configuration not found")
+
+          content = path.read_text()
+
+          content, count = re.subn(
+              r'(?m)^(\s*)compileSdk\s*=\s*[^\r\n]+',
+              r'\g<1>compileSdk = 36',
+              content
+          )
+
+          if count != 1:
+              raise SystemExit(
+                  f"Expected one compileSdk setting, found {count}"
+              )
+
+          path.write_text(content)
+          print("Android compileSdk successfully set to 36")
+          PY
+
+          grep -n 'compileSdk' android/app/build.gradle.kts
 
       - name: Install dependencies
-        run: |
-          cd android
-          flutter pub get
+        working-directory: android
+        run: flutter pub get
 
       - name: Build debug APK
-        run: |
-          cd android
-          flutter build apk --debug
+        working-directory: android
+        run: flutter build apk --debug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -52,3 +76,4 @@ jobs:
           name: AI-Dubbing-Studio-APK
           path: android/build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
+
