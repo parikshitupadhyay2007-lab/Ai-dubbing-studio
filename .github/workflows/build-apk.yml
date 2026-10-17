@@ -69,6 +69,42 @@ jobs:
       - name: Build debug APK
         working-directory: android
         run: flutter build apk --debug
+        
+      - name: Configure file picker SDK
+        working-directory: android
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          pub_cache = Path.home() / ".pub-cache"
+          files = list(pub_cache.glob(
+              "hosted/pub.dev/file_picker-*/android/build.gradle"
+          ))
+
+          if not files:
+              raise SystemExit("file_picker Gradle file not found")
+
+          for path in files:
+              content = path.read_text()
+              content, count = re.subn(
+                  r'compileSdkVersion\s+\d+',
+                  'compileSdkVersion 36',
+                  content
+              )
+              if count == 0:
+                  content, count = re.subn(
+                      r'compileSdk\s*=\s*\d+',
+                      'compileSdk = 36',
+                      content
+                  )
+              if count == 0:
+                  raise SystemExit(
+                      f"Could not update compileSdk in {path}"
+                  )
+              path.write_text(content)
+              print(f"Updated {path} to SDK 36")
+          PY
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
