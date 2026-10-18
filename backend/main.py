@@ -8,6 +8,8 @@ import wave
 import array
 
 from pathlib import Path
+from email.utils import parsedate_to_datetime
+from datetime import datetime, timezone
 
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import FileResponse
@@ -24,6 +26,8 @@ ROOT.mkdir(exist_ok=True)
 app = FastAPI(title='AI Dubbing Studio MVP')
 
 model = None
+
+MAX_TRANSLATION_ATTEMPTS = 3
 
 
 VOICES = {
@@ -73,14 +77,68 @@ def jobdir(jid):
     return ROOT / jid
 
 
+def save_project(path, data):
+    temporary = path.with_suffix('.tmp')
+
+    temporary.write_text(
+        json.dumps(data, ensure_ascii=False),
+        encoding='utf-8'
+    )
+
+    temporary.replace(path)
+
+
 @app.get('/health')
 def health():
     return {'ok': True}
 
 
 # ------------------------------------
-# AUTOMATIC TRANSLATION
-# WITH DIAGNOSTIC LOGGING
+# TRANSLATION ERROR HANDLING
+# ------------------------------------
+
+class TranslationError(Exception):
+    pass
+
+
+def retry_delay(response, attempt):
+    """
+    Respect a short Retry-After value when present.
+    Otherwise use exponential backoff.
+    """
+
+    fallback = min(2 ** attempt, 8)
+
+    header = response.headers.get('Retry-After')
+
+    if not header:
+        return fallback
+
+    try:
+        seconds = float(header)
+
+    except ValueError:
+        try:
+            retry_date = parsedate_to_datetime(header)
+
+            if retry_date.tzinfo is None:
+                retry_date = retry_date.replace(
+                    tzinfo=timezone.utc
+                )
+
+            seconds = (
+                retry_date
+                - datetime.now(timezone.utc)
+            ).total_seconds()
+
+        except (ValueError, TypeError, OverflowError):
+            return fallback
+
+    return max(0, seconds)
+
+
+# ------------------------------------
+# AUTOMATIC TRANSLATION WITH RETRIES
 # ------------------------------------
 
 async def translate_dialogue(
@@ -94,64 +152,187 @@ async def translate_dialogue(
     if source == target:
         return text
 
-    try:
-        async with httpx.AsyncClient(timeout=20.0) as client:
-            response = await client.get(
-                'https://api.mymemory.translated.net/get',
-                params={
-                    'q': text,
-                    'langpair': f'{source}|{target}'
-                }
-            )
+    async with httpx.AsyncClient(
+        timeout=20.0
+    ) as client:
 
-            print(
-                'TRANSLATION HTTP STATUS:',
-                response.status_code,
-                'source=', source,
-                'target=', target,
-                flush=True
-            )
+        for attempt in range(
+            1,
+            MAX_TRANSLATION_ATTEMPTS + 1
+        ):
 
-            response.raise_for_status()
+            try:
+                response = await client.get(
+                    'https://api.mymemory.translated.net/get',
+                    params={
+                        'q': text,
+                        'langpair': f'{source}|{target}'
+                    }
+                )
 
-            result = response.json()
+                print(
+                    'TRANSLATION HTTP:',
+                    'status=', response.status_code,
+                    'attempt=', attempt,
+                    'source=', source,
+                    'target=', target,
+                    flush=True
+                )
 
-            print(
-                'TRANSLATION DEBUG:',
-                'source=', source,
-                'target=', target,
-                'api_status=', result.get('responseStatus'),
-                'api_details=', result.get('responseDetails'),
-                'quota_finished=', result.get('quotaFinished'),
-                flush=True
-            )
+                # Rate limit: do not send requests rapidly.
 
-            # MyMemory can sometimes return a
-            # status represented as a string.
-            if (
-                str(result.get('responseStatus')) != '200'
-                or result.get('quotaFinished')
-            ):
-                return ''
+                if response.status_code == 429:
 
-            translated = result.get(
-                'responseData', {}
-            ).get('translatedText', '')
+                    try:
+                        error_data = response.json()
+                    except ValueError:
+                        error_data = {}
 
-            if not isinstance(translated, str):
-                return ''
+                    if error_data.get('quotaFinished'):
+                        raise TranslationError(
+                            'MyMemory translation quota exhausted. '
+                            'Please try again after the quota resets.'
+                        )
 
-            return translated.strip()
+                    delay = retry_delay(
+                        response,
+                        attempt
+                    )
 
-    except (httpx.HTTPError, ValueError) as e:
-        print(
-            'TRANSLATION REQUEST ERROR:',
-            type(e).__name__,
-            str(e),
-            flush=True
-        )
+                    if attempt >= MAX_TRANSLATION_ATTEMPTS:
+                        raise TranslationError(
+                            'Translation provider is rate-limiting '
+                            'requests. Please try again later.'
+                        )
 
-        return ''
+                    # Avoid a long-running request if the
+                    # provider explicitly asks us to wait longer.
+
+                    if delay > 15:
+                        raise TranslationError(
+                            'Translation provider requested a long '
+                            'cooldown. Please try again later.'
+                        )
+
+                    print(
+                        'TRANSLATION RETRY:',
+                        'reason=429',
+                        'wait_seconds=', delay,
+                        flush=True
+                    )
+
+                    await asyncio.sleep(delay)
+                    continue
+
+                # Other temporary server errors.
+
+                if response.status_code in (
+                    500, 502, 503, 504
+                ):
+                    if attempt >= MAX_TRANSLATION_ATTEMPTS:
+                        raise TranslationError(
+                            'Translation provider is temporarily '
+                            'unavailable. Please try again later.'
+                        )
+
+                    delay = min(2 ** attempt, 8)
+
+                    print(
+                        'TRANSLATION RETRY:',
+                        'status=', response.status_code,
+                        'wait_seconds=', delay,
+                        flush=True
+                    )
+
+                    await asyncio.sleep(delay)
+                    continue
+
+                if response.status_code >= 400:
+                    raise TranslationError(
+                        'Translation provider rejected the request '
+                        f'(HTTP {response.status_code}).'
+                    )
+
+                result = response.json()
+
+                api_status = str(
+                    result.get('responseStatus')
+                )
+
+                quota_finished = result.get(
+                    'quotaFinished',
+                    False
+                )
+
+                print(
+                    'TRANSLATION API:',
+                    'status=', api_status,
+                    'quota_finished=', quota_finished,
+                    flush=True
+                )
+
+                if quota_finished:
+                    raise TranslationError(
+                        'MyMemory translation quota exhausted. '
+                        'Please try again after the quota resets.'
+                    )
+
+                if api_status != '200':
+                    raise TranslationError(
+                        'Translation API returned an unsuccessful '
+                        f'status ({api_status}).'
+                    )
+
+                translated = result.get(
+                    'responseData', {}
+                ).get('translatedText', '')
+
+                if (
+                    not isinstance(translated, str)
+                    or not translated.strip()
+                ):
+                    raise TranslationError(
+                        'Translation API returned empty text.'
+                    )
+
+                return translated.strip()
+
+            except TranslationError:
+                raise
+
+            except (
+                httpx.TimeoutException,
+                httpx.TransportError
+            ) as e:
+
+                # Do not print the request URL because it
+                # contains the original dialogue.
+
+                print(
+                    'TRANSLATION NETWORK ERROR:',
+                    type(e).__name__,
+                    'attempt=', attempt,
+                    flush=True
+                )
+
+                if attempt >= MAX_TRANSLATION_ATTEMPTS:
+                    raise TranslationError(
+                        'Translation network request failed. '
+                        'Please try again later.'
+                    )
+
+                await asyncio.sleep(
+                    min(2 ** attempt, 8)
+                )
+
+            except ValueError:
+                raise TranslationError(
+                    'Translation provider returned invalid JSON.'
+                )
+
+    raise TranslationError(
+        'Automatic translation failed.'
+    )
 
 
 # ------------------------------------
@@ -249,14 +430,13 @@ async def create(file: UploadFile = File(...)):
         'id': jid,
         'source': source.name,
         'source_language': info.language,
-        'segments': items
+        'segments': items,
+        'translation_cache': {}
     }
 
-    (d / 'project.json').write_text(
-        json.dumps(
-            data,
-            ensure_ascii=False
-        )
+    save_project(
+        d / 'project.json',
+        data
     )
 
     return data
@@ -282,16 +462,28 @@ async def translate_project(
         )
 
     d = jobdir(jid)
-
     path = d / 'project.json'
 
     data = json.loads(
-        path.read_text()
+        path.read_text(encoding='utf-8')
     )
 
     source_language = data.get(
         'source_language',
         'ja'
+    )
+
+    cache = data.setdefault(
+        'translation_cache',
+        {}
+    )
+
+    # Cache is separated by language pair.
+    pair = f'{source_language}|{req.language}'
+
+    pair_cache = cache.setdefault(
+        pair,
+        {}
     )
 
     print(
@@ -307,26 +499,47 @@ async def translate_project(
     for segment in data['segments']:
         original = segment['text'].strip()
 
-        result = await translate_dialogue(
-            original,
-            req.language,
-            source_language
-        )
+        if not original:
+            result = ''
 
-        if original and not result.strip():
+        elif original in pair_cache:
+            result = pair_cache[original]
+
             print(
-                'TRANSLATION FAILED:',
+                'TRANSLATION CACHE HIT:',
                 'segment_id=', segment['id'],
-                'source=', source_language,
-                'target=', req.language,
                 flush=True
             )
 
-            raise HTTPException(
-                503,
-                'Automatic translation failed. '
-                'Please check Render logs.'
-            )
+        else:
+            try:
+                result = await translate_dialogue(
+                    original,
+                    req.language,
+                    source_language
+                )
+
+            except TranslationError as e:
+                print(
+                    'TRANSLATION FAILED:',
+                    'segment_id=', segment['id'],
+                    'reason=', str(e),
+                    flush=True
+                )
+
+                # Already translated dialogue remains saved.
+                save_project(path, data)
+
+                raise HTTPException(
+                    503,
+                    str(e)
+                )
+
+            pair_cache[original] = result
+
+            # Save immediately, rather than waiting
+            # until the entire video is translated.
+            save_project(path, data)
 
         translated.append({
             **segment,
@@ -334,15 +547,9 @@ async def translate_project(
         })
 
     data['segments'] = translated
-
     data['target_language'] = req.language
 
-    path.write_text(
-        json.dumps(
-            data,
-            ensure_ascii=False
-        )
-    )
+    save_project(path, data)
 
     print(
         'TRANSLATION COMPLETE:',
@@ -512,7 +719,6 @@ async def render(
             rate = f.getframerate()
 
         samples = array.array('h')
-
         samples.frombytes(raw)
 
         offset = int(
@@ -546,7 +752,6 @@ async def render(
         )
 
     source = d / data['source']
-
     output = d / 'dubbed.mp4'
 
     run(
