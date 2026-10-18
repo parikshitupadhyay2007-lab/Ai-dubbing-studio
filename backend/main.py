@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from faster_whisper import WhisperModel
 import edge_tts
-
+import httpx
 ROOT = Path(__file__).parent / 'jobs'
 ROOT.mkdir(exist_ok=True)
 
@@ -48,6 +48,34 @@ def jobdir(jid):
 @app.get('/health')
 def health():
     return {'ok': True}
+
+async def translate_dialogue(text: str, target: str, source: str = 'ja'):
+    if not text.strip():
+        return ''
+
+    if source == target:
+        return text
+
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            response = await client.get(
+                'https://api.mymemory.translated.net/get',
+                params={
+                    'q': text,
+                    'langpair': f'{source}|{target}'
+                }
+            )
+
+            response.raise_for_status()
+            result = response.json()
+
+            if result.get('responseStatus') != 200 or result.get('quotaFinished'):
+                return ''
+
+            return result.get('responseData', {}).get('translatedText', '')
+
+    except (httpx.HTTPError, ValueError):
+        return ''
 
 
 @app.post('/projects')
