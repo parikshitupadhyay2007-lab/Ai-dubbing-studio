@@ -1,4 +1,3 @@
-
 import asyncio
 import json
 import os
@@ -81,6 +80,7 @@ def health():
 
 # ------------------------------------
 # AUTOMATIC TRANSLATION
+# WITH DIAGNOSTIC LOGGING
 # ------------------------------------
 
 async def translate_dialogue(
@@ -104,21 +104,53 @@ async def translate_dialogue(
                 }
             )
 
+            print(
+                'TRANSLATION HTTP STATUS:',
+                response.status_code,
+                'source=', source,
+                'target=', target,
+                flush=True
+            )
+
             response.raise_for_status()
 
             result = response.json()
 
+            print(
+                'TRANSLATION DEBUG:',
+                'source=', source,
+                'target=', target,
+                'api_status=', result.get('responseStatus'),
+                'api_details=', result.get('responseDetails'),
+                'quota_finished=', result.get('quotaFinished'),
+                flush=True
+            )
+
+            # MyMemory can sometimes return a
+            # status represented as a string.
             if (
-                result.get('responseStatus') != 200
+                str(result.get('responseStatus')) != '200'
                 or result.get('quotaFinished')
             ):
                 return ''
 
-            return result.get(
+            translated = result.get(
                 'responseData', {}
             ).get('translatedText', '')
 
-    except (httpx.HTTPError, ValueError):
+            if not isinstance(translated, str):
+                return ''
+
+            return translated.strip()
+
+    except (httpx.HTTPError, ValueError) as e:
+        print(
+            'TRANSLATION REQUEST ERROR:',
+            type(e).__name__,
+            str(e),
+            flush=True
+        )
+
         return ''
 
 
@@ -206,6 +238,13 @@ async def create(file: UploadFile = File(...)):
         for i, s in enumerate(segments)
     ]
 
+    print(
+        'TRANSCRIPTION COMPLETE:',
+        'language=', info.language,
+        'segments=', len(items),
+        flush=True
+    )
+
     data = {
         'id': jid,
         'source': source.name,
@@ -255,6 +294,14 @@ async def translate_project(
         'ja'
     )
 
+    print(
+        'TRANSLATION START:',
+        'source=', source_language,
+        'target=', req.language,
+        'segments=', len(data['segments']),
+        flush=True
+    )
+
     translated = []
 
     for segment in data['segments']:
@@ -267,9 +314,18 @@ async def translate_project(
         )
 
         if original and not result.strip():
+            print(
+                'TRANSLATION FAILED:',
+                'segment_id=', segment['id'],
+                'source=', source_language,
+                'target=', req.language,
+                flush=True
+            )
+
             raise HTTPException(
                 503,
-                'Automatic translation failed. Please try again.'
+                'Automatic translation failed. '
+                'Please check Render logs.'
             )
 
         translated.append({
@@ -286,6 +342,13 @@ async def translate_project(
             data,
             ensure_ascii=False
         )
+    )
+
+    print(
+        'TRANSLATION COMPLETE:',
+        len(translated),
+        'segments',
+        flush=True
     )
 
     return data
@@ -536,4 +599,3 @@ def download(jid: str):
         media_type='video/mp4',
         filename='AI-Dubbing-Studio.mp4'
     )
-
