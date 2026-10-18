@@ -7,7 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:open_filex/open_filex.dart';
 
 // Emulator: 10.0.2.2. Physical phone: replace with your computer's LAN IP.
-const server = String.fromEnvironment('API_URL', defaultValue: 'http://10.0.2.2:8000');
+const server = String.fromEnvironment('API_URL', defaultValue: 'https://ai-dubbing-studio.onrender.com
 void main() => runApp(const Studio());
 class Studio extends StatelessWidget {
  const Studio({super.key});
