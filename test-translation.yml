@@ -1,0 +1,28 @@
+
+name: Test Free Offline Translation
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-translation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Argos Translate
+        run: |
+          python -m pip install --upgrade pip
+          pip install argostranslate
+
+      - name: Run translation test
+        run: |
+          python backend/test_translation.py
