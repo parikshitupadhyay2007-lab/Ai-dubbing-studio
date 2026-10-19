@@ -367,3 +367,23 @@ async def generate_voiceover(req: VoiceoverRequest):
             'Cache-Control': 'no-store',
         },
     )
+    
+# ------------------------------------
+# OTAKUDUB VOICE STUDIO WEBSITE
+# ------------------------------------
+
+from fastapi.responses import HTMLResponse
+
+@app.get('/studio', response_class=HTMLResponse)
+def voice_studio_website():
+    website = Path(__file__).parent / 'studio' / 'index.html'
+
+    if not website.is_file():
+        raise HTTPException(
+            status_code=404,
+            detail='Voice Studio website not found'
+        )
+
+    return HTMLResponse(
+        content=website.read_text(encoding='utf-8')
+    )
