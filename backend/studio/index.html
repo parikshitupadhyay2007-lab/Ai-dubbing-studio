@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OtakuDub Voice Studio</title>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: #07060c;
+      color: white;
+      font-family: Arial, sans-serif;
+    }
+
+    header {
+      padding: 22px;
+      border-bottom: 1px solid #292136;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .brand {
+      font-size: 25px;
+      font-weight: 900;
+    }
+
+    .brand span { color: #a855f7; }
+
+    .tag {
+      color: #c59af8;
+      font-size: 11px;
+      letter-spacing: 2px;
+    }
+
+    main {
+      max-width: 850px;
+      margin: auto;
+      padding: 24px 18px 70px;
+    }
+
+    .hero {
+      padding: 35px 25px;
+      border-radius: 24px;
+      background: linear-gradient(
+        130deg, #45216c, #1b102c, #0d0a13
+      );
+      border: 1px solid #62348d;
+      margin-bottom: 25px;
+    }
+
+    .hero h1 {
+      font-size: clamp(30px, 6vw, 48px);
+      margin: 12px 0;
+    }
+
+    .hero p {
+      color: #d5c5e7;
+      line-height: 1.6;
+    }
+
+    .card {
+      background: #14111d;
+      border: 1px solid #30263f;
+      border-radius: 22px;
+      padding: 23px;
+      margin-top: 18px;
+    }
+
+    h2 { margin-top: 0; }
+
+    label {
+      display: block;
+      color: #c9b6df;
+      font-size: 12px;
+      font-weight: bold;
+      margin: 19px 0 10px;
+      letter-spacing: 1px;
+    }
+
+    textarea, select {
+      width: 100%;
+      background: #09070f;
+      color: white;
+      border: 1px solid #453653;
+      border-radius: 13px;
+      padding: 15px;
+      font: inherit;
+      outline: none;
+    }
+
+    textarea {
+      height: 160px;
+      resize: vertical;
+      line-height: 1.6;
+    }
+
+    textarea:focus, select:focus {
+      border-color: #a855f7;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+    }
+
+    button, .download {
+      display: block;
+      width: 100%;
+      padding: 17px;
+      margin-top: 22px;
+      background: #933fe5;
+      color: white;
+      border: none;
+      border-radius: 13px;
+      font-size: 15px;
+      font-weight: bold;
+      text-align: center;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: .5;
+      cursor: wait;
+    }
+
+    .download {
+      background: #261a39;
+      border: 1px solid #8544ca;
+    }
+
+    audio {
+      width: 100%;
+      margin-top: 15px;
+    }
+
+    #status {
+      color: #c6afd9;
+      font-size: 13px;
+      margin-top: 17px;
+      line-height: 1.5;
+      overflow-wrap: anywhere;
+    }
+
+    #result { display: none; }
+
+    footer {
+      text-align: center;
+      color: #82748e;
+      padding: 25px;
+      font-size: 12px;
+    }
+
+    @media(max-width: 550px) {
+      .row { grid-template-columns: 1fr; }
+      header { padding: 18px; }
+      .hero { padding: 26px 20px; }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="brand">Otaku<span>Dub</span></div>
+    <div class="tag">VOICE STUDIO</div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div style="font-size:40px">🎙️</div>
+      <h1>Give every character a voice.</h1>
+      <p>
+        Create Hindi and English AI voiceovers.
+        Write your dialogue, choose a voice,
+        generate audio and download your MP3.
+      </p>
+    </section>
+
+    <section class="card">
+      <h2>Create a voiceover</h2>
+
+      <label for="dialogue">YOUR DIALOGUE</label>
+      <textarea
+        id="dialogue"
+        maxlength="1500"
+        placeholder="Enter your dialogue here..."
+      ></textarea>
+
+      <p id="count" style="color:#92849e;font-size:12px">
+        0 / 1500 characters
+      </p>
+
+      <div class="row">
+        <div>
+          <label for="language">LANGUAGE</label>
+          <select id="language">
+            <option value="hi">Hindi</option>
+            <option value="en">English</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="style">VOICE STYLE</label>
+          <select id="style">
+            <option value="natural">Natural</option>
+            <option value="expressive">Expressive</option>
+          </select>
+        </div>
+      </div>
+
+      <label for="voice">AI VOICE</label>
+      <select id="voice"></select>
+
+      <button id="generate" type="button">
+        🎙 Generate Voiceover
+      </button>
+
+      <p id="status" role="status" aria-live="polite">
+        Ready to generate.
+      </p>
+    </section>
+
+    <section class="card" id="result">
+      <h2>Your voiceover is ready!</h2>
+      <audio id="player" controls></audio>
+      <a
+        id="download"
+        class="download"
+        download="OtakuDub-Voiceover.mp3"
+      >
+        Download MP3
+      </a>
+    </section>
+  </main>
+
+  <footer>
+    OTAKUDUB • YOUR ANIME. YOUR LANGUAGE.
+  </footer>
+
+  <script>
+    const voices = {
+      hi: [
+        ["hi-IN-MadhurNeural", "Madhur"],
+        ["hi-IN-SwaraNeural", "Swara"]
+      ],
+      en: [
+        ["en-US-GuyNeural", "Guy"],
+        ["en-US-JennyNeural", "Jenny"],
+        ["en-US-AriaNeural", "Aria"],
+        ["en-US-ChristopherNeural", "Christopher"],
+        ["en-US-DavisNeural", "Davis"]
+      ]
+    };
+
+    const dialogue = document.getElementById("dialogue");
+    const language = document.getElementById("language");
+    const voice = document.getElementById("voice");
+    const style = document.getElementById("style");
+    const generate = document.getElementById("generate");
+    const status = document.getElementById("status");
+    const result = document.getElementById("result");
+    const player = document.getElementById("player");
+    const download = document.getElementById("download");
+
+    let audioURL = null;
+
+    function updateVoices() {
+      voice.replaceChildren();
+
+      voices[language.value].forEach(([id, name]) => {
+        const option = document.createElement("option");
+        option.value = id;
+        option.textContent = name;
+        voice.appendChild(option);
+      });
+    }
+
+    function clearAudio() {
+      result.style.display = "none";
+      player.pause();
+      player.removeAttribute("src");
+      player.load();
+      download.removeAttribute("href");
+
+      if (audioURL) {
+        URL.revokeObjectURL(audioURL);
+        audioURL = null;
+      }
+    }
+
+    language.addEventListener("change", updateVoices);
+
+    dialogue.addEventListener("input", () => {
+      document.getElementById("count").textContent =
+        dialogue.value.length + " / 1500 characters";
+    });
+
+    generate.addEventListener("click", async () => {
+      const text = dialogue.value.trim();
+
+      if (!text) {
+        status.textContent = "Please enter your dialogue.";
+        return;
+      }
+
+      clearAudio();
+      generate.disabled = true;
+      generate.textContent = "Generating...";
+      status.textContent = "Creating your voiceover. Please wait...";
+
+      try {
+        const response = await fetch("/studio/generate", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            text: text,
+            voice: voice.value,
+            style: style.value
+          })
+        });
+
+        if (!response.ok) {
+          let message = "Voice generation failed.";
+
+          try {
+            const error = await response.json();
+            message = error.detail || message;
+          } catch (_) {}
+
+          throw new Error(message);
+        }
+
+        const blob = await response.blob();
+
+        if (!blob.size) {
+          throw new Error("The server returned empty audio.");
+        }
+
+        audioURL = URL.createObjectURL(blob);
+        player.src = audioURL;
+        download.href = audioURL;
+
+        result.style.display = "block";
+        status.textContent = "Voiceover generated successfully!";
+      } catch (error) {
+        status.textContent = error.message;
+      } finally {
+        generate.disabled = false;
+        generate.textContent = "🎙 Generate Voiceover";
+      }
+    });
+
+    updateVoices();
+  </script>
+</body>
+</html>
