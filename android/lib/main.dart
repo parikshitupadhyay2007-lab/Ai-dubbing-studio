@@ -12,20 +12,59 @@ const server = String.fromEnvironment(
   defaultValue: 'https://ai-dubbing-studio.onrender.com',
 );
 
-void main() => runApp(const Studio());
+const background = Color(0xFF050509);
+const surface = Color(0xFF11111B);
+const purple = Color(0xFF9747FF);
+const muted = Color(0xFFAAA8BE);
 
-class Studio extends StatelessWidget {
-  const Studio({super.key});
+void main() => runApp(const OtakuDub());
+
+class OtakuDub extends StatelessWidget {
+  const OtakuDub({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'AI Dubbing Studio',
+      title: 'OtakuDub',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
-        colorSchemeSeed: Colors.deepPurple,
+        scaffoldBackgroundColor: background,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: purple,
+          brightness: Brightness.dark,
+          primary: purple,
+          surface: surface,
+        ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: background,
+          elevation: 0,
+        ),
+        cardTheme: CardThemeData(
+          color: surface,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: const BorderSide(
+              color: Color(0xFF292638),
+            ),
+          ),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: surface,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 16,
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: const BorderSide(
+              color: Color(0xFF373044),
+            ),
+          ),
+        ),
       ),
       home: const Home(),
     );
@@ -43,9 +82,14 @@ class _HomeState extends State<Home> {
   Map<String, dynamic>? project;
 
   bool busy = false;
-  String status = 'Select a language and upload your video.';
+  bool completed = false;
+
+  String status = 'Ready to create your next dub.';
   String language = 'hi';
   String style = 'natural';
+  String selectedFile = '';
+
+  String? outputPath;
 
   final Map<int, TextEditingController> translations = {};
 
@@ -93,7 +137,7 @@ class _HomeState extends State<Home> {
       }
     } catch (_) {}
 
-    return 'Server error ${response.statusCode}: ${response.body}';
+    return 'Server error ${response.statusCode}';
   }
 
   void loadProject(Map<String, dynamic> data) {
@@ -112,7 +156,11 @@ class _HomeState extends State<Home> {
       );
     }
 
-    setState(() => project = data);
+    setState(() {
+      project = data;
+      completed = false;
+      outputPath = null;
+    });
   }
 
   Future<void> upload() async {
@@ -121,18 +169,29 @@ class _HomeState extends State<Home> {
     final picked = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: [
-        'mp4', 'mkv', 'mov', 'webm',
-        'mp3', 'wav', 'm4a',
+        'mp4',
+        'mkv',
+        'mov',
+        'webm',
+        'mp3',
+        'wav',
+        'm4a',
       ],
     );
 
-    if (picked == null || picked.files.single.path == null) {
+    if (picked == null ||
+        picked.files.single.path == null) {
       return;
     }
+
+    final file = picked.files.single;
 
     setState(() {
       busy = true;
       project = null;
+      completed = false;
+      outputPath = null;
+      selectedFile = file.name;
       status = 'Uploading and recognizing speech...';
     });
 
@@ -145,12 +204,14 @@ class _HomeState extends State<Home> {
       request.files.add(
         await http.MultipartFile.fromPath(
           'file',
-          picked.files.single.path!,
+          file.path!,
         ),
       );
 
       final streamed = await request.send();
-      final uploadResponse = await http.Response.fromStream(streamed);
+
+      final uploadResponse =
+          await http.Response.fromStream(streamed);
 
       if (uploadResponse.statusCode != 200) {
         throw Exception(errorMessage(uploadResponse));
@@ -161,19 +222,25 @@ class _HomeState extends State<Home> {
       );
 
       updateStatus(
-        'Speech recognized. Automatically translating...',
+        'Speech recognized. Translating dialogue...',
       );
 
       final translationResponse = await http.post(
-        Uri.parse('$server/projects/${uploaded['id']}/translate'),
-        headers: {'Content-Type': 'application/json'},
+        Uri.parse(
+          '$server/projects/${uploaded['id']}/translate',
+        ),
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: jsonEncode({
           'language': language,
         }),
       );
 
       if (translationResponse.statusCode != 200) {
-        throw Exception(errorMessage(translationResponse));
+        throw Exception(
+          errorMessage(translationResponse),
+        );
       }
 
       final translated = Map<String, dynamic>.from(
@@ -185,10 +252,12 @@ class _HomeState extends State<Home> {
       loadProject(translated);
 
       updateStatus(
-        'Automatic translation complete. Ready to generate your dub.',
+        'Translation complete. Your dub is ready to generate.',
       );
     } catch (e) {
-      updateStatus('Error: $e');
+      updateStatus(
+        'Error: ${e.toString().replaceFirst('Exception: ', '')}',
+      );
     } finally {
       if (mounted) {
         setState(() => busy = false);
@@ -201,6 +270,7 @@ class _HomeState extends State<Home> {
 
     setState(() {
       busy = true;
+      completed = false;
       status = 'Generating dubbed voices and video...';
     });
 
@@ -208,8 +278,10 @@ class _HomeState extends State<Home> {
       final edited = segments.map((s) {
         return {
           ...s,
-          'speaker': (s['speaker'] ?? 'Character 1').toString(),
-          'translation': translations[s['id']]!.text.trim(),
+          'speaker':
+              (s['speaker'] ?? 'Character 1').toString(),
+          'translation':
+              translations[s['id']]!.text.trim(),
         };
       }).toList();
 
@@ -217,7 +289,7 @@ class _HomeState extends State<Home> {
         (s) => (s['translation'] as String).isEmpty,
       )) {
         throw Exception(
-          'A translation is missing. Please retry the upload.',
+          'A translation is missing. Please review the dialogue.',
         );
       }
 
@@ -237,7 +309,9 @@ class _HomeState extends State<Home> {
         Uri.parse(
           '$server/projects/${project!['id']}/render',
         ),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: jsonEncode({
           'language': language,
           'style': style,
@@ -262,19 +336,28 @@ class _HomeState extends State<Home> {
         throw Exception(errorMessage(download));
       }
 
-      final directory = await getApplicationDocumentsDirectory();
+      final directory =
+          await getApplicationDocumentsDirectory();
 
       final file = File(
-        '${directory.path}/AI-Dubbing-Studio-${project!['id']}.mp4',
+        '${directory.path}/OtakuDub-${project!['id']}.mp4',
       );
 
       await file.writeAsBytes(download.bodyBytes);
 
-      updateStatus('Dubbed video generated successfully!');
+      if (!mounted) return;
+
+      setState(() {
+        completed = true;
+        outputPath = file.path;
+        status = 'Your dubbed video is ready!';
+      });
 
       await OpenFilex.open(file.path);
     } catch (e) {
-      updateStatus('Error: $e');
+      updateStatus(
+        'Error: ${e.toString().replaceFirst('Exception: ', '')}',
+      );
     } finally {
       if (mounted) {
         setState(() => busy = false);
@@ -282,168 +365,606 @@ class _HomeState extends State<Home> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('AI Dubbing Studio'),
+  Widget panel({
+    required Widget child,
+    EdgeInsets padding = const EdgeInsets.all(20),
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: padding,
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: const Color(0xFF292638),
+        ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          const Icon(
-            Icons.record_voice_over,
-            size: 64,
-          ),
-          const SizedBox(height: 12),
+      child: child,
+    );
+  }
 
-          const Text(
-            'Every Character. Every Language.',
+  Widget sectionTitle(
+    String title, {
+    String? subtitle,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        if (subtitle != null) ...[
+          const SizedBox(height: 5),
+          Text(
+            subtitle,
+            style: const TextStyle(
+              color: muted,
+              fontSize: 13,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget option({
+    required String label,
+    required String value,
+    required String selected,
+    required VoidCallback? onTap,
+  }) {
+    final active = value == selected;
+
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(
+            vertical: 15,
+            horizontal: 8,
+          ),
+          decoration: BoxDecoration(
+            color: active
+                ? purple.withValues(alpha: 0.17)
+                : background,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: active
+                  ? purple
+                  : const Color(0xFF302B3D),
+            ),
+          ),
+          child: Text(
+            label,
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 21,
+              fontWeight: FontWeight.w600,
+              color: active ? Colors.white : muted,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget primaryButton({
+    required String text,
+    required IconData icon,
+    required VoidCallback? onPressed,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      height: 54,
+      child: FilledButton.icon(
+        onPressed: onPressed,
+        icon: Icon(icon),
+        label: Text(
+          text,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        style: FilledButton.styleFrom(
+          backgroundColor: purple,
+          foregroundColor: Colors.white,
+          disabledBackgroundColor:
+              purple.withValues(alpha: 0.30),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget brandHeader() {
+    return Row(
+      children: [
+        Container(
+          width: 47,
+          height: 47,
+          decoration: BoxDecoration(
+            color: purple.withValues(alpha: 0.16),
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(
+              color: purple.withValues(alpha: 0.5),
+            ),
+          ),
+          child: const Icon(
+            Icons.mic_external_on_rounded,
+            color: purple,
+            size: 27,
+          ),
+        ),
+        const SizedBox(width: 12),
+        const Text.rich(
+          TextSpan(
+            children: [
+              TextSpan(
+                text: 'Otaku',
+                style: TextStyle(color: Colors.white),
+              ),
+              TextSpan(
+                text: 'Dub',
+                style: TextStyle(color: purple),
+              ),
+            ],
+          ),
+          style: TextStyle(
+            fontSize: 25,
+            fontWeight: FontWeight.w900,
+            letterSpacing: -0.7,
+          ),
+        ),
+        const Spacer(),
+        const Icon(
+          Icons.graphic_eq_rounded,
+          color: purple,
+          size: 27,
+        ),
+      ],
+    );
+  }
+
+  Widget hero() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF35205B),
+            Color(0xFF171024),
+            Color(0xFF0C0B13),
+          ],
+        ),
+        border: Border.all(
+          color: purple.withValues(alpha: 0.4),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.multitrack_audio_rounded,
+            color: Color(0xFFD5AEFF),
+            size: 38,
+          ),
+          const SizedBox(height: 18),
+          const Text(
+            'Your Anime.\nYour Language.',
+            style: TextStyle(
+              fontSize: 29,
+              height: 1.13,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Upload a clip. Translate the dialogue. '
+            'Create your own AI dub.',
+            style: TextStyle(
+              color: Color(0xFFD1C5DF),
+              fontSize: 14,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 8,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.09),
+              borderRadius: BorderRadius.circular(30),
+            ),
+            child: const Text(
+              'JAPANESE  •  HINDI  •  ENGLISH',
+              style: TextStyle(
+                fontSize: 10,
+                letterSpacing: 1.1,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget configuration() {
+    return panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          sectionTitle(
+            'Dub settings',
+            subtitle: 'Choose your target language and voice style.',
+          ),
+          const SizedBox(height: 22),
+          const Text(
+            'TARGET LANGUAGE',
+            style: TextStyle(
+              fontSize: 11,
+              letterSpacing: 1.3,
+              color: muted,
               fontWeight: FontWeight.bold,
             ),
           ),
-
-          const SizedBox(height: 24),
-
-          DropdownButtonFormField<String>(
-            value: language,
-            decoration: const InputDecoration(
-              labelText: 'Dub language',
-              border: OutlineInputBorder(),
-            ),
-            items: const [
-              DropdownMenuItem(
+          const SizedBox(height: 11),
+          Row(
+            children: [
+              option(
+                label: '🇮🇳  Hindi',
                 value: 'hi',
-                child: Text('Hindi'),
+                selected: language,
+                onTap: busy || project != null
+                    ? null
+                    : () => setState(() => language = 'hi'),
               ),
-              DropdownMenuItem(
+              const SizedBox(width: 10),
+              option(
+                label: '🇺🇸  English',
                 value: 'en',
-                child: Text('English'),
+                selected: language,
+                onTap: busy || project != null
+                    ? null
+                    : () => setState(() => language = 'en'),
               ),
             ],
-            onChanged: busy || project != null
-                ? null
-                : (value) {
-                    setState(() => language = value!);
-                  },
           ),
-
-          const SizedBox(height: 12),
-
-          DropdownButtonFormField<String>(
-            value: style,
-            decoration: const InputDecoration(
-              labelText: 'Voice style',
-              border: OutlineInputBorder(),
+          const SizedBox(height: 22),
+          const Text(
+            'VOICE STYLE',
+            style: TextStyle(
+              fontSize: 11,
+              letterSpacing: 1.3,
+              color: muted,
+              fontWeight: FontWeight.bold,
             ),
-            items: const [
-              DropdownMenuItem(
+          ),
+          const SizedBox(height: 11),
+          Row(
+            children: [
+              option(
+                label: 'Natural',
                 value: 'natural',
-                child: Text('Natural'),
+                selected: style,
+                onTap: busy
+                    ? null
+                    : () => setState(() => style = 'natural'),
               ),
-              DropdownMenuItem(
+              const SizedBox(width: 10),
+              option(
+                label: 'Expressive',
                 value: 'expressive',
-                child: Text('Expressive'),
+                selected: style,
+                onTap: busy
+                    ? null
+                    : () => setState(() => style = 'expressive'),
               ),
             ],
-            onChanged: busy
-                ? null
-                : (value) {
-                    setState(() => style = value!);
-                  },
           ),
+        ],
+      ),
+    );
+  }
 
-          const SizedBox(height: 20),
-
-          FilledButton.icon(
-            onPressed: busy ? null : upload,
-            icon: const Icon(Icons.upload_file),
-            label: const Text('Upload video or audio'),
-          ),
-
-          if (busy) ...[
-            const SizedBox(height: 16),
-            const LinearProgressIndicator(),
-          ],
-
-          const SizedBox(height: 16),
-
-          Text(status),
-
-          if (project != null) ...[
-            const SizedBox(height: 24),
-
-            Text(
-              'Detected language: ${project!['source_language']}',
+  Widget uploadPanel() {
+    return panel(
+      child: Column(
+        children: [
+          Container(
+            width: 66,
+            height: 66,
+            decoration: BoxDecoration(
+              color: purple.withValues(alpha: 0.14),
+              shape: BoxShape.circle,
             ),
-
-            const SizedBox(height: 12),
-
-            const Text(
-              'Automatically translated dialogue',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 17,
+            child: const Icon(
+              Icons.cloud_upload_outlined,
+              size: 33,
+              color: purple,
+            ),
+          ),
+          const SizedBox(height: 17),
+          const Text(
+            'Upload your media',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Select an anime clip, video or audio file.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: muted,
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'MP4 • MKV • MOV • WEBM • MP3 • WAV • M4A',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Color(0xFF807A93),
+              fontSize: 10,
+            ),
+          ),
+          if (selectedFile.isNotEmpty) ...[
+            const SizedBox(height: 15),
+            Text(
+              selectedFile,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0xFFD5AEFF),
+                fontSize: 12,
               ),
             ),
+          ],
+          const SizedBox(height: 22),
+          primaryButton(
+            text: 'Choose File & Translate',
+            icon: Icons.add_rounded,
+            onPressed: busy ? null : upload,
+          ),
+        ],
+      ),
+    );
+  }
 
-            const SizedBox(height: 8),
+  Widget statusPanel() {
+    final isError = status.startsWith('Error:');
 
-            ...segments.map((s) {
-              return Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+    return panel(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (busy)
+            const SizedBox(
+              width: 23,
+              height: 23,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: purple,
+              ),
+            )
+          else
+            Icon(
+              isError
+                  ? Icons.error_outline_rounded
+                  : completed
+                      ? Icons.check_circle_rounded
+                      : Icons.info_outline_rounded,
+              color: isError
+                  ? Colors.orangeAccent
+                  : completed
+                      ? Colors.greenAccent
+                      : purple,
+            ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Text(
+              status,
+              style: const TextStyle(
+                fontSize: 13,
+                height: 1.5,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget dialoguePanel() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        sectionTitle(
+          'Translated dialogue',
+          subtitle:
+              'Detected language: ${project!['source_language']}',
+        ),
+        const SizedBox(height: 14),
+        ...segments.map((s) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: panel(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
+                      const Icon(
+                        Icons.mic_rounded,
+                        color: purple,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        (s['speaker'] ?? 'Character 1').toString(),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const Spacer(),
                       Text(
                         '${s['start']}s – ${s['end']}s',
-                      ),
-
-                      const SizedBox(height: 8),
-
-                      Text(
-                        'Original: ${s['text']}',
-                      ),
-
-                      const SizedBox(height: 8),
-
-                      TextField(
-                        controller: translations[s['id']],
-                        enabled: !busy,
-                        maxLines: 3,
-                        decoration: const InputDecoration(
-                          labelText: 'AI translation (optional editing)',
-                          border: OutlineInputBorder(),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: muted,
                         ),
                       ),
                     ],
                   ),
-                ),
-              );
-            }),
-
-            const SizedBox(height: 20),
-
-            FilledButton.icon(
-              onPressed: busy ? null : render,
-              icon: const Icon(Icons.movie_creation_outlined),
-              label: const Text('Generate dubbed video'),
+                  const SizedBox(height: 17),
+                  const Text(
+                    'ORIGINAL',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: muted,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 7),
+                  Text(
+                    s['text'].toString(),
+                    style: const TextStyle(height: 1.5),
+                  ),
+                  const SizedBox(height: 18),
+                  TextField(
+                    controller: translations[s['id']],
+                    enabled: !busy,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      labelText: 'AI translation',
+                      helperText: 'Optional: edit before dubbing',
+                    ),
+                  ),
+                ],
+              ),
             ),
+          );
+        }),
+        const SizedBox(height: 12),
+        primaryButton(
+          text: 'Generate Dubbed Video',
+          icon: Icons.movie_creation_outlined,
+          onPressed: busy ? null : render,
+        ),
+        const SizedBox(height: 12),
+        const Text(
+          'Current MVP: voices are assigned from speaker labels. '
+          'Automatic character voice identification and soundtrack '
+          'separation are not yet implemented.',
+          style: TextStyle(
+            color: muted,
+            fontSize: 11,
+            height: 1.5,
+          ),
+        ),
+      ],
+    );
+  }
 
-            const SizedBox(height: 12),
-
-            const Text(
-              'Translations and voices are generated automatically. '
-              'You may edit translations before rendering. '
-              'The current MVP replaces the original soundtrack.',
-              style: TextStyle(fontSize: 12),
+  Widget completedPanel() {
+    return panel(
+      child: Column(
+        children: [
+          const Icon(
+            Icons.check_circle_rounded,
+            size: 62,
+            color: Colors.greenAccent,
+          ),
+          const SizedBox(height: 14),
+          const Text(
+            'Dubbing Complete!',
+            style: TextStyle(
+              fontSize: 23,
+              fontWeight: FontWeight.bold,
             ),
-          ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Your OtakuDub video is ready.',
+            style: TextStyle(color: muted),
+          ),
+          const SizedBox(height: 22),
+          primaryButton(
+            text: 'Open Dubbed Video',
+            icon: Icons.play_arrow_rounded,
+            onPressed: outputPath == null
+                ? null
+                : () async {
+                    await OpenFilex.open(outputPath!);
+                  },
+          ),
         ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            brandHeader(),
+            const SizedBox(height: 27),
+            hero(),
+            const SizedBox(height: 26),
+            configuration(),
+            const SizedBox(height: 17),
+            uploadPanel(),
+            const SizedBox(height: 17),
+            statusPanel(),
+            if (busy) ...[
+              const SizedBox(height: 12),
+              const LinearProgressIndicator(
+                color: purple,
+                backgroundColor: surface,
+              ),
+            ],
+            if (project != null) ...[
+              const SizedBox(height: 28),
+              dialoguePanel(),
+            ],
+            if (completed) ...[
+              const SizedBox(height: 22),
+              completedPanel(),
+            ],
+            const SizedBox(height: 35),
+            const Center(
+              child: Text(
+                'OTAKUDUB  •  YOUR ANIME. YOUR LANGUAGE.',
+                style: TextStyle(
+                  color: Color(0xFF777184),
+                  fontSize: 10,
+                  letterSpacing: 1.1,
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
       ),
     );
   }
@@ -457,3 +978,4 @@ class _HomeState extends State<Home> {
     super.dispose();
   }
 }
+
