@@ -1,5 +1,5 @@
 
-name: Build Android APK
+name: Build OtakuDub APK
 
 on:
   workflow_dispatch:
@@ -27,7 +27,8 @@ jobs:
         run: |
           test -f android/pubspec.yaml
           test -f android/lib/main.dart
-          echo "Flutter project files found"
+          test -f android/assets/otakudub_icon.png
+          echo "OtakuDub project files found"
 
       - name: Generate Android platform files
         working-directory: android
@@ -36,6 +37,39 @@ jobs:
       - name: Install dependencies
         working-directory: android
         run: flutter pub get
+
+      - name: Generate OtakuDub launcher icon
+        working-directory: android
+        run: dart run flutter_launcher_icons
+
+      - name: Set Android app name
+        working-directory: android
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          manifest = Path(
+              "android/app/src/main/AndroidManifest.xml"
+          )
+
+          content = manifest.read_text()
+
+          content, count = re.subn(
+              r'android:label="[^"]*"',
+              'android:label="OtakuDub"',
+              content,
+              count=1
+          )
+
+          if count != 1:
+              raise SystemExit(
+                  "Could not update Android app name"
+              )
+
+          manifest.write_text(content)
+          print("Android launcher name: OtakuDub")
+          PY
 
       - name: Configure Android SDK 36
         working-directory: android
@@ -65,7 +99,9 @@ jobs:
           ))
 
           if not plugins:
-              raise SystemExit("file_picker Gradle file not found")
+              raise SystemExit(
+                  "file_picker Gradle file not found"
+              )
 
           for plugin in plugins:
               content = plugin.read_text()
@@ -105,14 +141,14 @@ jobs:
 
           PY
 
-      - name: Build debug APK
+      - name: Build OtakuDub APK
         working-directory: android
         run: flutter build apk --debug
 
-      - name: Upload APK
+      - name: Upload OtakuDub APK
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Dubbing-Studio-APK
+          name: OtakuDub-APK
           path: android/build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
 
