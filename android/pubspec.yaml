@@ -8,9 +8,9 @@ environment:
   sdk: '>=3.3.0 <4.0.0'
 
 dependencies:
-  google_fonts: ^6.2.1
   flutter:
     sdk: flutter
+  google_fonts: ^6.2.1
   http: ^1.3.0
   file_picker: ^8.3.7
   path_provider: ^2.1.5
@@ -28,3 +28,4 @@ flutter_launcher_icons:
   image_path: "assets/otakudub_icon.png"
   adaptive_icon_background: "#050509"
   adaptive_icon_foreground: "assets/otakudub_icon.png"
+
