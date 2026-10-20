@@ -493,3 +493,95 @@ def get_otakumind_personality(personality_id: str):
         "id": personality_id,
         **profile
     }
+
+# ============================================
+# OTAKUMIND V3 — GROQ CLOUD CHAT
+# ============================================
+
+class OtakuMindHistoryItem(BaseModel):
+    role: str
+    content: str = Field(min_length=1, max_length=2000)
+
+
+class OtakuMindChatRequest(BaseModel):
+    personality_id: str
+    message: str = Field(min_length=1, max_length=2000)
+    language: str = 'en'
+    history: list[OtakuMindHistoryItem] = Field(default_factory=list)
+
+
+@app.post('/otakumind/chat')
+async def otakumind_chat(req: OtakuMindChatRequest):
+    profile = OTAKUMIND_PERSONALITIES.get(req.personality_id)
+    if profile is None:
+        raise HTTPException(404, 'OtakuMind personality not found')
+    if req.language not in ('hi', 'en'):
+        raise HTTPException(400, 'Choose Hindi (hi) or English (en)')
+    message = req.message.strip()
+    if not message:
+        raise HTTPException(400, 'Message cannot be empty')
+
+    api_key = os.getenv('GROQ_API_KEY', '').strip()
+    if not api_key:
+        print('OTAKUMIND: GROQ_API_KEY is missing', flush=True)
+        raise HTTPException(503, 'OtakuMind AI is not configured on the server')
+
+    language_instruction = ('Reply naturally in Hindi using Devanagari script.'
+                            if req.language == 'hi' else 'Reply naturally in English.')
+    system_prompt = (
+        'You are OtakuMind, an original fictional anime-inspired AI companion. '
+        f'Your personality is {profile["name"]}: {profile["description"]} '
+        f'Your conversational style is {profile["voice_style"]}. '
+        'Do not claim to be an existing copyrighted anime character or a real person. '
+        f'{language_instruction} Be friendly, helpful, and concise. '
+        'Keep your reply under 1200 characters so it can be played by the voice studio.'
+    )
+    messages = [{'role': 'system', 'content': system_prompt}]
+    for item in req.history[-12:]:
+        if item.role in ('user', 'assistant') and item.content.strip():
+            messages.append({'role': item.role, 'content': item.content.strip()})
+    messages.append({'role': 'user', 'content': message})
+
+    try:
+        async with httpx.AsyncClient(timeout=45.0) as client:
+            response = await client.post(
+                'https://api.groq.com/openai/v1/chat/completions',
+                headers={'Authorization': f'Bearer {api_key}', 'Content-Type': 'application/json'},
+                json={
+                    'model': os.getenv('OTAKUMIND_MODEL', 'llama-3.3-70b-versatile'),
+                    'messages': messages,
+                    'temperature': 0.8,
+                    'max_tokens': 450,
+                },
+            )
+    except httpx.TimeoutException as exc:
+        print('OTAKUMIND: Groq timeout', flush=True)
+        raise HTTPException(504, 'AI response timed out. Please try again.') from exc
+    except httpx.RequestError as exc:
+        print('OTAKUMIND: Groq connection error:', type(exc).__name__, flush=True)
+        raise HTTPException(503, 'Cannot reach the AI provider right now.') from exc
+
+    if response.status_code != 200:
+        print('OTAKUMIND: Groq HTTP', response.status_code, response.text[:350], flush=True)
+        if response.status_code in (401, 403):
+            raise HTTPException(503, 'AI provider authentication failed. Check Render configuration.')
+        if response.status_code == 429:
+            raise HTTPException(429, 'AI provider rate limit reached. Please try again later.')
+        raise HTTPException(503, f'AI provider returned HTTP {response.status_code}.')
+
+    try:
+        reply = response.json()['choices'][0]['message']['content'].strip()
+        if not reply:
+            raise ValueError('Empty AI response')
+    except (ValueError, KeyError, IndexError, TypeError, AttributeError) as exc:
+        print('OTAKUMIND: Invalid Groq response', flush=True)
+        raise HTTPException(502, 'AI provider returned an invalid response.') from exc
+
+    return {
+        'personality_id': req.personality_id,
+        'personality': profile['name'],
+        'reply': reply[:1500],
+        'voice': profile['voice'][req.language],
+        'language': req.language,
+    }
+
