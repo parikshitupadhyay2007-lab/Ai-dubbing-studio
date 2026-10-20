@@ -50,46 +50,39 @@ class OtakuDubShell extends StatefulWidget {
 class _OtakuDubShellState extends State<OtakuDubShell> {
   int tab = 0;
   bool reduceMotion = false;
+  void open(int index) => setState(() => tab = index);
   @override
   Widget build(BuildContext context) {
     final pages = <Widget>[
-      WelcomePage(onStart: () => setState(() => tab = 1), reduceMotion: reduceMotion),
+      WelcomePage(onStart: () => open(1), reduceMotion: reduceMotion),
       const Home(),
       const OtakuMindScreen(),
-      const VoiceLibraryPage(),
-      const ProjectsPage(),
-      SettingsPage(reduceMotion: reduceMotion, onChanged: (v) => setState(() => reduceMotion = v)),
+      const ArcadePage(),
+      const CharacterUniversePage(),
+      MorePage(onOpen: open, reduceMotion: reduceMotion,
+        onMotionChanged: (v) => setState(() => reduceMotion = v)),
     ];
     return Scaffold(
       body: IndexedStack(index: tab, children: pages),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          NavigationBar(
-            height: 66,
-            backgroundColor: surface,
-            indicatorColor: purple.withValues(alpha: .22),
-            selectedIndex: tab,
-            onDestinationSelected: (v) => setState(() => tab = v),
-            labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
-            destinations: const [
-              NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded), label: 'Home'),
-              NavigationDestination(icon: Icon(Icons.mic_none_rounded), selectedIcon: Icon(Icons.mic_rounded), label: 'Studio'),
-              NavigationDestination(icon: Icon(Icons.psychology_outlined), selectedIcon: Icon(Icons.psychology_rounded), label: 'Mind'),
-              NavigationDestination(icon: Icon(Icons.record_voice_over_outlined), selectedIcon: Icon(Icons.record_voice_over), label: 'Voices'),
-              NavigationDestination(icon: Icon(Icons.video_library_outlined), selectedIcon: Icon(Icons.video_library_rounded), label: 'Projects'),
-              NavigationDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings_rounded), label: 'Settings'),
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: 14, bottom: 3),
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: Text('powered by parikshit.co', style: GoogleFonts.cormorantGaramond(fontSize: 14, fontStyle: FontStyle.italic, fontWeight: FontWeight.w500, letterSpacing: .4, color: Colors.white54)),
-            ),
-          ),
-        ]),
-      ),
+      bottomNavigationBar: SafeArea(top: false, child: Column(mainAxisSize: MainAxisSize.min, children: [
+        NavigationBar(
+          height: 66, backgroundColor: surface,
+          indicatorColor: purple.withValues(alpha: .22), selectedIndex: tab,
+          onDestinationSelected: open,
+          labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
+          destinations: const [
+            NavigationDestination(icon: Icon(Icons.home_outlined), label: 'Intro'),
+            NavigationDestination(icon: Icon(Icons.mic_none_rounded), label: 'Studio'),
+            NavigationDestination(icon: Icon(Icons.psychology_outlined), label: 'Mind'),
+            NavigationDestination(icon: Icon(Icons.sports_esports_outlined), label: 'Arcade'),
+            NavigationDestination(icon: Icon(Icons.people_outline_rounded), label: 'Characters'),
+            NavigationDestination(icon: Icon(Icons.menu_rounded), label: 'More'),
+          ],
+        ),
+        Padding(padding: const EdgeInsets.only(right: 14, bottom: 3),
+          child: Align(alignment: Alignment.centerRight,
+            child: Text('powered by parikshit.co', style: GoogleFonts.cormorantGaramond(fontSize: 14, fontStyle: FontStyle.italic, fontWeight: FontWeight.w500, letterSpacing: .4, color: Colors.white54)))),
+      ])),
     );
   }
 }
@@ -516,4 +509,237 @@ class _HomeState extends State<Home> {
     for (final controller in translations.values) { controller.dispose(); }
     super.dispose();
   }
+}
+
+
+// ================================================================
+// V3 EXPANSION: CHARACTERS, MORE MENU, AND FOUR OFFLINE MINI-GAMES
+// All game data is local; no backend or extra packages are needed.
+// ================================================================
+
+class MorePage extends StatelessWidget {
+  final ValueChanged<int> onOpen;
+  final bool reduceMotion;
+  final ValueChanged<bool> onMotionChanged;
+  const MorePage({super.key, required this.onOpen, required this.reduceMotion, required this.onMotionChanged});
+  @override
+  Widget build(BuildContext context) => SafeArea(child: ListView(padding: const EdgeInsets.all(20), children: [
+    const PageHeading(title: 'More', subtitle: 'Your OtakuDub universe in one place.'),
+    const SizedBox(height: 18),
+    Card(child: Column(children: [
+      ListTile(leading: const Icon(Icons.record_voice_over, color: purple), title: const Text('Voice Universe'), subtitle: const Text('Character voice categories'), trailing: const Icon(Icons.chevron_right), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VoiceLibraryPage()))),
+      const Divider(height: 1),
+      ListTile(leading: const Icon(Icons.video_library_outlined, color: purple), title: const Text('Projects'), subtitle: const Text('Project storage status'), trailing: const Icon(Icons.chevron_right), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProjectsPage()))),
+      const Divider(height: 1),
+      ListTile(leading: const Icon(Icons.sports_esports, color: purple), title: const Text('Otaku Arcade'), subtitle: const Text('Four playable mini-games'), trailing: const Icon(Icons.chevron_right), onTap: () => onOpen(3)),
+      const Divider(height: 1),
+      ListTile(leading: const Icon(Icons.people, color: purple), title: const Text('Character Universe'), trailing: const Icon(Icons.chevron_right), onTap: () => onOpen(4)),
+    ])),
+    const SizedBox(height: 14),
+    Card(child: SwitchListTile(value: reduceMotion, onChanged: onMotionChanged, secondary: const Icon(Icons.animation, color: purple), title: const Text('Reduce motion'), subtitle: const Text('Turn off intro floating movement'))),
+    const Card(child: ListTile(leading: Icon(Icons.language, color: purple), title: Text('Languages'), subtitle: Text('Hindi and English'))),
+    const Card(child: ListTile(leading: Icon(Icons.person_outline, color: purple), title: Text('Guest mode'), subtitle: Text('Accounts and cloud sync are not enabled yet'))),
+    const Card(child: ListTile(leading: Icon(Icons.info_outline, color: purple), title: Text('About'), subtitle: Text('OtakuDub V3 鈥� Original companions and offline games'))),
+  ]));
+}
+
+class CharacterUniversePage extends StatefulWidget {
+  const CharacterUniversePage({super.key});
+  @override
+  State<CharacterUniversePage> createState() => _CharacterUniversePageState();
+}
+class _CharacterUniversePageState extends State<CharacterUniversePage> {
+  String search = '';
+  static const profiles = <(String, String, String, String, IconData)>[
+    ('Anos Voldigoad', 'The Misfit of Demon King Academy', 'Demon King 鈥� immense magical power', 'Reference profile only; no official voice or character artwork is included.', Icons.auto_awesome),
+    ('Kiyotaka Ayanokoji', 'Classroom of the Elite', 'Quiet, analytical strategist', 'Reference profile only; no official voice or character artwork is included.', Icons.psychology),
+    ('Naruto Uzumaki', 'Naruto', 'Determination and teamwork', 'Reference profile only; no official voice or character artwork is included.', Icons.bolt),
+    ('Kai', 'OtakuDub Original', 'Adventurous creative protagonist', 'An original guide for the OtakuDub universe.', Icons.flash_on),
+    ('Yuna', 'OtakuDub Original', 'Curious, thoughtful co-protagonist', 'An original guide for the OtakuDub universe.', Icons.stars),
+  ];
+  @override
+  Widget build(BuildContext context) {
+    final matches = profiles.where((p) => '${p.$1} ${p.$2}'.toLowerCase().contains(search.toLowerCase())).toList();
+    return SafeArea(child: ListView(padding: const EdgeInsets.all(20), children: [
+      const PageHeading(title: 'Character Universe', subtitle: 'Explore anime references and original OtakuDub guides.'),
+      const SizedBox(height: 14),
+      TextField(onChanged: (v) => setState(() => search = v), decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Search characters or anime')),
+      const SizedBox(height: 12),
+      const Text('Fan reference information is separate from the original AI personalities. Official likenesses and voice impersonations are not provided.', style: TextStyle(color: muted, fontSize: 12, height: 1.5)),
+      const SizedBox(height: 12),
+      ...matches.map((p) => Card(child: ExpansionTile(
+        leading: CircleAvatar(backgroundColor: purple.withValues(alpha: .18), child: Icon(p.$5, color: purple)),
+        title: Text(p.$1, style: const TextStyle(fontWeight: FontWeight.bold)), subtitle: Text(p.$2),
+        children: [Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 18), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(p.$3), const SizedBox(height: 8), Text(p.$4, style: const TextStyle(color: muted, fontSize: 12))]))],
+      ))),
+      if (matches.isEmpty) const Padding(padding: EdgeInsets.all(25), child: Center(child: Text('No matching characters.'))),
+    ]));
+  }
+}
+
+class ArcadePage extends StatelessWidget {
+  const ArcadePage({super.key});
+  @override
+  Widget build(BuildContext context) => SafeArea(child: ListView(padding: const EdgeInsets.all(20), children: [
+    const PageHeading(title: 'Otaku Arcade', subtitle: 'Four playable offline mini-games. Take a break between dubs.'),
+    const SizedBox(height: 20),
+    _game(context, 'Memory Battle', 'Find the matching symbols', Icons.grid_view_rounded, const MemoryBattle()),
+    _game(context, 'Anime Quiz', 'Test your anime knowledge', Icons.quiz_outlined, const AnimeQuiz()),
+    _game(context, 'Shadow Dash', 'React before the shadow vanishes', Icons.directions_run, const ShadowDash()),
+    _game(context, 'Chibi Clash', 'A light turn-based battle', Icons.shield_outlined, const ChibiClash()),
+    const SizedBox(height: 10),
+    const Text('Arcade runs locally. Games do not keep a server dubbing request alive in the background.', style: TextStyle(color: muted, fontSize: 12)),
+  ]));
+  Widget _game(BuildContext context, String name, String desc, IconData icon, Widget page) => Card(child: ListTile(
+    contentPadding: const EdgeInsets.all(14), leading: Icon(icon, size: 38, color: purple), title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)), subtitle: Text(desc), trailing: const Icon(Icons.play_arrow_rounded), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => page)),
+  ));
+}
+
+class GameFrame extends StatelessWidget {
+  final String title;
+  final Widget child;
+  const GameFrame({super.key, required this.title, required this.child});
+  @override
+  Widget build(BuildContext context) => Scaffold(appBar: AppBar(title: Text(title)), body: SafeArea(child: Padding(padding: const EdgeInsets.all(18), child: child)));
+}
+
+class MemoryBattle extends StatefulWidget {
+  const MemoryBattle({super.key});
+  @override
+  State<MemoryBattle> createState() => _MemoryBattleState();
+}
+class _MemoryBattleState extends State<MemoryBattle> {
+  List<int> tiles = [];
+  final List<int> opened = [];
+  final Set<int> matched = {};
+  bool locked = false;
+  int moves = 0;
+  int round = 0;
+  @override
+  void initState() { super.initState(); reset(); }
+  void reset() { setState(() { round++; tiles = [0,0,1,1,2,2,3,3,4,4,5,5]..shuffle(); opened.clear(); matched.clear(); locked = false; moves = 0; }); }
+  Future<void> flip(int i) async {
+    if (locked || opened.contains(i) || matched.contains(i)) return;
+    setState(() => opened.add(i));
+    if (opened.length == 2) {
+      moves++;
+      if (tiles[opened[0]] == tiles[opened[1]]) {
+        setState(() { matched.addAll(opened); opened.clear(); });
+      } else {
+        locked = true;
+        final currentRound = round;
+        await Future<void>.delayed(const Duration(milliseconds: 750));
+        if (!mounted || currentRound != round) return;
+        setState(() { opened.clear(); locked = false; });
+      }
+    }
+  }
+  @override
+  Widget build(BuildContext context) => GameFrame(title: 'Memory Battle', child: Column(children: [
+    Text('Pairs: ${matched.length ~/ 2}/6  鈥�  Moves: $moves', style: const TextStyle(fontSize: 19)),
+    const SizedBox(height: 20),
+    Expanded(child: GridView.builder(itemCount: 12, gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, mainAxisSpacing: 10, crossAxisSpacing: 10), itemBuilder: (_, i) {
+      final visible = opened.contains(i) || matched.contains(i);
+      const symbols = ['鈿�','馃寵','猸�','馃敟','馃尭','馃拵'];
+      return InkWell(onTap: () => flip(i), child: Container(alignment: Alignment.center, decoration: BoxDecoration(color: visible ? purple.withValues(alpha: .25) : surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: purple)), child: Text(visible ? symbols[tiles[i]] : '?', style: const TextStyle(fontSize: 35))));
+    })),
+    if (matched.length == 12) const Text('Victory! All pairs matched.', style: TextStyle(color: Colors.greenAccent, fontSize: 19)),
+    FilledButton(onPressed: reset, child: const Text('New game')),
+  ]));
+}
+
+class AnimeQuiz extends StatefulWidget {
+  const AnimeQuiz({super.key});
+  @override
+  State<AnimeQuiz> createState() => _AnimeQuizState();
+}
+class _AnimeQuizState extends State<AnimeQuiz> {
+  static const questions = <(String, List<String>, int)>[
+    ('Which series features Naruto Uzumaki?', ['Bleach','Naruto','One Piece','Dragon Ball'], 1),
+    ('Which series features Ayanokoji?', ['Classroom of the Elite','Death Note','Haikyu!!','Dr. Stone'], 0),
+    ('Anos Voldigoad is associated with which title?', ['Blue Lock','Demon Slayer','The Misfit of Demon King Academy','Black Clover'], 2),
+    ('Which character is known for a notebook in Death Note?', ['Luffy','Light Yagami','Tanjiro','Saitama'], 1),
+    ('Which series features a volleyball team?', ['Haikyu!!','Naruto','Bleach','Spy x Family'], 0),
+  ];
+  int index = 0, score = 0;
+  bool answered = false;
+  int? selected;
+  void reset() => setState(() { index = 0; score = 0; answered = false; selected = null; });
+  @override
+  Widget build(BuildContext context) => GameFrame(title: 'Anime Quiz', child: index >= questions.length
+    ? Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text('Score: $score / ${questions.length}', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)), const SizedBox(height: 20), FilledButton(onPressed: reset, child: const Text('Play again'))])
+    : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Text('Question ${index + 1}/${questions.length} 鈥� Score $score', style: const TextStyle(color: muted)),
+      const SizedBox(height: 25), Text(questions[index].$1, style: const TextStyle(fontSize: 23, fontWeight: FontWeight.bold)),
+      const SizedBox(height: 25),
+      ...List.generate(4, (i) => Padding(padding: const EdgeInsets.only(bottom: 10), child: OutlinedButton(
+        onPressed: answered ? null : () => setState(() { selected = i; answered = true; if (i == questions[index].$3) score++; }),
+        child: Padding(padding: const EdgeInsets.all(13), child: Text(questions[index].$2[i])),
+      ))),
+      if (answered) ...[
+        Text(selected == questions[index].$3 ? 'Correct!' : 'Correct answer: ${questions[index].$2[questions[index].$3]}', style: const TextStyle(color: Colors.greenAccent)),
+        const SizedBox(height: 15), FilledButton(onPressed: () => setState(() { index++; answered = false; selected = null; }), child: Text(index == questions.length - 1 ? 'Finish' : 'Next')),
+      ],
+    ]));
+}
+
+class ShadowDash extends StatefulWidget {
+  const ShadowDash({super.key});
+  @override
+  State<ShadowDash> createState() => _ShadowDashState();
+}
+class _ShadowDashState extends State<ShadowDash> {
+  int score = 0, misses = 0, position = 4;
+  bool finished = false;
+  void hit(int i) => setState(() {
+    if (finished) return;
+    if (i == position) score++; else misses++;
+    position = (position * 7 + score * 3 + misses + 5) % 9;
+    if (score >= 15 || misses >= 5) finished = true;
+  });
+  void reset() => setState(() { score = 0; misses = 0; position = 4; finished = false; });
+  @override
+  Widget build(BuildContext context) => GameFrame(title: 'Shadow Dash', child: Column(children: [
+    const Text('Tap the glowing shadow. Reach 15 hits before 5 misses.', textAlign: TextAlign.center),
+    const SizedBox(height: 16), Text('Hits: $score/15  鈥�  Misses: $misses/5', style: const TextStyle(fontSize: 19)),
+    const SizedBox(height: 22),
+    Expanded(child: GridView.builder(itemCount: 9, gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, mainAxisSpacing: 10, crossAxisSpacing: 10), itemBuilder: (_, i) => InkWell(onTap: () => hit(i), child: Container(decoration: BoxDecoration(color: i == position && !finished ? purple.withValues(alpha: .35) : surface, borderRadius: BorderRadius.circular(15), border: Border.all(color: i == position && !finished ? purple : Colors.white12)), child: Icon(i == position && !finished ? Icons.blur_on : Icons.circle_outlined, color: i == position && !finished ? purple : Colors.white24, size: 44))))),
+    if (finished) Text(score >= 15 ? 'Shadow mastered!' : 'Try again!', style: const TextStyle(fontSize: 21)),
+    FilledButton(onPressed: reset, child: const Text('Restart')),
+  ]));
+}
+
+class ChibiClash extends StatefulWidget {
+  const ChibiClash({super.key});
+  @override
+  State<ChibiClash> createState() => _ChibiClashState();
+}
+class _ChibiClashState extends State<ChibiClash> {
+  int hero = 50, rival = 50, shield = 0, turn = 0;
+  String message = 'Choose your move.';
+  void move(bool defend) {
+    if (hero <= 0 || rival <= 0) return;
+    setState(() {
+      turn++;
+      if (defend) { shield = 7; message = 'You guarded!'; }
+      else { final damage = 7 + turn % 5; rival = (rival - damage).clamp(0, 50).toInt(); message = 'You dealt $damage damage!'; }
+      if (rival > 0) { final attack = 5 + (turn * 3) % 7; final actual = (attack - shield).clamp(0, 50).toInt(); hero = (hero - actual).clamp(0, 50).toInt(); message += ' Rival dealt $actual damage.'; }
+      shield = 0;
+      if (rival == 0) message = 'You won the clash!';
+      if (hero == 0) message = 'Rival won. Try again!';
+    });
+  }
+  void reset() => setState(() { hero = 50; rival = 50; shield = 0; turn = 0; message = 'Choose your move.'; });
+  @override
+  Widget build(BuildContext context) => GameFrame(title: 'Chibi Clash', child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+    const Icon(Icons.shield_moon, size: 85, color: purple),
+    const SizedBox(height: 20),
+    Text('Your HP: $hero / 50'), LinearProgressIndicator(value: hero / 50, color: Colors.greenAccent),
+    const SizedBox(height: 25),
+    Text('Rival HP: $rival / 50'), LinearProgressIndicator(value: rival / 50, color: Colors.deepOrangeAccent),
+    const SizedBox(height: 25), Text(message, textAlign: TextAlign.center, style: const TextStyle(fontSize: 17)),
+    const SizedBox(height: 25),
+    Row(children: [Expanded(child: FilledButton(onPressed: hero > 0 && rival > 0 ? () => move(false) : null, child: const Text('Attack'))), const SizedBox(width: 12), Expanded(child: OutlinedButton(onPressed: hero > 0 && rival > 0 ? () => move(true) : null, child: const Text('Guard')))]),
+    const SizedBox(height: 12), TextButton(onPressed: reset, child: const Text('New battle')),
+  ]));
 }
