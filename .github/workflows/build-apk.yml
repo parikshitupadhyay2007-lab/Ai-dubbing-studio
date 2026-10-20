@@ -57,11 +57,31 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      # 4. INSTALL FLUTTER
+      # 4. INSTALL FLUTTER  
       - name: Install Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+
+      - name: Prepare Android SDK
+        shell: bash
+        run: |
+          set -e
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          df -h
+          ls -la "$ANDROID_HOME/ndk" || true
+
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            --licenses > /dev/null || true
+
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            "platforms;android-36" \
+            "build-tools;36.0.0"
+
+      - name: Generate Android platform
+        working-directory: android
+        run: flutter create --platforms=android .
+
 
       # 5. GENERATE ANDROID PLATFORM FILES
       - name: Generate Android platform files
