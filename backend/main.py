@@ -493,3 +493,142 @@ def get_otakumind_personality(personality_id: str):
         "id": personality_id,
         **profile
     }
+# ============================================
+# OTAKUMIND V3 — CLOUD CONVERSATION ENGINE
+# ============================================
+
+class OtakuChatMessage(BaseModel):
+    role: str
+    content: str = Field(min_length=1, max_length=2000)
+
+
+class OtakuChatRequest(BaseModel):
+    personality_id: str
+    message: str = Field(min_length=1, max_length=2000)
+    language: str = "en"
+    history: list[OtakuChatMessage] = Field(
+        default_factory=list,
+        max_length=12
+    )
+
+
+PERSONALITY_INSTRUCTIONS = {
+    "spirit": "Be energetic, optimistic, encouraging and determined.",
+    "shadow": "Be reserved, thoughtful, focused and analytical.",
+    "mentor": "Be witty, playful, confident and helpful.",
+    "companion": "Be friendly, imaginative, curious and supportive.",
+    "guardian": "Be gentle, thoughtful, patient and reassuring.",
+    "genius": "Be articulate, strategic, intelligent and analytical."
+}
+
+
+@app.post("/otakumind/chat")
+async def otakumind_chat(req: OtakuChatRequest):
+
+    profile = OTAKUMIND_PERSONALITIES.get(req.personality_id)
+
+    if profile is None:
+        raise HTTPException(404, "Unknown personality")
+
+    if req.language not in ("hi", "en"):
+        raise HTTPException(400, "Unsupported language")
+
+    api_key = os.getenv("GROQ_API_KEY")
+
+    if not api_key:
+        raise HTTPException(
+            503,
+            "OtakuMind cloud AI is not configured."
+        )
+
+    system_prompt = (
+        "You are an original fictional AI companion in OtakuDub. "
+        "Your name is " + profile["name"] + ". "
+        + PERSONALITY_INSTRUCTIONS[req.personality_id] +
+        " Do not claim to be an existing anime character or voice actor. "
+        "Be helpful, conversational and age-appropriate. "
+        "Do not invent facts about anime or pretend to have searched "
+        "the internet. Admit uncertainty when necessary. "
+        "Reply primarily in "
+        + ("natural Hindi." if req.language == "hi"
+           else "natural English.")
+    )
+
+    messages = [
+        {"role": "system", "content": system_prompt}
+    ]
+
+    for item in req.history[-12:]:
+        if item.role in ("user", "assistant"):
+            messages.append({
+                "role": item.role,
+                "content": item.content
+            })
+
+    messages.append({
+        "role": "user",
+        "content": req.message.strip()
+    })
+
+    try:
+        async with httpx.AsyncClient(timeout=40.0) as client:
+            response = await client.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": os.getenv(
+                        "OTAKUMIND_MODEL",
+                        "llama-3.3-70b-versatile"
+                    ),
+                    "messages": messages,
+                    "temperature": 0.75,
+                    "max_tokens": 400
+                }
+            )
+
+        if response.status_code == 429:
+            raise HTTPException(
+                429,
+                "OtakuMind is busy. Please try again later."
+            )
+
+        if response.status_code != 200:
+            print(
+                "OTAKUMIND PROVIDER STATUS:",
+                response.status_code,
+                flush=True
+            )
+            raise HTTPException(
+                503,
+                "Cloud AI is temporarily unavailable."
+            )
+
+        result = response.json()
+
+        answer = result["choices"][0]["message"]["content"]
+
+        if not isinstance(answer, str) or not answer.strip():
+            raise ValueError("Empty AI response")
+
+        return {
+            "personality_id": req.personality_id,
+            "personality": profile["name"],
+            "reply": answer.strip(),
+            "voice": profile["voice"][req.language],
+            "language": req.language
+        }
+
+    except httpx.RequestError:
+        raise HTTPException(
+            503,
+            "Unable to connect to the AI provider."
+        )
+
+    except (KeyError, IndexError, TypeError, ValueError):
+        raise HTTPException(
+            502,
+            "Invalid response from the AI provider."
+        )
