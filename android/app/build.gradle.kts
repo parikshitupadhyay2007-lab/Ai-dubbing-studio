@@ -1,0 +1,2 @@
+
+ndkVersion = flutter.ndkVersion
