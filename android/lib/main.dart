@@ -9,6 +9,7 @@ import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'screens/otakumind_screen.dart';
+import 'services/local_library.dart';
 
 const server = String.fromEnvironment('API_URL', defaultValue: 'https://ai-dubbing-studio.onrender.com');
 const background = Color(0xFF050509);
@@ -16,29 +17,40 @@ const surface = Color(0xFF11111B);
 const purple = Color(0xFF9747FF);
 const muted = Color(0xFFAAA8BE);
 
-void main() => runApp(const OtakuDub());
+final themeChoice = ValueNotifier<ThemeMode>(ThemeMode.dark);
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final saved = await LocalLibrary.theme();
+  themeChoice.value = saved == 'light' ? ThemeMode.light : saved == 'system' ? ThemeMode.system : ThemeMode.dark;
+  runApp(const OtakuDub());
+}
 
 class OtakuDub extends StatelessWidget {
   const OtakuDub({super.key});
   @override
-  Widget build(BuildContext context) => MaterialApp(
+  Widget build(BuildContext context) => ValueListenableBuilder<ThemeMode>(
+    valueListenable: themeChoice,
+    builder: (context, mode, _) => MaterialApp(
+    themeMode: mode,
     title: 'OtakuDub',
     debugShowCheckedModeBanner: false,
     theme: ThemeData(
       useMaterial3: true,
-      brightness: Brightness.dark,
-      scaffoldBackgroundColor: background,
-      colorScheme: ColorScheme.fromSeed(seedColor: purple, brightness: Brightness.dark, primary: purple, surface: surface),
-      appBarTheme: const AppBarTheme(backgroundColor: background, elevation: 0),
-      cardTheme: CardThemeData(color: surface, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: const BorderSide(color: Color(0xFF292638)))),
+      brightness: Brightness.light,
+      scaffoldBackgroundColor: const Color(0xFFF6F2FC),
+      colorScheme: ColorScheme.fromSeed(seedColor: purple, brightness: Brightness.light),
+      appBarTheme: const AppBarTheme(elevation: 0),
+      cardTheme: CardThemeData(elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))),
       inputDecorationTheme: InputDecorationTheme(
-        filled: true, fillColor: surface,
+        filled: true,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: const BorderSide(color: Color(0xFF373044))),
       ),
     ),
+    darkTheme: ThemeData(useMaterial3: true, brightness: Brightness.dark, scaffoldBackgroundColor: background, colorScheme: ColorScheme.fromSeed(seedColor: purple, brightness: Brightness.dark)),
     home: const OtakuDubShell(),
-  );
+  ));
 }
 
 class OtakuDubShell extends StatefulWidget {
@@ -52,6 +64,11 @@ class _OtakuDubShellState extends State<OtakuDubShell> {
   bool reduceMotion = false;
   void open(int index) => setState(() => tab = index);
   @override
+  void initState() {
+    super.initState();
+    LocalLibrary.reduceMotion().then((value) { if (mounted) setState(() => reduceMotion = value); });
+  }
+  @override
   Widget build(BuildContext context) {
     final pages = <Widget>[
       WelcomePage(onStart: () => open(1), reduceMotion: reduceMotion),
@@ -60,7 +77,7 @@ class _OtakuDubShellState extends State<OtakuDubShell> {
       const ArcadePage(),
       const CharacterUniversePage(),
       MorePage(onOpen: open, reduceMotion: reduceMotion,
-        onMotionChanged: (v) => setState(() => reduceMotion = v)),
+        onMotionChanged: (v) { setState(() => reduceMotion = v); LocalLibrary.setReduceMotion(v); }),
     ];
     return Scaffold(
       body: IndexedStack(index: tab, children: pages),
@@ -204,21 +221,43 @@ class VoiceLibraryPage extends StatelessWidget {
   ]));
 }
 
-class ProjectsPage extends StatelessWidget {
+class ProjectsPage extends StatefulWidget {
   const ProjectsPage({super.key});
   @override
-  Widget build(BuildContext context) => SafeArea(child: Padding(padding: const EdgeInsets.all(22), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    const PageHeading(title: 'My Projects', subtitle: 'Your dubbing workspace.'),
-    const Spacer(),
-    Center(child: Column(children: [
-      Container(width: 105, height: 105, decoration: BoxDecoration(color: purple.withValues(alpha: .12), shape: BoxShape.circle), child: const Icon(Icons.video_library_outlined, color: purple, size: 48)),
-      const SizedBox(height: 20),
-      const Text('Your story starts here', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-      const SizedBox(height: 10),
-      const Text('Persistent project history will appear here once we connect project storage. Current downloads still work from the Studio.', textAlign: TextAlign.center, style: TextStyle(color: muted, height: 1.5)),
-    ])),
-    const Spacer(),
-  ])));
+  State<ProjectsPage> createState() => _ProjectsPageState();
+}
+class _ProjectsPageState extends State<ProjectsPage> {
+  late Future<List<Map<String, dynamic>>> future;
+  @override
+  void initState() { super.initState(); refresh(); }
+  void refresh() => future = LocalLibrary.projects();
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('My Projects'), actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: () => setState(refresh))]),
+    body: FutureBuilder<List<Map<String, dynamic>>>(future: future, builder: (context, snapshot) {
+      if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+      final items = snapshot.data!;
+      if (items.isEmpty) return const Center(child: Padding(padding: EdgeInsets.all(24), child: Text('No local projects yet. Generate a dub in Studio to save it here.', textAlign: TextAlign.center)));
+      return ListView.builder(padding: const EdgeInsets.all(16), itemCount: items.length, itemBuilder: (context, index) {
+        final item = items[index];
+        final path = item['path']?.toString() ?? '';
+        return Card(child: ListTile(
+          leading: const Icon(Icons.movie_outlined, color: purple),
+          title: Text(item['name']?.toString() ?? 'OtakuDub project'),
+          subtitle: Text('${item['language'] ?? ''} 鈥� ${item['created_at'] ?? ''}\nSaved on this device', maxLines: 2),
+          isThreeLine: true,
+          onTap: path.isEmpty ? null : () async {
+            if (await File(path).exists()) { await OpenFilex.open(path); }
+            else if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('The local video file is no longer available.')));
+          },
+          trailing: IconButton(icon: const Icon(Icons.delete_outline), onPressed: () async {
+            await LocalLibrary.deleteProject(item['id'].toString());
+            if (mounted) setState(refresh);
+          }),
+        ));
+      });
+    }),
+  );
 }
 
 class SettingsPage extends StatelessWidget {
@@ -348,6 +387,7 @@ class _HomeState extends State<Home> {
       final file = File('${directory.path}/OtakuDub-${project!['id']}.mp4');
       await file.writeAsBytes(download.bodyBytes);
       if (!mounted) return;
+      await LocalLibrary.saveProject({'id': project!['id'].toString(), 'name': selectedFile, 'language': language, 'path': file.path, 'created_at': DateTime.now().toLocal().toString().split('.').first});
       setState(() { completed = true; outputPath = file.path; status = 'Your dubbed video is ready!'; });
       await OpenFilex.open(file.path);
     } catch (e) {
@@ -529,7 +569,7 @@ class MorePage extends StatelessWidget {
     Card(child: Column(children: [
       ListTile(leading: const Icon(Icons.record_voice_over, color: purple), title: const Text('Voice Universe'), subtitle: const Text('Character voice categories'), trailing: const Icon(Icons.chevron_right), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VoiceLibraryPage()))),
       const Divider(height: 1),
-      ListTile(leading: const Icon(Icons.video_library_outlined, color: purple), title: const Text('Projects'), subtitle: const Text('Project storage status'), trailing: const Icon(Icons.chevron_right), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProjectsPage()))),
+      ListTile(leading: const Icon(Icons.video_library_outlined, color: purple), title: const Text('Projects'), subtitle: const Text('Saved dubbed videos on this device'), trailing: const Icon(Icons.chevron_right), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProjectsPage()))),
       const Divider(height: 1),
       ListTile(leading: const Icon(Icons.sports_esports, color: purple), title: const Text('Otaku Arcade'), subtitle: const Text('Four playable mini-games'), trailing: const Icon(Icons.chevron_right), onTap: () => onOpen(3)),
       const Divider(height: 1),
@@ -538,7 +578,8 @@ class MorePage extends StatelessWidget {
     const SizedBox(height: 14),
     Card(child: SwitchListTile(value: reduceMotion, onChanged: onMotionChanged, secondary: const Icon(Icons.animation, color: purple), title: const Text('Reduce motion'), subtitle: const Text('Turn off intro floating movement'))),
     const Card(child: ListTile(leading: Icon(Icons.language, color: purple), title: Text('Languages'), subtitle: Text('Hindi and English'))),
-    const Card(child: ListTile(leading: Icon(Icons.person_outline, color: purple), title: Text('Guest mode'), subtitle: Text('Accounts and cloud sync are not enabled yet'))),
+    const Card(child: ListTile(leading: Icon(Icons.person_outline, color: purple), title: Text('Guest mode'), subtitle: Text('Local-only profile; no account or cloud sync'))),
+    Card(child: ListTile(leading: const Icon(Icons.palette_outlined, color: purple), title: const Text('Appearance'), subtitle: const Text('Light, dark or device setting'), trailing: ValueListenableBuilder<ThemeMode>(valueListenable: themeChoice, builder: (context, mode, _) => DropdownButton<ThemeMode>(value: mode, items: const [DropdownMenuItem(value: ThemeMode.dark, child: Text('Dark')), DropdownMenuItem(value: ThemeMode.light, child: Text('Light')), DropdownMenuItem(value: ThemeMode.system, child: Text('System'))], onChanged: (v) { if (v == null) return; themeChoice.value = v; LocalLibrary.setTheme(v.name); })))),
     const Card(child: ListTile(leading: Icon(Icons.info_outline, color: purple), title: Text('About'), subtitle: Text('OtakuDub V3 鈥� Original companions and offline games'))),
   ]));
 }
