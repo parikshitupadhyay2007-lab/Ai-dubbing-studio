@@ -387,3 +387,109 @@ def voice_studio_website():
     return HTMLResponse(
         content=website.read_text(encoding='utf-8')
     )
+# ============================================
+# OTAKUDUB V3 — OTAKUMIND FOUNDATION
+# ============================================
+
+OTAKUMIND_PERSONALITIES = {
+    "spirit": {
+        "name": "Unbreakable Spirit",
+        "inspiration": "Naruto",
+        "description": "Energetic, optimistic and determined.",
+        "voice_style": "energetic",
+        "voice": {
+            "hi": "hi-IN-MadhurNeural",
+            "en": "en-US-GuyNeural"
+        }
+    },
+    "shadow": {
+        "name": "Shadow Strategist",
+        "inspiration": "Sasuke",
+        "description": "Reserved, focused and analytical.",
+        "voice_style": "calm",
+        "voice": {
+            "hi": "hi-IN-MadhurNeural",
+            "en": "en-US-ChristopherNeural"
+        }
+    },
+    "mentor": {
+        "name": "Limitless Mentor",
+        "inspiration": "Gojo",
+        "description": "Playful, confident and witty.",
+        "voice_style": "playful",
+        "voice": {
+            "hi": "hi-IN-MadhurNeural",
+            "en": "en-US-GuyNeural"
+        }
+    },
+    "companion": {
+        "name": "Future Companion",
+        "inspiration": "Doraemon",
+        "description": "Friendly, imaginative and helpful.",
+        "voice_style": "friendly",
+        "voice": {
+            "hi": "hi-IN-SwaraNeural",
+            "en": "en-US-JennyNeural"
+        }
+    },
+    "guardian": {
+        "name": "Gentle Guardian",
+        "inspiration": "Hinata",
+        "description": "Thoughtful, gentle and supportive.",
+        "voice_style": "gentle",
+        "voice": {
+            "hi": "hi-IN-SwaraNeural",
+            "en": "en-US-AriaNeural"
+        }
+    },
+    "genius": {
+        "name": "Mastermind",
+        "inspiration": "Light Yagami",
+        "description": "Intelligent, articulate and calculating.",
+        "voice_style": "analytical",
+        "voice": {
+            "hi": "hi-IN-MadhurNeural",
+            "en": "en-US-ChristopherNeural"
+        }
+    }
+}
+
+
+@app.get("/otakumind/health")
+def otakumind_health():
+    return {
+        "ok": True,
+        "service": "OtakuMind",
+        "version": "3.0",
+        "personalities": len(OTAKUMIND_PERSONALITIES)
+    }
+
+
+@app.get("/otakumind/personalities")
+def get_otakumind_personalities():
+    return {
+        "personalities": [
+            {
+                "id": personality_id,
+                **profile
+            }
+            for personality_id, profile
+            in OTAKUMIND_PERSONALITIES.items()
+        ]
+    }
+
+
+@app.get("/otakumind/personalities/{personality_id}")
+def get_otakumind_personality(personality_id: str):
+    profile = OTAKUMIND_PERSONALITIES.get(personality_id)
+
+    if profile is None:
+        raise HTTPException(
+            status_code=404,
+            detail="OtakuMind personality not found"
+        )
+
+    return {
+        "id": personality_id,
+        **profile
+    }
