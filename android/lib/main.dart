@@ -8,6 +8,8 @@ import 'package:http/http.dart' as http;
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'screens/otakumind_screen.dart';
+
 const server = String.fromEnvironment('API_URL', defaultValue: 'https://ai-dubbing-studio.onrender.com');
 const background = Color(0xFF050509);
 const surface = Color(0xFF11111B);
@@ -53,6 +55,7 @@ class _OtakuDubShellState extends State<OtakuDubShell> {
     final pages = <Widget>[
       WelcomePage(onStart: () => setState(() => tab = 1), reduceMotion: reduceMotion),
       const Home(),
+      const OtakuMindScreen(),
       const VoiceLibraryPage(),
       const ProjectsPage(),
       SettingsPage(reduceMotion: reduceMotion, onChanged: (v) => setState(() => reduceMotion = v)),
@@ -68,10 +71,11 @@ class _OtakuDubShellState extends State<OtakuDubShell> {
             indicatorColor: purple.withValues(alpha: .22),
             selectedIndex: tab,
             onDestinationSelected: (v) => setState(() => tab = v),
-            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+            labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
             destinations: const [
               NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded), label: 'Home'),
               NavigationDestination(icon: Icon(Icons.mic_none_rounded), selectedIcon: Icon(Icons.mic_rounded), label: 'Studio'),
+              NavigationDestination(icon: Icon(Icons.psychology_outlined), selectedIcon: Icon(Icons.psychology_rounded), label: 'Mind'),
               NavigationDestination(icon: Icon(Icons.record_voice_over_outlined), selectedIcon: Icon(Icons.record_voice_over), label: 'Voices'),
               NavigationDestination(icon: Icon(Icons.video_library_outlined), selectedIcon: Icon(Icons.video_library_rounded), label: 'Projects'),
               NavigationDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings_rounded), label: 'Settings'),
@@ -243,7 +247,7 @@ class SettingsPage extends StatelessWidget {
 }
 
 // =============================================
-// EXISTING WORKING STUDIO — API FLOW PRESERVED
+// EXISTING WORKING STUDIO 鈥� API FLOW PRESERVED
 // =============================================
 
 class Home extends StatefulWidget {
@@ -407,7 +411,7 @@ class _HomeState extends State<Home> {
       const SizedBox(height: 12),
       const Text('Upload a clip. Translate the dialogue. Create your own AI dub.', style: TextStyle(color: Color(0xFFD1C5DF), fontSize: 14, height: 1.5)),
       const SizedBox(height: 20),
-      Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), decoration: BoxDecoration(color: Colors.white.withValues(alpha: .09), borderRadius: BorderRadius.circular(30)), child: const Text('JAPANESE  •  HINDI  •  ENGLISH', style: TextStyle(fontSize: 10, letterSpacing: 1.1, fontWeight: FontWeight.bold))),
+      Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), decoration: BoxDecoration(color: Colors.white.withValues(alpha: .09), borderRadius: BorderRadius.circular(30)), child: const Text('JAPANESE  鈥�  HINDI  鈥�  ENGLISH', style: TextStyle(fontSize: 10, letterSpacing: 1.1, fontWeight: FontWeight.bold))),
     ]),
   );
 
@@ -417,9 +421,9 @@ class _HomeState extends State<Home> {
     const Text('TARGET LANGUAGE', style: TextStyle(fontSize: 11, letterSpacing: 1.3, color: muted, fontWeight: FontWeight.bold)),
     const SizedBox(height: 11),
     Row(children: [
-      option(label: '🇮🇳  Hindi', value: 'hi', selected: language, onTap: busy || project != null ? null : () => setState(() => language = 'hi')),
+      option(label: '馃嚠馃嚦  Hindi', value: 'hi', selected: language, onTap: busy || project != null ? null : () => setState(() => language = 'hi')),
       const SizedBox(width: 10),
-      option(label: '🇺🇸  English', value: 'en', selected: language, onTap: busy || project != null ? null : () => setState(() => language = 'en')),
+      option(label: '馃嚭馃嚫  English', value: 'en', selected: language, onTap: busy || project != null ? null : () => setState(() => language = 'en')),
     ]),
     const SizedBox(height: 22),
     const Text('VOICE STYLE', style: TextStyle(fontSize: 11, letterSpacing: 1.3, color: muted, fontWeight: FontWeight.bold)),
@@ -438,7 +442,7 @@ class _HomeState extends State<Home> {
     const SizedBox(height: 8),
     const Text('Select an anime clip, video or audio file.', textAlign: TextAlign.center, style: TextStyle(color: muted, fontSize: 13)),
     const SizedBox(height: 8),
-    const Text('MP4 • MKV • MOV • WEBM • MP3 • WAV • M4A', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF807A93), fontSize: 10)),
+    const Text('MP4 鈥� MKV 鈥� MOV 鈥� WEBM 鈥� MP3 鈥� WAV 鈥� M4A', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF807A93), fontSize: 10)),
     if (selectedFile.isNotEmpty) ...[const SizedBox(height: 15), Text(selectedFile, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFFD5AEFF), fontSize: 12))],
     const SizedBox(height: 22),
     primaryButton(text: 'Choose File & Translate', icon: Icons.add_rounded, onPressed: busy ? null : upload),
@@ -463,7 +467,7 @@ class _HomeState extends State<Home> {
         const SizedBox(width: 8),
         Expanded(child: Text((s['speaker'] ?? 'Character 1').toString(), style: const TextStyle(fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
         const SizedBox(width: 8),
-        Text('${s['start']}s – ${s['end']}s', style: const TextStyle(fontSize: 11, color: muted)),
+        Text('${s['start']}s 鈥� ${s['end']}s', style: const TextStyle(fontSize: 11, color: muted)),
       ]),
       const SizedBox(height: 17),
       const Text('ORIGINAL', style: TextStyle(fontSize: 10, color: muted, letterSpacing: 1.2)),
@@ -503,7 +507,7 @@ class _HomeState extends State<Home> {
     if (project != null) ...[const SizedBox(height: 28), dialoguePanel()],
     if (completed) ...[const SizedBox(height: 22), completedPanel()],
     const SizedBox(height: 35),
-    const Center(child: Text('OTAKUDUB  •  YOUR ANIME. YOUR LANGUAGE.', style: TextStyle(color: Color(0xFF777184), fontSize: 10, letterSpacing: 1.1))),
+    const Center(child: Text('OTAKUDUB  鈥�  YOUR ANIME. YOUR LANGUAGE.', style: TextStyle(color: Color(0xFF777184), fontSize: 10, letterSpacing: 1.1))),
     const SizedBox(height: 20),
   ]));
 
