@@ -32,8 +32,16 @@ object SeparationTransformValidator {
         val results = listOf(
             validateFft(2048),
             validateFft(6144),
-            validateStft(2048, 512),
-            validateStft(6144, 1024)
+            validateStft(2048, 512, 44100),
+            validateStft(6144, 1024, 44100),
+            validateStft(2048, 512, 127),
+            validateStft(6144, 1024, 511),
+            validateStft(2048, 512, 4097),
+            validateStft(6144, 1024, 8193),
+            validateStft(2048, 512, 10003),
+            validateStft(6144, 1024, 15007),
+            validateStft(2048, 512, 1),
+            validateStft(6144, 1024, 1)
         )
 
         return Report(
@@ -82,10 +90,11 @@ object SeparationTransformValidator {
 
     private fun validateStft(
         fftSize: Int,
-        hopSize: Int
+        hopSize: Int,
+        frameCount: Int
     ): TestResult {
+        require(frameCount > 0) { "STFT test requires at least one sample." }
         val sampleRate = 44100
-        val frameCount = sampleRate
 
         val left = FloatArray(frameCount) { index ->
             (
@@ -167,7 +176,7 @@ object SeparationTransformValidator {
         val tolerance = 1e-4
 
         return TestResult(
-            name = "Stereo STFT round trip ($fftSize/$hopSize)",
+            name = "Stereo STFT round trip ($fftSize/$hopSize, $frameCount samples)",
             passed = maximumError.isFinite() &&
                 rmsError.isFinite() &&
                 maximumError <= tolerance,
