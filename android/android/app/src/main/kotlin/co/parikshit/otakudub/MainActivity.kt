@@ -25,12 +25,16 @@ class MainActivity : FlutterActivity() {
     private var loadedModelPath: String? = null
 
     private external fun nativeLoadModel(path: String): Boolean
+
     private external fun nativeGenerate(
         prompt: String,
         maxTokens: Int
     ): String
+
     private external fun nativeRelease()
+
     private external fun nativeIsLoaded(): Boolean
+
     private external fun nativeTranscribeWav(
         modelPath: String,
         wavPath: String,
@@ -49,7 +53,11 @@ class MainActivity : FlutterActivity() {
 
             when (call.method) {
 
-                "runtimeReady" -> result.success(nativeAvailable)
+                "runtimeReady" -> {
+                    result.success(nativeAvailable)
+                }
+
+                // WHISPER TRANSCRIPTION
 
                 "transcribe" -> {
                     if (!nativeAvailable) {
@@ -61,8 +69,12 @@ class MainActivity : FlutterActivity() {
                         return@setMethodCallHandler
                     }
 
-                    val source = call.argument<String>("source_path")
-                    val model = call.argument<String>("model_path")
+                    val source =
+                        call.argument<String>("source_path")
+
+                    val model =
+                        call.argument<String>("model_path")
+
                     val language =
                         call.argument<String>("language") ?: "auto"
 
@@ -112,14 +124,18 @@ class MainActivity : FlutterActivity() {
 
                             runOnUiThread {
                                 result.success(
-                                    mapOf("segments" to segments)
+                                    mapOf(
+                                        "segments" to segments,
+                                        "language" to language
+                                    )
                                 )
                             }
                         } catch (error: Exception) {
                             runOnUiThread {
                                 result.error(
                                     "TRANSCRIPTION_ERROR",
-                                    error.message ?: "Transcription failed.",
+                                    error.message
+                                        ?: "Transcription failed.",
                                     null
                                 )
                             }
@@ -129,10 +145,12 @@ class MainActivity : FlutterActivity() {
                     }
                 }
 
-                "identifySpeakers" -> {
-                    val source = call.argument<String>("source_path")
+                // AUTOMATIC SPEAKER IDENTIFICATION
 
-                    @Suppress("UNCHECKED_CAST")
+                "identifySpeakers" -> {
+                    val source =
+                        call.argument<String>("source_path")
+
                     val segments =
                         call.argument<List<Map<String, Any?>>>(
                             "segments"
@@ -163,10 +181,11 @@ class MainActivity : FlutterActivity() {
                                 wav.absolutePath
                             )
 
-                            val identified = SpeakerDiarizer.identify(
-                                wav.absolutePath,
-                                segments
-                            )
+                            val identified =
+                                SpeakerDiarizer.identify(
+                                    wav.absolutePath,
+                                    segments
+                                )
 
                             runOnUiThread {
                                 result.success(
@@ -188,11 +207,13 @@ class MainActivity : FlutterActivity() {
                     }
                 }
 
-                "chat" -> {
+                // AUTOMATIC OFFLINE TRANSLATION
+
+                "translate" -> {
                     if (!nativeAvailable) {
                         result.error(
                             "NATIVE_UNAVAILABLE",
-                            "OtakuMind native runtime unavailable.",
+                            "OtakuMind runtime unavailable.",
                             null
                         )
                         return@setMethodCallHandler
@@ -200,12 +221,128 @@ class MainActivity : FlutterActivity() {
 
                     val model =
                         call.argument<String>("model_path")
+
+                    val sourceLanguage =
+                        call.argument<String>("source_language")
+                            ?: "auto"
+
+                    val targetLanguage =
+                        call.argument<String>("target_language")
+                            ?: "hi"
+
+                    val segments =
+                        call.argument<List<Map<String, Any?>>>(
+                            "segments"
+                        )
+
+                    if (
+                        model.isNullOrBlank() ||
+                        !File(model).isFile ||
+                        segments == null ||
+                        targetLanguage !in listOf("hi", "en")
+                    ) {
+                        result.error(
+                            "INVALID_INPUT",
+                            "Invalid translation model or dialogue.",
+                            null
+                        )
+                        return@setMethodCallHandler
+                    }
+
+                    executor.execute {
+                        try {
+                            ensureMindLoaded(model)
+
+                            val translated = segments.map { segment ->
+                                val original =
+                                    segment["original"]
+                                        ?.toString()
+                                        ?.trim()
+                                        .orEmpty()
+
+                                val translation =
+                                    if (original.isBlank()) {
+                                        ""
+                                    } else {
+                                        val prompt =
+                                            translationPrompt(
+                                                original,
+                                                sourceLanguage,
+                                                targetLanguage
+                                            )
+
+                                        val generated =
+                                            nativeGenerate(
+                                                prompt,
+                                                160
+                                            ).trim()
+
+                                        if (
+                                            generated.isBlank() ||
+                                            generated.startsWith("ERROR:")
+                                        ) {
+                                            throw IllegalStateException(
+                                                "Translation failed for " +
+                                                "segment ${segment["id"]}: " +
+                                                generated
+                                            )
+                                        }
+
+                                        cleanTranslation(generated)
+                                    }
+
+                                segment.toMutableMap().apply {
+                                    put(
+                                        "translation",
+                                        translation
+                                    )
+                                }.toMap()
+                            }
+
+                            runOnUiThread {
+                                result.success(
+                                    mapOf(
+                                        "segments" to translated
+                                    )
+                                )
+                            }
+                        } catch (error: Exception) {
+                            runOnUiThread {
+                                result.error(
+                                    "TRANSLATION_ERROR",
+                                    error.message
+                                        ?: "Offline translation failed.",
+                                    null
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // INTERNAL OTAKUMIND ENGINE
+
+                "chat" -> {
+                    if (!nativeAvailable) {
+                        result.error(
+                            "NATIVE_UNAVAILABLE",
+                            "OtakuMind runtime unavailable.",
+                            null
+                        )
+                        return@setMethodCallHandler
+                    }
+
+                    val model =
+                        call.argument<String>("model_path")
+
                     val message =
                         call.argument<String>("message") ?: ""
+
                     val personality =
                         call.argument<String>("personality") ?: "spirit"
+
                     val language =
                         call.argument<String>("language") ?: "en"
+
                     val history =
                         call.argument<List<Map<String, String>>>(
                             "history"
@@ -252,7 +389,9 @@ class MainActivity : FlutterActivity() {
                                     )
                                 } else {
                                     result.success(
-                                        mapOf("reply" to reply.trim())
+                                        mapOf(
+                                            "reply" to reply.trim()
+                                        )
                                     )
                                 }
                             }
@@ -260,7 +399,8 @@ class MainActivity : FlutterActivity() {
                             runOnUiThread {
                                 result.error(
                                     "OTAKUMIND_ERROR",
-                                    error.message ?: "Inference failed.",
+                                    error.message
+                                        ?: "Inference failed.",
                                     null
                                 )
                             }
@@ -268,7 +408,6 @@ class MainActivity : FlutterActivity() {
                     }
                 }
 
-                "translate",
                 "refineDialogue",
                 "synthesize",
                 "exportVideo" -> {
@@ -284,8 +423,64 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    private fun translationPrompt(
+        original: String,
+        sourceLanguage: String,
+        targetLanguage: String
+    ): String {
+        val target =
+            if (targetLanguage == "hi") "Hindi" else "English"
+
+        val source = when (sourceLanguage) {
+            "ja" -> "Japanese"
+            "en" -> "English"
+            "hi" -> "Hindi"
+            else -> "the original language"
+        }
+
+        return """
+            You are a professional anime dialogue translator.
+
+            Translate the following dialogue from $source into $target.
+
+            Requirements:
+            - Preserve the original meaning.
+            - Use natural spoken $target.
+            - Preserve character names.
+            - Do not add explanations.
+            - Do not add commentary.
+            - Do not include the original sentence.
+            - Output only the translated dialogue.
+
+            Original dialogue:
+            $original
+
+            Translation:
+        """.trimIndent()
+    }
+
+    private fun cleanTranslation(text: String): String {
+        return text
+            .substringBefore("\n\n")
+            .lineSequence()
+            .firstOrNull {
+                it.isNotBlank()
+            }
+            ?.trim()
+            ?.removePrefix("Translation:")
+            ?.removePrefix("Assistant:")
+            ?.trim()
+            ?.trim('"')
+            .orEmpty()
+    }
+
     private fun ensureMindLoaded(path: String) {
-        if (loadedModelPath == path && nativeIsLoaded()) return
+        if (
+            loadedModelPath == path &&
+            nativeIsLoaded()
+        ) {
+            return
+        }
 
         nativeRelease()
         loadedModelPath = null
@@ -306,12 +501,17 @@ class MainActivity : FlutterActivity() {
         val responseLanguage =
             if (language == "hi") "Hindi" else "English"
 
-        val conversation = history.takeLast(8).joinToString("\n") {
-            val role =
-                if (it["role"] == "assistant") "Assistant" else "User"
+        val conversation =
+            history.takeLast(8).joinToString("\n") {
+                val role =
+                    if (it["role"] == "assistant") {
+                        "Assistant"
+                    } else {
+                        "User"
+                    }
 
-            "$role: ${it["content"] ?: ""}"
-        }
+                "$role: ${it["content"] ?: ""}"
+            }
 
         return """
             You are OtakuMind, an offline anime-focused AI assistant.
@@ -332,6 +532,7 @@ class MainActivity : FlutterActivity() {
                 loadedModelPath = null
             }
         }
+
         executor.shutdown()
         super.onDestroy()
     }
