@@ -83,7 +83,7 @@ class CharacterVoiceCaster {
 
     for (final segment in project.segments) {
       final assigned = project.characterVoices[
-        segment.speakerId,
+        segment.speakerId
       ];
 
       if (assigned != null) {
