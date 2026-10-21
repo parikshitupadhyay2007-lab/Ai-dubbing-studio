@@ -137,7 +137,9 @@ target_include_directories(
 target_link_libraries(
     otakudub_phonemizer
     PRIVATE
-    espeak-ng
+    # Link the library without inheriting its PUBLIC compat include directory.
+    # compat/wctype.h shadows the Android NDK's standard wctype.h in C++.
+    $<LINK_ONLY:espeak-ng>
     ${ANDROID_LOG_LIB}
 )
 
