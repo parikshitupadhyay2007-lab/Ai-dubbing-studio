@@ -189,7 +189,7 @@ jobs:
 
           repo = "tensorblock/Qwen_Qwen3-0.6B-GGUF"
           files = HfApi().list_repo_files(repo)
-
+          print("AVAILABLE MODEL FILES:", files, flush=True)
           matches = [
               name for name in files
               if name.lower().endswith(".gguf") and "q4_k_m" in name.lower()
