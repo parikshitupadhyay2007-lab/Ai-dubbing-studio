@@ -1,4 +1,3 @@
-
 package co.parikshit.otakudub
 
 import io.flutter.embedding.android.FlutterActivity
@@ -56,6 +55,44 @@ class MainActivity : FlutterActivity() {
 
                 "runtimeReady" -> {
                     result.success(nativeAvailable)
+                }
+
+                // Numerical FFT and STFT diagnostics.
+                "validateSeparationTransforms" -> {
+                    executor.execute {
+                        try {
+                            val report =
+                                SeparationTransformValidator.runAll()
+
+                            val response = mapOf(
+                                "passed" to report.passed,
+                                "tests" to report.results.map { test ->
+                                    mapOf(
+                                        "name" to test.name,
+                                        "passed" to test.passed,
+                                        "maximum_error" to
+                                            test.maximumError,
+                                        "tolerance" to test.tolerance,
+                                        "details" to test.details
+                                    )
+                                }
+                            )
+
+                            runOnUiThread {
+                                result.success(response)
+                            }
+
+                        } catch (error: Exception) {
+                            runOnUiThread {
+                                result.error(
+                                    "TRANSFORM_VALIDATION_ERROR",
+                                    error.message
+                                        ?: "Transform validation failed.",
+                                    null
+                                )
+                            }
+                        }
+                    }
                 }
 
                 "inspectSeparationModel" -> {
