@@ -13,7 +13,7 @@ class OfflineEngineException implements Exception {
 }
 
 class OfflineEngine {
-  static const _channel = MethodChannel(
+  static const MethodChannel _channel = MethodChannel(
     'co.parikshit.otakudub/offline_engine',
   );
 
@@ -23,7 +23,9 @@ class OfflineEngine {
 
   Future<void> verifyRuntime() async {
     try {
-      final ready = await _channel.invokeMethod<bool>('runtimeReady');
+      final ready = await _channel.invokeMethod<bool>(
+        'runtimeReady',
+      );
 
       if (ready != true) {
         throw OfflineEngineException(
@@ -70,6 +72,8 @@ class OfflineEngine {
     }
   }
 
+  // MILESTONE 1: OFFLINE TRANSCRIPTION
+
   Future<Map<String, dynamic>> transcribe(
     DubProject project,
   ) async {
@@ -88,8 +92,10 @@ class OfflineEngine {
     });
   }
 
-  // The current speaker clustering baseline uses decoded audio
-  // directly and does not require an external speaker.bin file.
+  // MILESTONE 2: AUTOMATIC SPEAKER IDENTIFICATION
+  // Uses the native audio-based speaker clustering baseline.
+  // No separate speaker.bin file is required.
+
   Future<Map<String, dynamic>> identifySpeakers(
     DubProject project,
   ) {
@@ -101,14 +107,18 @@ class OfflineEngine {
     });
   }
 
+  // MILESTONE 3: AUTOMATIC OFFLINE TRANSLATION
+  // Reuses the bundled OtakuMind GGUF model.
+  // No separate translator.bin file is required.
+
   Future<Map<String, dynamic>> translate(
     DubProject project,
   ) async {
-    final model = await models.path(AiModel.translator);
+    final model = await models.path(AiModel.otakuMind);
 
     if (model == null) {
       throw OfflineEngineException(
-        'Compatible offline translation model is missing.',
+        'OtakuMind offline language model is missing.',
       );
     }
 
@@ -121,6 +131,8 @@ class OfflineEngine {
           .toList(),
     });
   }
+
+  // MILESTONE 4: INTERNAL OTAKUMIND DIALOGUE REFINEMENT
 
   Future<Map<String, dynamic>> refineDialogue(
     DubProject project,
@@ -141,6 +153,8 @@ class OfflineEngine {
           .toList(),
     });
   }
+
+  // MILESTONE 5: CHARACTER VOICE SYNTHESIS
 
   Future<Map<String, dynamic>> synthesize(
     DubProject project,
@@ -167,6 +181,8 @@ class OfflineEngine {
     });
   }
 
+  // MILESTONE 6: FINAL DUBBED VIDEO EXPORT
+
   Future<Map<String, dynamic>> exportVideo(
     DubProject project,
     List<dynamic> audioClips,
@@ -179,7 +195,10 @@ class OfflineEngine {
     });
   }
 
-  // Internal OtakuMind access. No public chat screen is required.
+  // INTERNAL OTAKUMIND ACCESS
+  // Retained for engine compatibility.
+  // The public chatbot interface is removed.
+
   Future<String> chat({
     required String message,
     required String personality,
