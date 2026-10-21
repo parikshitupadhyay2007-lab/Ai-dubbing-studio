@@ -186,7 +186,7 @@ class DubbingPipeline {
       // Restore the persistent speaker-to-voice mapping.
       for (final segment in project.segments) {
         final assigned = project.characterVoices[
-          segment.speakerId,
+          segment.speakerId
         ];
 
         if (assigned == null ||
