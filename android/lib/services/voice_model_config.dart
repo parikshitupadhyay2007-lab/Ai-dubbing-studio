@@ -34,11 +34,11 @@ class VoiceModelConfig {
     final model = File(modelPath);
     final config = File(configPath);
 
-    if (!await model.isFile || await model.length() == 0) {
+    if (!await model.exists() || await model.length() == 0) {
       throw StateError('Voice ONNX model is missing or empty.');
     }
 
-    if (!await config.isFile || await config.length() == 0) {
+    if (!await config.exists() || await config.length() == 0) {
       throw StateError('Matching voice configuration is missing.');
     }
 
