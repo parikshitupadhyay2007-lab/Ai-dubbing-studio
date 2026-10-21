@@ -90,9 +90,15 @@ add_subdirectory(
     EXCLUDE_FROM_ALL
 )
 
-if(NOT TARGET espeak-ng)
-    message(FATAL_ERROR "Missing eSpeak NG library target")
+if(NOT TARGET espeak-ng OR NOT TARGET ucd)
+    message(FATAL_ERROR "Missing eSpeak NG or Unicode library target")
 endif()
+
+# The upstream data target is ALL and executes espeak-ng-bin.
+# That executable is cross-compiled for ARM64 and cannot run on the build host.
+# Language data is already compiled by prepare-espeak-data.sh on Linux.
+set_property(TARGET data PROPERTY EXCLUDE_FROM_ALL TRUE)
+set_property(TARGET espeak-ng-bin PROPERTY EXCLUDE_FROM_ALL TRUE)
 
 # eSpeak exports src/include/compat as a PUBLIC include directory.
 # Its wctype.h shadows the Android NDK standard header in C++ consumers.
@@ -146,11 +152,12 @@ target_link_libraries(
     otakudub_phonemizer
     PRIVATE
     $<TARGET_FILE:espeak-ng>
+    $<TARGET_FILE:ucd>
     ${ANDROID_LOG_LIB}
 )
 
 # Link the built archive directly to avoid inheriting eSpeak's compile usage requirements.
-add_dependencies(otakudub_phonemizer espeak-ng)
+add_dependencies(otakudub_phonemizer espeak-ng ucd)
 
 # eSpeak also adds compat through directory-scoped include settings.
 # Explicitly restrict this C++ JNI translation unit to the public API
