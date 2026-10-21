@@ -1,6 +1,5 @@
 package co.parikshit.otakudub
 
-import android.os.Bundle
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -61,7 +60,7 @@ class MainActivity : FlutterActivity() {
                     if (!nativeAvailable) {
                         result.error(
                             "NATIVE_UNAVAILABLE",
-                            "Native AI library is unavailable.",
+                            "OtakuDub native library is unavailable.",
                             null
                         )
                         return@setMethodCallHandler
@@ -91,30 +90,30 @@ class MainActivity : FlutterActivity() {
                     }
 
                     executor.execute {
+                        val temporaryWav = File(
+                            cacheDir,
+                            "whisper_${System.nanoTime()}.wav"
+                        )
+
                         try {
-                            // The native Whisper reader requires
-                            // mono, 16 kHz, PCM16 WAV input.
-                            // Other media formats need conversion first.
-                            if (!sourcePath.endsWith(
-                                    ".wav",
-                                    ignoreCase = true
+                            val wavPath =
+                                OfflineAudioUtils.convertToWhisperWav(
+                                    sourcePath,
+                                    temporaryWav.absolutePath
                                 )
-                            ) {
-                                throw IllegalArgumentException(
-                                    "Audio conversion is required before transcription."
-                                )
-                            }
 
                             val segments = nativeTranscribeWav(
                                 modelPath,
-                                sourcePath,
+                                wavPath,
                                 language
                             ).mapIndexed { index, segment ->
                                 mapOf(
                                     "id" to "segment_$index",
-                                    "start" to segment["start"],
-                                    "end" to segment["end"],
-                                    "original" to segment["original"],
+                                    "start" to (segment["start"] ?: 0.0),
+                                    "end" to (segment["end"] ?: 0.0),
+                                    "original" to (
+                                        segment["original"] ?: ""
+                                    ),
                                     "translation" to "",
                                     "speaker_id" to "speaker_1",
                                     "voice_id" to "",
@@ -132,10 +131,12 @@ class MainActivity : FlutterActivity() {
                                 result.error(
                                     "TRANSCRIPTION_ERROR",
                                     error.message
-                                        ?: "Whisper transcription failed.",
+                                        ?: "Offline transcription failed.",
                                     null
                                 )
                             }
+                        } finally {
+                            temporaryWav.delete()
                         }
                     }
                 }
@@ -222,11 +223,15 @@ class MainActivity : FlutterActivity() {
                                         reply,
                                         null
                                     )
+                                } else if (reply.isBlank()) {
+                                    result.error(
+                                        "EMPTY_RESPONSE",
+                                        "OtakuMind returned no response.",
+                                        null
+                                    )
                                 } else {
                                     result.success(
-                                        mapOf(
-                                            "reply" to reply.trim()
-                                        )
+                                        mapOf("reply" to reply.trim())
                                     )
                                 }
                             }
