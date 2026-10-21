@@ -72,7 +72,7 @@ jobs:
 
           flutter create \
             --platforms=android \
-            --org co.parikshit \
+            --org Blue industries \
             .
 
           mkdir -p android/app/src/main
@@ -247,7 +247,7 @@ jobs:
 
           content, count = re.subn(
               r'android:label="[^"]*"',
-              'android:label="オタクダブ"',
+              'android:label="Otaku Dub"',
               content,
               count=1
           )
