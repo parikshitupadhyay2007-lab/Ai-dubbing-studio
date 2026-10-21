@@ -1,4 +1,3 @@
-
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -11,6 +10,12 @@ import 'services/model_manager.dart';
 import 'services/offline_engine.dart';
 import 'services/project_repository.dart';
 
+const bg = Color(0xFF080817);
+const panel = Color(0xFF15152E);
+const violet = Color(0xFF9F51FF);
+const cyan = Color(0xFF45DEFF);
+const pink = Color(0xFFFF58D0);
+
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const OtakuDubApp());
@@ -22,18 +27,360 @@ class OtakuDubApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'オタクダブ',
+      title: 'Otaku Dub',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF080811),
+        scaffoldBackgroundColor: bg,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF9955FF),
+          seedColor: violet,
           brightness: Brightness.dark,
         ),
+        cardTheme: CardThemeData(
+          color: panel,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+            side: BorderSide(
+              color: violet.withValues(alpha: 0.22),
+            ),
+          ),
+        ),
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            backgroundColor: violet,
+            foregroundColor: Colors.white,
+            minimumSize: const Size.fromHeight(54),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: panel,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
       ),
-      home: const OtakuDubHome(),
+      home: const OtakuDubLaunch(),
+    );
+  }
+}
+
+// FIVE-SECOND ANIMATED INTRODUCTION
+
+class OtakuDubLaunch extends StatefulWidget {
+  const OtakuDubLaunch({super.key});
+
+  @override
+  State<OtakuDubLaunch> createState() => _OtakuDubLaunchState();
+}
+
+class _OtakuDubLaunchState extends State<OtakuDubLaunch>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController animation;
+
+  @override
+  void initState() {
+    super.initState();
+
+    animation = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 5),
+    );
+
+    animation.forward().whenComplete(() {
+      if (!mounted) return;
+
+      Navigator.of(context).pushReplacement(
+        PageRouteBuilder<void>(
+          transitionDuration: const Duration(milliseconds: 650),
+          pageBuilder: (_, __, ___) => const OtakuDubHome(),
+          transitionsBuilder: (_, transition, __, child) {
+            return FadeTransition(
+              opacity: transition,
+              child: child,
+            );
+          },
+        ),
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    animation.dispose();
+    super.dispose();
+  }
+
+  double progress(double start, double end) {
+    return ((animation.value - start) / (end - start))
+        .clamp(0.0, 1.0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, _) {
+        final left = Curves.easeOutBack.transform(
+          progress(0.02, 0.35),
+        );
+
+        final right = Curves.easeOutBack.transform(
+          progress(0.16, 0.49),
+        );
+
+        final reveal = Curves.easeIn.transform(
+          progress(0.36, 0.66),
+        );
+
+        return Scaffold(
+          body: Container(
+            decoration: const BoxDecoration(
+              gradient: RadialGradient(
+                center: Alignment(0, -0.3),
+                radius: 1.3,
+                colors: [
+                  Color(0xFF392078),
+                  bg,
+                ],
+              ),
+            ),
+            child: SafeArea(
+              child: Stack(
+                children: [
+                  Positioned(
+                    top: 35,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: FadeTransition(
+                        opacity: animation,
+                        child: const Text(
+                          'BLUE INDUSTRIES',
+                          style: TextStyle(
+                            color: cyan,
+                            letterSpacing: 5,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: -110 + 115 * left,
+                    bottom: 125,
+                    child: Transform.rotate(
+                      angle: -0.08,
+                      child: const AnimeMascot(
+                        color: cyan,
+                        female: false,
+                        size: 175,
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    right: -110 + 115 * right,
+                    bottom: 125,
+                    child: Transform.rotate(
+                      angle: 0.08,
+                      child: const AnimeMascot(
+                        color: pink,
+                        female: true,
+                        size: 175,
+                      ),
+                    ),
+                  ),
+                  Center(
+                    child: Opacity(
+                      opacity: reveal,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.auto_awesome,
+                            color: cyan,
+                            size: 40,
+                          ),
+                          const SizedBox(height: 15),
+                          const Text(
+                            'PRESENTS',
+                            style: TextStyle(
+                              letterSpacing: 6,
+                              fontSize: 13,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          ShaderMask(
+                            shaderCallback: (bounds) {
+                              return const LinearGradient(
+                                colors: [cyan, violet, pink],
+                              ).createShader(bounds);
+                            },
+                            child: const Text(
+                              'OTAKU DUB',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 43,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: -2,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          const Text(
+                            'AN ANIME DUBBING PLATFORM',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 11,
+                              letterSpacing: 2.4,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 17),
+                          const Text(
+                            'Your Anime. Your Language.',
+                            style: TextStyle(
+                              color: Colors.white70,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 35,
+                    left: 40,
+                    right: 40,
+                    child: LinearProgressIndicator(
+                      value: animation.value,
+                      color: cyan,
+                      backgroundColor: Colors.white12,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ORIGINAL ANIME-INSPIRED CHARACTER AVATARS
+
+class AnimeMascot extends StatelessWidget {
+  final Color color;
+  final bool female;
+  final double size;
+
+  const AnimeMascot({
+    super.key,
+    required this.color,
+    required this.female,
+    this.size = 100,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size * 1.3,
+      child: Stack(
+        alignment: Alignment.bottomCenter,
+        children: [
+          Container(
+            width: size * .88,
+            height: size * .85,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(size * .48),
+                topRight: Radius.circular(size * .48),
+                bottomLeft: Radius.circular(size * .15),
+                bottomRight: Radius.circular(size * .15),
+              ),
+              gradient: LinearGradient(
+                colors: [color, panel, bg],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              border: Border.all(color: color, width: 2),
+            ),
+          ),
+          Positioned(
+            top: size * .24,
+            child: Container(
+              width: size * .69,
+              height: size * .76,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFD1BF),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(size * .40),
+                  topRight: Radius.circular(size * .38),
+                  bottomLeft: Radius.circular(size * .35),
+                  bottomRight: Radius.circular(size * .35),
+                ),
+              ),
+              child: Center(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _eye(),
+                    _eye(),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: size * .13,
+            child: Container(
+              width: size * .78,
+              height: size * .43,
+              decoration: BoxDecoration(
+                color: female
+                    ? const Color(0xFFC2A5FF)
+                    : const Color(0xFF17162D),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(size * .5),
+                  topRight: Radius.circular(size * .46),
+                  bottomLeft: Radius.circular(size * .09),
+                  bottomRight: Radius.circular(size * .29),
+                ),
+                border: Border.all(color: color, width: 2),
+              ),
+            ),
+          ),
+          Positioned(
+            top: size * .26,
+            right: size * .03,
+            child: Icon(
+              female ? Icons.auto_awesome : Icons.headphones,
+              color: color,
+              size: size * .25,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _eye() {
+    return Container(
+      width: size * .075,
+      height: size * .12,
+      decoration: BoxDecoration(
+        color: female ? violet : const Color(0xFF235FC8),
+        borderRadius: BorderRadius.circular(30),
+      ),
     );
   }
 }
@@ -60,37 +407,28 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
   DubProject? current;
   List<DubProject> projects = [];
 
-  final messageController = TextEditingController();
-  final history = <Map<String, String>>[];
-
-  String personality = 'spirit';
-  String chatResponse = '';
-
   @override
   void initState() {
     super.initState();
     refreshProjects();
   }
 
-  @override
-  void dispose() {
-    messageController.dispose();
-    super.dispose();
-  }
-
   Future<void> refreshProjects() async {
-    final loaded = await repository.all();
-
-    if (mounted) {
-      setState(() => projects = loaded);
+    try {
+      final loaded = await repository.all();
+      if (mounted) setState(() => projects = loaded);
+    } catch (e) {
+      if (mounted) setState(() => status = 'Library error: $e');
     }
   }
 
   Future<void> importMedia() async {
+    if (busy) return;
+
     final picked = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: [
-        'mp4', 'mkv', 'mov', 'webm', 'mp3', 'wav', 'm4a'
+      allowedExtensions: const [
+        'mp4', 'mkv', 'mov', 'webm', 'mp3', 'wav', 'm4a',
       ],
     );
 
@@ -102,7 +440,6 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
       final selected = picked.files.single;
       final id = DateTime.now().microsecondsSinceEpoch.toString();
       final dir = await repository.folder(id);
-
       final extension = selected.extension?.toLowerCase() ?? 'mp4';
 
       final copied = await File(selected.path!).copy(
@@ -118,14 +455,16 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
 
       await repository.save(project);
 
-      setState(() {
-        current = project;
-        status = 'Imported locally: ${selected.name}';
-      });
+      if (mounted) {
+        setState(() {
+          current = project;
+          status = 'Imported: ${selected.name}';
+        });
+      }
 
       await refreshProjects();
     } catch (e) {
-      setState(() => status = 'Import failed: $e');
+      if (mounted) setState(() => status = 'Import failed: $e');
     } finally {
       if (mounted) setState(() => busy = false);
     }
@@ -137,7 +476,7 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
 
     setState(() {
       busy = true;
-      status = 'Checking native offline AI runtime...';
+      status = 'Checking offline AI runtime...';
     });
 
     try {
@@ -145,83 +484,113 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
         project,
         onProgress: (stage) {
           if (mounted) {
-            setState(() {
-              status = 'Processing: ${stage.name}';
-            });
+            setState(() => status = 'Processing: ${stage.name}');
           }
         },
       );
 
-      setState(() {
-        status = 'Dubbed media created successfully.';
-      });
+      if (mounted) {
+        setState(() => status = 'Dubbed media created successfully!');
+      }
 
       await refreshProjects();
     } catch (e) {
       if (mounted) {
-        setState(() {
-          status = 'Processing stopped: $e';
-        });
+        setState(() => status = 'Processing stopped: $e');
       }
     } finally {
       if (mounted) setState(() => busy = false);
     }
   }
 
-  Future<void> sendMessage() async {
-    final message = messageController.text.trim();
-    if (message.isEmpty || busy) return;
-
-    setState(() {
-      busy = true;
-      chatResponse = 'Generating locally...';
-    });
-
-    try {
-      final reply = await engine.chat(
-        message: message,
-        personality: personality,
-        language: language,
-        history: history,
-      );
-
-      history.add({'role': 'user', 'content': message});
-      history.add({'role': 'assistant', 'content': reply});
-
-      messageController.clear();
-
-      setState(() => chatResponse = reply);
-    } catch (e) {
-      setState(() => chatResponse = e.toString());
-    } finally {
-      if (mounted) setState(() => busy = false);
-    }
+  Widget heading(String title, String subtitle) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 27,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 7),
+        Text(
+          subtitle,
+          style: const TextStyle(color: Colors.white60),
+        ),
+      ],
+    );
   }
 
   Widget studio() {
     return ListView(
-      padding: const EdgeInsets.all(18),
+      key: const ValueKey('studio'),
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 100),
       children: [
+        heading(
+          'Your Anime.\nYour Language.',
+          'Powered by offline AI • Blue Industries',
+        ),
+        const SizedBox(height: 24),
+        Container(
+          height: 142,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            gradient: const LinearGradient(
+              colors: [
+                Color(0xFF472293),
+                Color(0xFF10284E),
+              ],
+            ),
+            border: Border.all(color: violet),
+          ),
+          child: const Row(
+            children: [
+              Icon(
+                Icons.movie_creation_outlined,
+                color: cyan,
+                size: 55,
+              ),
+              SizedBox(width: 17),
+              Expanded(
+                child: Text(
+                  'BRING EVERY\nSTORY TO LIFE',
+                  style: TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 22),
         const Text(
-          'Your Anime. Your Language.',
+          'TARGET LANGUAGE',
           style: TextStyle(
-            fontSize: 26,
+            color: cyan,
+            letterSpacing: 2,
             fontWeight: FontWeight.bold,
           ),
         ),
         const SizedBox(height: 12),
-        const Text(
-          'Import your media and process it using local AI models.',
-        ),
-        const SizedBox(height: 20),
         DropdownButtonFormField<String>(
           initialValue: language,
           decoration: const InputDecoration(
-            labelText: 'Target language',
+            prefixIcon: Icon(Icons.translate),
           ),
           items: const [
-            DropdownMenuItem(value: 'hi', child: Text('Hindi')),
-            DropdownMenuItem(value: 'en', child: Text('English')),
+            DropdownMenuItem(
+              value: 'hi',
+              child: Text('Hindi'),
+            ),
+            DropdownMenuItem(
+              value: 'en',
+              child: Text('English'),
+            ),
           ],
           onChanged: busy
               ? null
@@ -229,41 +598,43 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
                     language = value ?? 'hi';
                   }),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         FilledButton.icon(
           onPressed: busy ? null : importMedia,
-          icon: const Icon(Icons.folder_open),
-          label: const Text('Import anime / movie'),
+          icon: const Icon(Icons.video_file_outlined),
+          label: const Text('IMPORT ANIME / MOVIE'),
         ),
         if (current != null) ...[
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
           Card(
             child: ListTile(
+              leading: const Icon(Icons.play_circle, color: cyan),
               title: Text(current!.title),
               subtitle: Text(
                 'Target: ${current!.targetLanguage.toUpperCase()}',
               ),
-              trailing: IconButton(
-                icon: const Icon(Icons.play_arrow),
-                onPressed: () => OpenFilex.open(current!.sourcePath),
-              ),
+              onTap: () => OpenFilex.open(current!.sourcePath),
             ),
           ),
+          const SizedBox(height: 12),
           FilledButton.icon(
             onPressed: busy ? null : generate,
             icon: const Icon(Icons.auto_awesome),
-            label: const Text('Start offline dubbing'),
+            label: const Text('START OFFLINE DUBBING'),
           ),
         ],
-        const SizedBox(height: 16),
-        if (busy) const LinearProgressIndicator(),
-        const SizedBox(height: 10),
-        Text(status),
         const SizedBox(height: 20),
+        if (busy) const LinearProgressIndicator(),
+        const SizedBox(height: 12),
+        Text(
+          status,
+          style: const TextStyle(color: cyan),
+        ),
+        const SizedBox(height: 14),
         const Text(
-          'Native models and inference libraries must be installed '
-          'before automatic dubbing can run.',
-          style: TextStyle(color: Colors.white70),
+          'Some dubbing engines are still under development. '
+          'The app will show an error if an unfinished stage is reached.',
+          style: TextStyle(color: Colors.white54, fontSize: 12),
         ),
       ],
     );
@@ -271,18 +642,33 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
 
   Widget projectLibrary() {
     return ListView(
-      padding: const EdgeInsets.all(16),
+      key: const ValueKey('projects'),
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 100),
       children: [
-        const Text(
-          'Local Projects',
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+        heading(
+          'Project Library',
+          'Your anime dubbing workspace.',
         ),
+        const SizedBox(height: 22),
+        if (projects.isEmpty)
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(25),
+              child: Text(
+                'No projects yet. Import your first video in Studio.',
+              ),
+            ),
+          ),
         for (final project in projects)
           Card(
             child: ListTile(
+              leading: const Icon(
+                Icons.video_library_outlined,
+                color: cyan,
+              ),
               title: Text(project.title),
               subtitle: Text(
-                '${project.stage.name} • '
+                '${project.stage.name.toUpperCase()} • '
                 '${project.targetLanguage.toUpperCase()}',
               ),
               onTap: () {
@@ -295,10 +681,13 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
               trailing: project.outputPath == null
                   ? null
                   : IconButton(
-                      icon: const Icon(Icons.play_circle),
-                      onPressed: () => OpenFilex.open(
-                        project.outputPath!,
+                      icon: const Icon(
+                        Icons.play_circle_fill,
+                        color: pink,
                       ),
+                      onPressed: () {
+                        OpenFilex.open(project.outputPath!);
+                      },
                     ),
             ),
           ),
@@ -306,84 +695,26 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
     );
   }
 
-  Widget mind() {
-    return ListView(
-      padding: const EdgeInsets.all(18),
-      children: [
-        const Text(
-          'OtakuMind',
-          style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 12),
-        DropdownButtonFormField<String>(
-          initialValue: personality,
-          decoration: const InputDecoration(
-            labelText: 'Original anime-inspired personality',
-          ),
-          items: const [
-            DropdownMenuItem(
-              value: 'spirit',
-              child: Text('Unbreakable Spirit'),
-            ),
-            DropdownMenuItem(
-              value: 'shadow',
-              child: Text('Shadow Strategist'),
-            ),
-            DropdownMenuItem(
-              value: 'mentor',
-              child: Text('Limitless Mentor'),
-            ),
-            DropdownMenuItem(
-              value: 'companion',
-              child: Text('Future Companion'),
-            ),
-            DropdownMenuItem(
-              value: 'guardian',
-              child: Text('Gentle Guardian'),
-            ),
-            DropdownMenuItem(
-              value: 'genius',
-              child: Text('Mastermind'),
-            ),
-          ],
-          onChanged: (v) {
-            if (v != null) setState(() => personality = v);
-          },
-        ),
-        const SizedBox(height: 15),
-        TextField(
-          controller: messageController,
-          maxLines: 3,
-          decoration: const InputDecoration(
-            labelText: 'Message',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        const SizedBox(height: 12),
-        FilledButton(
-          onPressed: busy ? null : sendMessage,
-          child: const Text('Send to local OtakuMind'),
-        ),
-        const SizedBox(height: 18),
-        SelectableText(chatResponse),
-      ],
-    );
-  }
-
   Widget modelSetup() {
     return ListView(
-      padding: const EdgeInsets.all(18),
+      key: const ValueKey('models'),
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 100),
       children: [
-        const Text(
-          'Local AI Models',
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 12),
-        const Text(
-          'Import compatible model files stored on your phone. '
-          'No model is downloaded automatically.',
+        heading(
+          'AI Engine Vault',
+          'Manage your local dubbing models.',
         ),
         const SizedBox(height: 16),
+        const Card(
+          child: Padding(
+            padding: EdgeInsets.all(16),
+            child: Text(
+              'OtakuMind runs internally for dialogue refinement. '
+              'Only compatible and integrated AI models can perform dubbing.',
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
         for (final model in AiModel.values)
           FutureBuilder<bool>(
             future: models.installed(model),
@@ -392,12 +723,22 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
 
               return Card(
                 child: ListTile(
-                  title: Text(model.name),
+                  leading: Icon(
+                    installed
+                        ? Icons.check_circle_outline
+                        : Icons.memory,
+                    color: installed ? cyan : pink,
+                  ),
+                  title: Text(model.displayName),
                   subtitle: Text(
-                    installed ? 'File present' : 'File missing',
+                    snapshot.connectionState == ConnectionState.waiting
+                        ? 'Checking model...'
+                        : installed
+                            ? 'Model file present'
+                            : 'Model file missing',
                   ),
                   trailing: IconButton(
-                    icon: const Icon(Icons.file_upload),
+                    icon: const Icon(Icons.file_upload_outlined),
                     onPressed: () async {
                       try {
                         await models.importModel(model);
@@ -405,7 +746,7 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
                       } catch (e) {
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(e.toString())),
+                            SnackBar(content: Text('$e')),
                           );
                         }
                       }
@@ -419,54 +760,151 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
     );
   }
 
+  void changeTab(int value) {
+    setState(() => tab = value);
+    if (value == 1) refreshProjects();
+  }
+
   @override
   Widget build(BuildContext context) {
     final pages = [
       studio(),
       projectLibrary(),
-      mind(),
       modelSetup(),
     ];
 
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: bg,
         title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'オタクダブ',
-              style: TextStyle(fontWeight: FontWeight.bold),
+              'OTAKU DUB',
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.2,
+              ),
             ),
             Text(
-              'powered by parikshit.co',
-              style: TextStyle(fontSize: 11),
+              'BLUE INDUSTRIES',
+              style: TextStyle(
+                fontSize: 10,
+                color: cyan,
+                letterSpacing: 2.2,
+              ),
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Replay intro',
+            icon: const Icon(Icons.auto_awesome, color: pink),
+            onPressed: () {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => const OtakuDubLaunch(),
+                ),
+              );
+            },
+          ),
+        ],
       ),
-      body: SafeArea(child: pages[tab]),
+      body: Stack(
+        children: [
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 550),
+            transitionBuilder: (child, animation) {
+              return FadeTransition(
+                opacity: animation,
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0.12, 0),
+                    end: Offset.zero,
+                  ).animate(
+                    CurvedAnimation(
+                      parent: animation,
+                      curve: Curves.easeOutCubic,
+                    ),
+                  ),
+                  child: child,
+                ),
+              );
+            },
+            child: pages[tab],
+          ),
+          IgnorePointer(
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 650),
+                transitionBuilder: (child, animation) {
+                  return SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(0, 1.6),
+                      end: Offset.zero,
+                    ).animate(
+                      CurvedAnimation(
+                        parent: animation,
+                        curve: Curves.easeOutBack,
+                      ),
+                    ),
+                    child: FadeTransition(
+                      opacity: animation,
+                      child: child,
+                    ),
+                  );
+                },
+                child: SizedBox(
+                  key: ValueKey(tab),
+                  height: 80,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Transform.translate(
+                        offset: const Offset(-17, 12),
+                        child: const AnimeMascot(
+                          color: cyan,
+                          female: false,
+                          size: 73,
+                        ),
+                      ),
+                      Transform.translate(
+                        offset: const Offset(17, 12),
+                        child: const AnimeMascot(
+                          color: pink,
+                          female: true,
+                          size: 73,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
       bottomNavigationBar: NavigationBar(
+        backgroundColor: panel,
+        indicatorColor: violet.withValues(alpha: 0.28),
         selectedIndex: tab,
-        onDestinationSelected: (value) {
-          setState(() => tab = value);
-
-          if (value == 1) refreshProjects();
-        },
+        onDestinationSelected: changeTab,
         destinations: const [
           NavigationDestination(
-            icon: Icon(Icons.movie),
+            icon: Icon(Icons.movie_creation_outlined),
+            selectedIcon: Icon(Icons.movie_creation, color: cyan),
             label: 'Studio',
           ),
           NavigationDestination(
-            icon: Icon(Icons.video_library),
+            icon: Icon(Icons.video_library_outlined),
+            selectedIcon: Icon(Icons.video_library, color: cyan),
             label: 'Projects',
           ),
           NavigationDestination(
-            icon: Icon(Icons.psychology),
-            label: 'Mind',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.memory),
+            icon: Icon(Icons.memory_outlined),
+            selectedIcon: Icon(Icons.memory, color: cyan),
             label: 'Models',
           ),
         ],
