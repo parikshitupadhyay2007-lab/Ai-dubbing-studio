@@ -190,6 +190,7 @@ jobs:
           source = hf_hub_download(
               repo_id="tensorblock/Qwen_Qwen3-0.6B-GGUF",
               filename="Qwen3-0.6B-Q4_K_M.gguf",
+              subfolder="Qwen3-0.6B-Q4_K_M",
           )
 
           destination = Path(
