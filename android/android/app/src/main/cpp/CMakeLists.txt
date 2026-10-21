@@ -8,11 +8,11 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if(NOT ANDROID)
-    message(FATAL_ERROR "OtakuDub requires Android")
+    message(FATAL_ERROR "Android build required")
 endif()
 
 if(NOT ANDROID_ABI STREQUAL "arm64-v8a")
-    message(FATAL_ERROR "OtakuDub supports arm64-v8a only")
+    message(FATAL_ERROR "ARM64 required")
 endif()
 
 set(LLAMA_DIR
@@ -24,21 +24,25 @@ set(WHISPER_DIR
 )
 
 if(NOT EXISTS "${LLAMA_DIR}/CMakeLists.txt")
-    message(FATAL_ERROR "Missing llama.cpp source")
+    message(FATAL_ERROR "Missing llama.cpp")
 endif()
 
 if(NOT EXISTS "${WHISPER_DIR}/CMakeLists.txt")
-    message(FATAL_ERROR "Missing whisper.cpp source")
+    message(FATAL_ERROR "Missing whisper.cpp")
 endif()
 
-# llama.cpp configuration
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 
 set(LLAMA_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_SERVER OFF CACHE BOOL "" FORCE)
 set(LLAMA_CURL OFF CACHE BOOL "" FORCE)
 
-# Shared CPU configuration
+set(WHISPER_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(WHISPER_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(WHISPER_BUILD_SERVER OFF CACHE BOOL "" FORCE)
+set(WHISPER_FFMPEG OFF CACHE BOOL "" FORCE)
+set(WHISPER_OPENVINO OFF CACHE BOOL "" FORCE)
 
 set(GGML_OPENMP OFF CACHE BOOL "" FORCE)
 set(GGML_VULKAN OFF CACHE BOOL "" FORCE)
@@ -49,28 +53,16 @@ add_subdirectory(
     "${CMAKE_CURRENT_BINARY_DIR}/llama-build"
 )
 
-# whisper.cpp configuration
-
-set(WHISPER_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(WHISPER_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(WHISPER_BUILD_SERVER OFF CACHE BOOL "" FORCE)
-set(WHISPER_FFMPEG OFF CACHE BOOL "" FORCE)
-set(WHISPER_OPENVINO OFF CACHE BOOL "" FORCE)
-
 add_subdirectory(
     "${WHISPER_DIR}"
     "${CMAKE_CURRENT_BINARY_DIR}/whisper-build"
-)
-
-find_library(
-    ANDROID_LOG_LIB
-    log
 )
 
 add_library(
     otakudub_native
     SHARED
     otakudub_jni.cpp
+    otakudub_whisper.cpp
 )
 
 target_include_directories(
@@ -79,6 +71,8 @@ target_include_directories(
     "${LLAMA_DIR}/include"
     "${WHISPER_DIR}/include"
 )
+
+find_library(ANDROID_LOG_LIB log)
 
 target_link_libraries(
     otakudub_native
