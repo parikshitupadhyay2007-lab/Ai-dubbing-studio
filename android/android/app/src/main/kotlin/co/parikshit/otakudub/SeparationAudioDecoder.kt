@@ -97,6 +97,10 @@ object SeparationAudioDecoder {
                 MediaFormat.KEY_CHANNEL_COUNT
             )
 
+            require(sourceChannels in 1..2) {
+                "Multichannel source audio is not yet supported."
+            }
+
             var encoding = AudioFormat.ENCODING_PCM_16BIT
             var frameCount = 0L
 
@@ -205,6 +209,14 @@ object SeparationAudioDecoder {
 
                                     buffer.get(bytes)
 
+                                    val decodedFrames = bytes.size.toLong() /
+                                        (sourceChannels * if (
+                                            encoding == AudioFormat.ENCODING_PCM_FLOAT
+                                        ) 4 else 2)
+                                    require(decodedFrames <=
+                                        ((Int.MAX_VALUE - 44L) / 4L) - frameCount) {
+                                        "Decoded WAV exceeds supported size."
+                                    }
                                     frameCount += writeStereo(
                                         bytes,
                                         sourceChannels,
