@@ -39,8 +39,8 @@ class SeparationAudioChunkReader(
 
     init {
         try {
-            require(chunkFrames > 0) {
-                "Chunk size must be positive."
+            require(chunkFrames > 0 && chunkFrames <= Int.MAX_VALUE / 4) {
+                "Chunk size must fit a stereo PCM16 byte buffer."
             }
 
             require(overlapFrames >= 0 && overlapFrames < chunkFrames) {
