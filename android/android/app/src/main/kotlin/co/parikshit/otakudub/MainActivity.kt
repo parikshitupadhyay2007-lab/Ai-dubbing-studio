@@ -356,10 +356,6 @@ class MainActivity : FlutterActivity() {
                     }
                 }
 
-                /*
-                 * Combines generated character dialogue into
-                 * one timestamp-aligned offline audio track.
-                 */
                 "mixDialogue" -> {
                     executor.execute {
                         try {
@@ -410,15 +406,45 @@ class MainActivity : FlutterActivity() {
                 }
 
                 /*
-                 * Final video export will be integrated
-                 * after soundtrack processing and muxing.
+                 * Copies the source video stream and replaces
+                 * its audio with AAC-encoded dubbed dialogue.
                  */
                 "exportVideo" -> {
-                    result.error(
-                        "ENGINE_NOT_INTEGRATED",
-                        "Video export is not implemented yet.",
-                        null
-                    )
+                    executor.execute {
+                        try {
+                            val request =
+                                VideoExportRequest.parse(
+                                    call.arguments
+                                )
+
+                            val exportedFile =
+                                OfflineVideoExporter.export(
+                                    request
+                                )
+
+                            runOnUiThread {
+                                result.success(
+                                    mapOf(
+                                        "output_path" to
+                                            exportedFile.absolutePath,
+                                        "file_size" to
+                                            exportedFile.length(),
+                                        "success" to true
+                                    )
+                                )
+                            }
+
+                        } catch (error: Exception) {
+                            runOnUiThread {
+                                result.error(
+                                    "VIDEO_EXPORT_ERROR",
+                                    error.message
+                                        ?: "Offline MP4 export failed.",
+                                    null
+                                )
+                            }
+                        }
+                    }
                 }
 
                 else -> result.notImplemented()
