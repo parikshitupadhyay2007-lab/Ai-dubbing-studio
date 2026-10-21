@@ -172,6 +172,37 @@ jobs:
 
           echo "Whisper model downloaded and verified."
 
+      - name: Download bundled OtakuMind model
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          MODEL_DIR="android/assets/models"
+          mkdir -p "$MODEL_DIR"
+
+          curl \
+            --fail \
+            --location \
+            --retry 5 \
+            --retry-delay 5 \
+            --output "$MODEL_DIR/otakumind.gguf" \
+            "https://huggingface.co/tensorblock/Qwen_Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q4_K_M.gguf"
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          model = Path("android/assets/models/otakumind.gguf")
+
+          if model.stat().st_size < 400_000_000:
+              raise SystemExit("OtakuMind model download is incomplete")
+
+          with model.open("rb") as file:
+              if file.read(4) != b"GGUF":
+                  raise SystemExit("Invalid OtakuMind GGUF header")
+
+          print("OtakuMind model downloaded and checked.")
+          PY
+
       - name: Install Flutter dependencies
         working-directory: android
         run: flutter pub get
