@@ -2,7 +2,7 @@
 package co.parikshit.otakudub
 
 import ai.onnxruntime.OnnxJavaType
-import ai.onnxruntime.OnnxTensorInfo
+import ai.onnxruntime.TensorInfo
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
 import java.io.File
@@ -52,7 +52,7 @@ object SeparationModelInspector {
                     return nodes.map { (name, node) ->
                         val info = node.info
 
-                        require(info is OnnxTensorInfo) {
+                        require(info is TensorInfo) {
                             "Unsupported non-tensor ONNX node: $name"
                         }
 
