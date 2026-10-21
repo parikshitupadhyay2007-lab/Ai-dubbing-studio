@@ -173,46 +173,56 @@ jobs:
           echo "Whisper model downloaded and verified."
 
       
+      
       - name: Download bundled OtakuMind model
         shell: bash
         run: |
           set -euo pipefail
 
           python3 -m pip install --upgrade huggingface_hub
-
           mkdir -p android/assets/models
 
           python3 - <<'PY'
           from pathlib import Path
-          from huggingface_hub import hf_hub_download
+          from huggingface_hub import HfApi, hf_hub_download
           import shutil
 
+          repo = "tensorblock/Qwen_Qwen3-0.6B-GGUF"
+          files = HfApi().list_repo_files(repo)
+
+          matches = [
+              name for name in files
+              if Path(name).name == "Qwen3-0.6B-Q4_K_M.gguf"
+          ]
+
+          if len(matches) != 1:
+              raise SystemExit(
+                  f"Expected one Q4_K_M model; found: {matches}"
+              )
+
+          print(f"Downloading: {matches[0]}")
+
           source = hf_hub_download(
-              repo_id="tensorblock/Qwen_Qwen3-0.6B-GGUF",
-              filename="Qwen3-0.6B-Q4_K_M.gguf",
-              subfolder="Qwen3-0.6B-Q4_K_M",
+              repo_id=repo,
+              filename=matches[0],
           )
 
           destination = Path(
               "android/assets/models/otakumind.gguf"
           )
-
           shutil.copyfile(source, destination)
 
           size = destination.stat().st_size
-
           if size < 400_000_000:
-              raise SystemExit(
-                  "OtakuMind model download is incomplete"
-              )
+              raise SystemExit("Incomplete model download")
 
           with destination.open("rb") as file:
               if file.read(4) != b"GGUF":
-                  raise SystemExit("Invalid GGUF model")
+                  raise SystemExit("Invalid GGUF header")
 
-          print("OtakuMind bundled successfully")
-          print(f"Model size: {size:,} bytes")
+          print(f"OtakuMind ready: {size:,} bytes")
           PY
+
 
       - name: Install Flutter dependencies
         working-directory: android
