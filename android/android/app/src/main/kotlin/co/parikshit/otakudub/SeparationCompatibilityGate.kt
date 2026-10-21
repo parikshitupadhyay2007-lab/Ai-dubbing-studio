@@ -91,6 +91,11 @@ object SeparationCompatibilityGate {
                 "Current integration supports exactly one model input."
         }
 
+        if (inspection.outputs.size != 1) {
+            reasons +=
+                "Current integration supports exactly one model output."
+        }
+
         return Result(
             compatible = reasons.isEmpty(),
             reasons = reasons,
