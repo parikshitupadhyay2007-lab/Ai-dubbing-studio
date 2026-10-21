@@ -1,4 +1,3 @@
-
 import '../models/dub_project.dart';
 
 import 'character_voice_caster.dart';
@@ -49,8 +48,6 @@ class DubbingPipeline {
   Future<void> _assignCharacterVoices(
     DubProject project,
   ) async {
-    // Refresh registrations in case voice files changed
-    // while the app was running.
     await _voiceRegistry.refresh();
 
     final available = VoiceCatalog.available(
@@ -75,7 +72,6 @@ class DubbingPipeline {
       installedModelIds: installedIds,
     );
 
-    // Do not silently generate dialogue with an unassigned voice.
     for (final segment in project.segments) {
       if (segment.speakerId.trim().isEmpty ||
           segment.speakerId == 'unknown') {
@@ -113,9 +109,11 @@ class DubbingPipeline {
   }) async {
     try {
       project.error = null;
+      project.outputPath = null;
 
       await engine.verifyRuntime();
 
+      // STEP 1: Automatic transcription
       await _stage(
         project,
         ProjectStage.transcribing,
@@ -137,6 +135,7 @@ class DubbingPipeline {
         );
       }
 
+      // STEP 2: Identify character speakers
       await _stage(
         project,
         ProjectStage.casting,
@@ -155,8 +154,10 @@ class DubbingPipeline {
         );
       }
 
+      // STEP 3: Assign installed character voices
       await _assignCharacterVoices(project);
 
+      // STEP 4: Automatic translation
       await _stage(
         project,
         ProjectStage.translating,
@@ -169,6 +170,7 @@ class DubbingPipeline {
         ..clear()
         ..addAll(_parseSegments(translation['segments']));
 
+      // STEP 5: Automatic dialogue refinement
       await _stage(
         project,
         ProjectStage.refining,
@@ -181,8 +183,7 @@ class DubbingPipeline {
         ..clear()
         ..addAll(_parseSegments(refined['segments']));
 
-      // Native translation/refinement can return newly constructed
-      // segments. Restore the persistent speaker-to-voice mapping.
+      // Restore the persistent speaker-to-voice mapping.
       for (final segment in project.segments) {
         final assigned = project.characterVoices[
           segment.speakerId,
@@ -208,6 +209,7 @@ class DubbingPipeline {
 
       await repository.save(project);
 
+      // STEP 6: Generate individual character voices
       await _stage(
         project,
         ProjectStage.synthesizing,
@@ -216,7 +218,8 @@ class DubbingPipeline {
 
       final synthesis = await engine.synthesize(project);
 
-      final clips = synthesis['audio_clips'];
+      // Matches the native MainActivity synthesize response.
+      final clips = synthesis['clips'];
 
       if (clips is! List || clips.isEmpty) {
         throw OfflineEngineException(
@@ -224,20 +227,34 @@ class DubbingPipeline {
         );
       }
 
+      // STEP 7: Synchronize dialogue and export MP4
       await _stage(
         project,
         ProjectStage.exporting,
         onProgress,
       );
 
-      final exported = await engine.exportVideo(
+      final mixed = await engine.mixDialogue(
         project,
         clips,
       );
 
+      final wavPath = mixed['wav_path'];
+
+      if (wavPath is! String || wavPath.trim().isEmpty) {
+        throw OfflineEngineException(
+          'Dialogue mixing did not produce a WAV file.',
+        );
+      }
+
+      final exported = await engine.exportVideo(
+        project,
+        wavPath,
+      );
+
       final output = exported['output_path'];
 
-      if (output is! String || output.isEmpty) {
+      if (output is! String || output.trim().isEmpty) {
         throw OfflineEngineException(
           'The media engine did not return an output file.',
         );
@@ -245,6 +262,7 @@ class DubbingPipeline {
 
       project.outputPath = output;
 
+      // STEP 8: Save completed project
       await _stage(
         project,
         ProjectStage.completed,
@@ -265,4 +283,3 @@ class DubbingPipeline {
     }
   }
 }
-
