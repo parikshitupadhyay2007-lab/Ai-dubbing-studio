@@ -7,14 +7,91 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+/*
+ * Repository structure:
+ *
+ * repository/
+ *   .github/scripts/
+ *   android/
+ *     android/app/build.gradle.kts
+ */
+
+val repositoryRoot = rootProject.projectDir
+    .parentFile
+    .parentFile
+
+val espeakSourceScript = repositoryRoot.resolve(
+    ".github/scripts/prepare-espeak.sh"
+)
+
+val espeakDataScript = repositoryRoot.resolve(
+    ".github/scripts/prepare-espeak-data.sh"
+)
+
+/**
+ * Download the pinned eSpeak NG source before CMake
+ * attempts to configure the Android native targets.
+ */
+val prepareEspeakSource = tasks.register<Exec>(
+    "prepareEspeakSource"
+) {
+    group = "otakudub"
+    description = "Prepare the eSpeak NG native dependency"
+
+    workingDir = repositoryRoot
+
+    doFirst {
+        check(espeakSourceScript.isFile) {
+            "Missing script: ${espeakSourceScript.path}"
+        }
+    }
+
+    commandLine(
+        "bash",
+        espeakSourceScript.absolutePath
+    )
+}
+
+/**
+ * Compile eSpeak language data on the Linux build host.
+ *
+ * The resulting assets are packaged into the APK and
+ * installed into private storage by EspeakDataInstaller.
+ */
+val prepareEspeakData = tasks.register<Exec>(
+    "prepareEspeakData"
+) {
+    group = "otakudub"
+    description = "Compile offline eSpeak NG language data"
+
+    dependsOn(prepareEspeakSource)
+
+    workingDir = repositoryRoot
+
+    doFirst {
+        check(espeakDataScript.isFile) {
+            "Missing script: ${espeakDataScript.path}"
+        }
+    }
+
+    commandLine(
+        "bash",
+        espeakDataScript.absolutePath
+    )
+}
+
 android {
     namespace = "co.parikshit.otakudub"
+
     compileSdk = 36
+
     ndkVersion = "28.2.13676358"
 
     defaultConfig {
         applicationId = "co.parikshit.otakudub"
+
         minSdk = 26
+
         targetSdk = flutter.targetSdkVersion
 
         versionCode = flutter.versionCode
@@ -59,7 +136,25 @@ kotlin {
 }
 
 dependencies {
-    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.20.0")
+    implementation(
+        "com.microsoft.onnxruntime:onnxruntime-android:1.20.0"
+    )
+}
+
+/*
+ * Dependency preparation must finish before native
+ * configuration or Android asset processing begins.
+ */
+tasks.configureEach {
+    if (
+        name == "preBuild" ||
+        name.startsWith("configureCMake") ||
+        name.startsWith("generateJsonModel") ||
+        name.startsWith("merge") &&
+        name.endsWith("Assets")
+    ) {
+        dependsOn(prepareEspeakData)
+    }
 }
 
 flutter {
