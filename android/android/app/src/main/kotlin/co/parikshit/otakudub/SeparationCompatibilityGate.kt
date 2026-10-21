@@ -24,7 +24,7 @@ object SeparationCompatibilityGate {
     ) {
         init {
             require(sampleRate in 8000..192000)
-            require(fftSize >= 2 && fftSize and (fftSize - 1) == 0)
+            require(fftSize == 6144 || (fftSize >= 2 && (fftSize and (fftSize - 1)) == 0))
             require(hopSize in 1..fftSize)
             require(frequencyBins in 1..(fftSize / 2 + 1))
             require(timeFrames > 0)
