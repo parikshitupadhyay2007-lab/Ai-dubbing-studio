@@ -1,14 +1,23 @@
 
 import '../models/dub_project.dart';
 
+import 'character_voice_caster.dart';
 import 'offline_engine.dart';
 import 'project_repository.dart';
+import 'voice_catalog.dart';
+import 'voice_installation_registry.dart';
 
 typedef ProgressCallback = void Function(ProjectStage stage);
 
 class DubbingPipeline {
   final OfflineEngine engine;
   final ProjectRepository repository;
+
+  final CharacterVoiceCaster _caster =
+      const CharacterVoiceCaster();
+
+  final VoiceInstallationRegistry _voiceRegistry =
+      const VoiceInstallationRegistry();
 
   DubbingPipeline(this.engine, this.repository);
 
@@ -37,11 +46,74 @@ class DubbingPipeline {
     ];
   }
 
+  Future<void> _assignCharacterVoices(
+    DubProject project,
+  ) async {
+    // Refresh registrations in case voice files changed
+    // while the app was running.
+    await _voiceRegistry.refresh();
+
+    final available = VoiceCatalog.available(
+      project.targetLanguage,
+    );
+
+    if (available.isEmpty) {
+      throw OfflineEngineException(
+        'No compatible character voices are installed for '
+        '${project.targetLanguage.toUpperCase()}. '
+        'Install a valid voice model and configuration first.',
+      );
+    }
+
+    final installedIds = available
+        .map((profile) => profile.modelId)
+        .whereType<String>()
+        .toSet();
+
+    _caster.assign(
+      project,
+      installedModelIds: installedIds,
+    );
+
+    // Do not silently generate dialogue with an unassigned voice.
+    for (final segment in project.segments) {
+      if (segment.speakerId.trim().isEmpty ||
+          segment.speakerId == 'unknown') {
+        throw OfflineEngineException(
+          'Speaker identification is incomplete for '
+          'segment ${segment.id}.',
+        );
+      }
+
+      if (segment.voiceId.isEmpty) {
+        throw OfflineEngineException(
+          'No character voice was assigned to '
+          'segment ${segment.id}.',
+        );
+      }
+
+      final installed = VoiceCatalog.installedModel(
+        segment.voiceId,
+      );
+
+      if (installed == null) {
+        throw OfflineEngineException(
+          'The voice assigned to segment ${segment.id} '
+          'is no longer installed.',
+        );
+      }
+    }
+
+    await repository.save(project);
+  }
+
   Future<DubProject> process(
     DubProject project, {
     ProgressCallback? onProgress,
   }) async {
     try {
+      project.error = null;
+
       await engine.verifyRuntime();
 
       await _stage(
@@ -77,6 +149,14 @@ class DubbingPipeline {
         ..clear()
         ..addAll(_parseSegments(casting['segments']));
 
+      if (project.segments.isEmpty) {
+        throw OfflineEngineException(
+          'Speaker identification returned no dialogue.',
+        );
+      }
+
+      await _assignCharacterVoices(project);
+
       await _stage(
         project,
         ProjectStage.translating,
@@ -100,6 +180,33 @@ class DubbingPipeline {
       project.segments
         ..clear()
         ..addAll(_parseSegments(refined['segments']));
+
+      // Native translation/refinement can return newly constructed
+      // segments. Restore the persistent speaker-to-voice mapping.
+      for (final segment in project.segments) {
+        final assigned = project.characterVoices[
+          segment.speakerId,
+        ];
+
+        if (assigned == null ||
+            VoiceCatalog.installedModel(assigned) == null) {
+          throw OfflineEngineException(
+            'A valid character voice is missing for '
+            'segment ${segment.id}.',
+          );
+        }
+
+        segment.voiceId = assigned;
+
+        if (segment.translation.trim().isEmpty) {
+          throw OfflineEngineException(
+            'Translated dialogue is missing for '
+            'segment ${segment.id}.',
+          );
+        }
+      }
+
+      await repository.save(project);
 
       await _stage(
         project,
@@ -158,3 +265,4 @@ class DubbingPipeline {
     }
   }
 }
+
