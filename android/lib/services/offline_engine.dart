@@ -1,8 +1,8 @@
-
 import 'package:flutter/services.dart';
 
 import '../models/dub_project.dart';
 import 'model_manager.dart';
+import 'voice_catalog.dart';
 
 class OfflineEngineException implements Exception {
   final String message;
@@ -143,9 +143,6 @@ class OfflineEngine {
     });
   }
 
-  // Offline character voice synthesis.
-  // Requires a matching Piper model and configuration.
-
   Future<Map<String, dynamic>> synthesize(
     DubProject project,
   ) async {
@@ -156,17 +153,13 @@ class OfflineEngine {
       );
     }
 
-    final voiceModel = project.targetLanguage == 'hi'
-        ? AiModel.hindiVoice
-        : AiModel.englishVoice;
-
-    final config = await models.loadVoiceConfig(voiceModel);
-
     if (project.segments.isEmpty) {
       throw OfflineEngineException(
         'No dialogue is available for voice synthesis.',
       );
     }
+
+    final voiceModels = <String, Map<String, dynamic>>{};
 
     for (final segment in project.segments) {
       if (segment.translation.trim().isEmpty) {
@@ -180,20 +173,73 @@ class OfflineEngine {
           'Invalid dialogue timing for segment ${segment.id}.',
         );
       }
+
+      final speakerId = segment.speakerId.trim();
+      final voiceId = segment.voiceId.trim();
+
+      if (speakerId.isEmpty || speakerId == 'unknown') {
+        throw OfflineEngineException(
+          'Speaker identification is incomplete for segment ${segment.id}.',
+        );
+      }
+
+      if (voiceId.isEmpty) {
+        throw OfflineEngineException(
+          'No voice assigned to segment ${segment.id}.',
+        );
+      }
+
+      if (project.characterVoices[speakerId] != voiceId) {
+        throw OfflineEngineException(
+          'Character voice assignment mismatch for segment ${segment.id}.',
+        );
+      }
+
+      final profile = VoiceCatalog.byId(voiceId);
+
+      if (profile.language != project.targetLanguage) {
+        throw OfflineEngineException(
+          'Voice $voiceId does not support the target language.',
+        );
+      }
+
+      final installed = VoiceCatalog.installedModel(voiceId);
+
+      if (installed == null) {
+        throw OfflineEngineException(
+          'Character voice $voiceId is not installed.',
+        );
+      }
+
+      final config = installed.config;
+
+      voiceModels[voiceId] = {
+        'model_id': installed.modelId,
+        'profile_id': installed.profileId,
+        'model_path': config.modelPath,
+        'config_path': config.configPath,
+        'architecture': config.architecture,
+        'language': config.language,
+        'sample_rate': config.sampleRate,
+        'num_speakers': config.numSpeakers,
+        'speaker_id_map': config.speakers,
+      };
+    }
+
+    if (voiceModels.isEmpty) {
+      throw OfflineEngineException(
+        'No usable character voice models were assigned.',
+      );
     }
 
     return _invoke('synthesize', {
-      'voice_model_path': config.modelPath,
-      'voice_config_path': config.configPath,
-      'voice_architecture': config.architecture,
-      'sample_rate': config.sampleRate,
-      'num_speakers': config.numSpeakers,
-      'speaker_id_map': config.speakers,
       'target_language': project.targetLanguage,
       'segments': project.segments
           .map((segment) => segment.toJson())
           .toList(),
-      'character_voices': project.characterVoices,
+      'character_voices':
+          Map<String, String>.from(project.characterVoices),
+      'voice_models': voiceModels,
     });
   }
 
@@ -245,4 +291,3 @@ class OfflineEngine {
     return reply;
   }
 }
-
