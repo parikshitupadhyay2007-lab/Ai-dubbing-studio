@@ -1,7 +1,9 @@
 
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 
 enum AiModel {
@@ -40,6 +42,8 @@ extension AiModelName on AiModel {
         AiModel.englishVoice => '.onnx',
         AiModel.otakuMind => '.gguf',
       };
+
+  String get assetPath => 'assets/models/$filename';
 }
 
 class ModelManager {
@@ -50,48 +54,88 @@ class ModelManager {
       '${documents.path}/otakudub/models',
     );
 
-    if (!await folder.exists()) {
-      await folder.create(recursive: true);
-    }
-
+    await folder.create(recursive: true);
     return folder;
   }
 
   Future<File> modelFile(AiModel model) async {
     final folder = await directory;
-
-    return File(
-      '${folder.path}/${model.filename}',
-    );
+    return File('${folder.path}/${model.filename}');
   }
 
-  Future<bool> installed(AiModel model) async {
-    final file = await modelFile(model);
+  Future<bool> _valid(File file) async {
+    return await file.exists() && await file.length() > 0;
+  }
 
-    if (!await file.exists()) {
+  /// Extracts a bundled model only when no installed copy exists.
+  Future<bool> ensureBundledModel(AiModel model) async {
+    final destination = await modelFile(model);
+
+    if (await _valid(destination)) return true;
+
+    ByteData data;
+
+    try {
+      data = await rootBundle.load(model.assetPath);
+    } on FlutterError {
+      // This model has not yet been included in the APK.
       return false;
     }
 
-    return await file.length() > 0;
+    if (data.lengthInBytes == 0) return false;
+
+    final bytes = Uint8List.sublistView(data);
+    final temporary = File('${destination.path}.extracting');
+
+    try {
+      if (await temporary.exists()) {
+        await temporary.delete();
+      }
+
+      await temporary.writeAsBytes(bytes, flush: true);
+
+      if (await temporary.length() != bytes.length) {
+        throw StateError(
+          '${model.displayName}: extraction verification failed.',
+        );
+      }
+
+      if (await destination.exists()) {
+        await destination.delete();
+      }
+
+      await temporary.rename(destination.path);
+      return true;
+    } finally {
+      if (await temporary.exists()) {
+        await temporary.delete();
+      }
+    }
+  }
+
+  /// Installs every model that is actually bundled in the APK.
+  Future<Map<String, bool>> installBundledModels() async {
+    final result = <String, bool>{};
+
+    for (final model in AiModel.values) {
+      result[model.name] = await ensureBundledModel(model);
+    }
+
+    return result;
+  }
+
+  Future<bool> installed(AiModel model) async {
+    return ensureBundledModel(model);
   }
 
   Future<String?> path(AiModel model) async {
-    if (!await installed(model)) {
-      return null;
-    }
-
-    final file = await modelFile(model);
-    return file.path;
+    if (!await ensureBundledModel(model)) return null;
+    return (await modelFile(model)).path;
   }
 
   Future<int> modelSize(AiModel model) async {
-    final file = await modelFile(model);
-
-    if (!await file.exists()) {
-      return 0;
-    }
-
-    return file.length();
+    if (!await ensureBundledModel(model)) return 0;
+    return (await modelFile(model)).length();
   }
 
   Future<bool> importModel(AiModel model) async {
@@ -108,32 +152,19 @@ class ModelManager {
     final selectedPath = selection.files.single.path;
 
     if (selectedPath == null || selectedPath.isEmpty) {
+      throw StateError('Selected file could not be accessed.');
+    }
+
+    if (!selectedPath.toLowerCase().endsWith(model.extension)) {
       throw StateError(
-        'The selected file could not be accessed.',
+        '${model.displayName} requires ${model.extension}.',
       );
     }
 
     final source = File(selectedPath);
 
-    if (!await source.exists()) {
-      throw StateError(
-        'The selected model file does not exist.',
-      );
-    }
-
-    final sourceSize = await source.length();
-
-    if (sourceSize <= 0) {
-      throw StateError(
-        'The selected model file is empty.',
-      );
-    }
-
-    if (!selectedPath.toLowerCase().endsWith(model.extension)) {
-      throw StateError(
-        '${model.displayName} requires a '
-        '${model.extension} model file.',
-      );
+    if (!await _valid(source)) {
+      throw StateError('Selected model is missing or empty.');
     }
 
     final destination = await modelFile(model);
@@ -142,9 +173,7 @@ class ModelManager {
       return true;
     }
 
-    final temporary = File(
-      '${destination.path}.importing',
-    );
+    final temporary = File('${destination.path}.importing');
 
     try {
       if (await temporary.exists()) {
@@ -153,12 +182,8 @@ class ModelManager {
 
       await source.copy(temporary.path);
 
-      final copiedSize = await temporary.length();
-
-      if (copiedSize != sourceSize) {
-        throw StateError(
-          'Model import failed: copied file size does not match.',
-        );
+      if (await temporary.length() != await source.length()) {
+        throw StateError('Model copy verification failed.');
       }
 
       if (await destination.exists()) {
@@ -166,7 +191,6 @@ class ModelManager {
       }
 
       await temporary.rename(destination.path);
-
       return true;
     } finally {
       if (await temporary.exists()) {
@@ -188,12 +212,12 @@ class ModelManager {
   }
 
   Future<Map<String, bool>> installationStatus() async {
-    final status = <String, bool>{};
+    final result = <String, bool>{};
 
     for (final model in AiModel.values) {
-      status[model.name] = await installed(model);
+      result[model.name] = await installed(model);
     }
 
-    return status;
+    return result;
   }
 }
