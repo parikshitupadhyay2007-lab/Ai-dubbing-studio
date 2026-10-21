@@ -44,6 +44,11 @@ object SeparationMdxCompatibility {
                 "This MDX integration requires exactly one input."
         }
 
+        if (inspection.outputs.size != 1) {
+            reasons +=
+                "This MDX integration requires exactly one output."
+        }
+
         val input = inspection.inputs.firstOrNull {
             it.name == inputName
         }
