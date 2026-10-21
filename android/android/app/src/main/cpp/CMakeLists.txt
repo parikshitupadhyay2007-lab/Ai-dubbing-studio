@@ -145,9 +145,17 @@ target_include_directories(
 target_link_libraries(
     otakudub_phonemizer
     PRIVATE
-    # Link the library without inheriting its PUBLIC compat include directory.
-    # compat/wctype.h shadows the Android NDK's standard wctype.h in C++.
     $<LINK_ONLY:espeak-ng>
     ${ANDROID_LOG_LIB}
 )
+
+# eSpeak also adds compat through directory-scoped include settings.
+# Explicitly restrict this C++ JNI translation unit to the public API
+# include directory; compat/wctype.h must not shadow the NDK wctype.h.
+set_property(TARGET otakudub_phonemizer PROPERTY INCLUDE_DIRECTORIES
+    "${ESPEAK_DIR}/src/include"
+)
+set_property(TARGET otakudub_phonemizer PROPERTY INTERFACE_INCLUDE_DIRECTORIES "")
+get_target_property(PHONEMIZER_INCLUDES otakudub_phonemizer INCLUDE_DIRECTORIES)
+message(STATUS "Phonemizer direct includes: ${PHONEMIZER_INCLUDES}")
 
