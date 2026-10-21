@@ -108,7 +108,7 @@ class MainActivity : FlutterActivity() {
                                 language
                             ).mapIndexed { index, segment ->
                                 mapOf(
-                                    "id" to "segment_$index",
+                                    "id" to index,
                                     "start" to (segment["start"] ?: 0.0),
                                     "end" to (segment["end"] ?: 0.0),
                                     "original" to (
