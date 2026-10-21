@@ -106,6 +106,10 @@ android {
             cmake {
                 cppFlags.add("-std=c++17")
                 abiFilters.add("arm64-v8a")
+                // Build only JNI libraries; upstream eSpeak ALL targets run an
+                // ARM64 executable to generate data and cannot run on Linux.
+                targets.add("otakudub_native")
+                targets.add("otakudub_phonemizer")
             }
         }
     }
