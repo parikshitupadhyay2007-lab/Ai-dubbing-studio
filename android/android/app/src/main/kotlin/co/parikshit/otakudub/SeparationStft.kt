@@ -1,3 +1,4 @@
+
 package co.parikshit.otakudub
 
 import kotlin.math.PI
@@ -6,12 +7,9 @@ import kotlin.math.cos
 /**
  * Stereo Short-Time Fourier Transform.
  *
- * Supported FFT sizes:
- * - Powers of two
- * - 6144 (mixed radix)
+ * Supports power-of-two FFT sizes and 6144-point mixed-radix FFT.
  *
- * Model-specific tensor formatting, normalization and
- * frequency cropping are handled separately.
+ * Model-specific preprocessing is handled separately.
  */
 object SeparationStft {
 
@@ -98,7 +96,13 @@ object SeparationStft {
         val frameCountLong = if (paddedLength <= fftSize) {
             1L
         } else {
-            (paddedLength - fftSize) / hopSize + 1L
+            val remaining = paddedLength - fftSize
+
+            // Ceiling division ensures the final samples
+            // are covered even when the length is not
+            // divisible by the hop size.
+            1L + remaining / hopSize +
+                if (remaining % hopSize != 0L) 1L else 0L
         }
 
         require(frameCountLong <= Int.MAX_VALUE) {
@@ -203,7 +207,7 @@ object SeparationStft {
         }
 
         val reconstructedLength =
-            (spectrum.frameCount - 1).toLong() *
+            (spectrum.frameCount.toLong() - 1L) *
                 hopSize + fftSize
 
         require(reconstructedLength <= Int.MAX_VALUE) {
@@ -238,7 +242,6 @@ object SeparationStft {
                 imaginary[fftSize - bin] = -imaginary[bin]
             }
 
-            // DC and Nyquist bins must be real-valued.
             imaginary[0] = 0.0
             imaginary[fftSize / 2] = 0.0
 
@@ -266,18 +269,19 @@ object SeparationStft {
 
         val result = FloatArray(originalFrames)
 
+        require(
+            originalFrames.toLong() + padding <=
+                reconstructedLength
+        ) {
+            "Spectrogram does not cover the original audio length."
+        }
+
         for (index in result.indices) {
-            val position = index.toLong() + padding
-
-            if (position >= output.size) {
-                continue
-            }
-
-            val positionIndex = position.toInt()
-            val weight = normalization[positionIndex]
+            val position = index + padding
+            val weight = normalization[position]
 
             result[index] = if (weight > 1e-10) {
-                (output[positionIndex] / weight).toFloat()
+                (output[position] / weight).toFloat()
             } else {
                 0f
             }
@@ -297,3 +301,4 @@ object SeparationStft {
         }
     }
 }
+
