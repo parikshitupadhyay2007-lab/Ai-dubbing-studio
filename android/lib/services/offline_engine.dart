@@ -75,6 +75,32 @@ class OfflineEngine {
     }
   }
 
+  /// Inspects an installed ONNX separation model.
+  ///
+  /// Returns its input and output tensor metadata.
+  /// This does not execute audio separation.
+  Future<Map<String, dynamic>> inspectSeparationModel(
+    String modelPath,
+  ) async {
+    if (modelPath.trim().isEmpty) {
+      throw OfflineEngineException(
+        'Separation model path is required.',
+      );
+    }
+
+    final model = File(modelPath);
+
+    if (!await model.exists()) {
+      throw OfflineEngineException(
+        'Separation model file does not exist.',
+      );
+    }
+
+    return _invoke('inspectSeparationModel', {
+      'model_path': modelPath,
+    });
+  }
+
   Future<Map<String, dynamic>> transcribe(
     DubProject project,
   ) async {
@@ -245,8 +271,8 @@ class OfflineEngine {
     });
   }
 
-  /// Places individual synthesized WAV clips onto
-  /// the original video's dialogue timeline.
+  /// Places synthesized WAV clips onto the source video's
+  /// dialogue timeline.
   Future<Map<String, dynamic>> mixDialogue(
     DubProject project,
     List<dynamic> audioClips,
@@ -291,8 +317,8 @@ class OfflineEngine {
     return result;
   }
 
-  /// Exports a dubbed MP4 using the original video
-  /// stream and the synchronized dialogue WAV.
+  /// Exports a dubbed MP4 using the original video stream
+  /// and synchronized dialogue WAV.
   ///
   /// The original soundtrack is replaced, not mixed.
   Future<Map<String, dynamic>> exportVideo(
