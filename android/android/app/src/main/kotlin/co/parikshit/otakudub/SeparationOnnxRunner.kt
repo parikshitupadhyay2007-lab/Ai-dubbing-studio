@@ -1,7 +1,7 @@
 package co.parikshit.otakudub
 
 import ai.onnxruntime.OnnxTensor
-import ai.onnxruntime.OnnxTensorInfo
+import ai.onnxruntime.TensorInfo
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
 import java.io.Closeable
@@ -47,7 +47,7 @@ class SeparationOnnxRunner(
             try {
                 val inspection = SeparationModelInspector.Inspection(
                     inputs = session.inputInfo.map { (name, node) ->
-                        val info = node.info as? OnnxTensorInfo
+                        val info = node.info as? TensorInfo
                             ?: error("Unsupported input node: $name")
 
                         SeparationModelInspector.TensorDescription(
@@ -57,7 +57,7 @@ class SeparationOnnxRunner(
                         )
                     },
                     outputs = session.outputInfo.map { (name, node) ->
-                        val info = node.info as? OnnxTensorInfo
+                        val info = node.info as? TensorInfo
                             ?: error("Unsupported output node: $name")
 
                         SeparationModelInspector.TensorDescription(
@@ -138,7 +138,7 @@ class SeparationOnnxRunner(
                             "ONNX output is not a tensor: $name"
                         )
 
-                    val info = tensor.info as? OnnxTensorInfo
+                    val info = tensor.info as? TensorInfo
                         ?: error(
                             "Invalid ONNX output metadata: $name"
                         )
