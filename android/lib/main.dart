@@ -9,6 +9,7 @@ import 'services/dubbing_pipeline.dart';
 import 'services/model_manager.dart';
 import 'services/offline_engine.dart';
 import 'services/project_repository.dart';
+import 'services/voice_installation_registry.dart';
 
 const bg = Color(0xFF080817);
 const panel = Color(0xFF15152E);
@@ -16,8 +17,15 @@ const violet = Color(0xFF9F51FF);
 const cyan = Color(0xFF45DEFF);
 const pink = Color(0xFFFF58D0);
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  try {
+    await const VoiceInstallationRegistry().restore();
+  } catch (error) {
+    debugPrint('Voice restoration failed: $error');
+  }
+
   runApp(const OtakuDubApp());
 }
 
@@ -428,7 +436,13 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
     final picked = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: const [
-        'mp4', 'mkv', 'mov', 'webm', 'mp3', 'wav', 'm4a',
+        'mp4',
+        'mkv',
+        'mov',
+        'webm',
+        'mp3',
+        'wav',
+        'm4a',
       ],
     );
 
@@ -912,3 +926,4 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
     );
   }
 }
+
