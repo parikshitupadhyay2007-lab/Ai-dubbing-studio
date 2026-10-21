@@ -24,6 +24,29 @@ class OfflineEngine {
 
   OfflineEngine(this.models);
 
+  /// Runs native FFT and STFT numerical diagnostics.
+  ///
+  /// Returns an overall pass/fail status and four individual
+  /// reconstruction test results.
+  ///
+  /// No ONNX model is required for these tests.
+  Future<Map<String, dynamic>>
+      validateSeparationTransforms() async {
+    final response = await _invoke(
+      'validateSeparationTransforms',
+      <String, dynamic>{},
+    );
+
+    if (response['passed'] is! bool ||
+        response['tests'] is! List) {
+      throw OfflineEngineException(
+        'Invalid separation validation report.',
+      );
+    }
+
+    return response;
+  }
+
   Future<void> verifyRuntime() async {
     try {
       final ready = await _channel.invokeMethod<bool>(
