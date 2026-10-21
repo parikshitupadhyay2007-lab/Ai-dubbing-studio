@@ -1,4 +1,4 @@
-
+  
 name: Build OtakuDub APK
 
 on:
@@ -7,16 +7,25 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
+      # =====================================
       # 1. CHECKOUT REPOSITORY
+      # =====================================
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. DIAGNOSE PROJECT STRUCTURE
-      - name: Diagnose and verify project files
+      # =====================================
+      # 2. VERIFY PROJECT STRUCTURE
+      # =====================================
+
+      - name: Verify OtakuDub project files
         shell: bash
         run: |
+          set -e
+
           echo "===== BUILD INFORMATION ====="
           echo "Branch: $GITHUB_REF_NAME"
           echo "Commit: $GITHUB_SHA"
@@ -24,14 +33,6 @@ jobs:
 
           echo "===== REPOSITORY ROOT ====="
           ls -la
-
-          echo "===== ANDROID DIRECTORY ====="
-          if [ -d android ]; then
-            ls -la android
-          else
-            echo "ERROR: android directory missing"
-            exit 1
-          fi
 
           echo "===== REQUIRED FILES ====="
 
@@ -48,28 +49,38 @@ jobs:
             fi
           done
 
-          echo "SUCCESS: All required files found"
+          echo "OtakuDub project structure verified."
 
+      # =====================================
       # 3. INSTALL JAVA
-      - name: Install Java
+      # =====================================
+
+      - name: Install Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      # 4. INSTALL FLUTTER  
+      # =====================================
+      # 4. INSTALL FLUTTER
+      # =====================================
+
       - name: Install Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          cache: true
+
+      # =====================================
+      # 5. PREPARE ANDROID SDK
+      # =====================================
 
       - name: Prepare Android SDK
         shell: bash
         run: |
           set -e
+
           echo "ANDROID_HOME=$ANDROID_HOME"
-          df -h
-          ls -la "$ANDROID_HOME/ndk" || true
 
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
             --licenses > /dev/null || true
@@ -78,29 +89,46 @@ jobs:
             "platforms;android-36" \
             "build-tools;36.0.0"
 
+      # =====================================
+      # 6. GENERATE ANDROID PLATFORM
+      # =====================================
+
       - name: Generate Android platform
         working-directory: android
-        run: flutter create --platforms=android .
+        shell: bash
+        run: |
+          set -e
 
+          flutter create --platforms=android .
 
-      # 5. GENERATE ANDROID PLATFORM FILES
-      - name: Generate Android platform files
-        working-directory: android
-        run: flutter create --platforms=android .
+          test -f android/app/build.gradle.kts
+          test -f android/app/src/main/AndroidManifest.xml
 
-      # 6. INSTALL DEPENDENCIES
+          echo "Android platform generated successfully."
+
+      # =====================================
+      # 7. INSTALL FLUTTER DEPENDENCIES
+      # =====================================
+
       - name: Install dependencies
         working-directory: android
         run: flutter pub get
 
-      # 7. GENERATE OTAKUDUB ICON
+      # =====================================
+      # 8. GENERATE OTAKUDUB ICON
+      # =====================================
+
       - name: Generate OtakuDub launcher icon
         working-directory: android
         run: dart run flutter_launcher_icons
 
-      # 8. SET ANDROID APP NAME
-      - name: Set Android app name
+      # =====================================
+      # 9. SET ANDROID APP NAME
+      # =====================================
+
+      - name: Configure OtakuDub app name
         working-directory: android
+        shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -114,29 +142,35 @@ jobs:
 
           content, count = re.subn(
               r'android:label="[^"]*"',
-              'android:label="OtakuDub"',
+              'android:label="オタクダブ"',
               content,
               count=1
           )
 
           if count != 1:
               raise SystemExit(
-                  "Could not update Android app name"
+                  "Could not configure Android app name."
               )
 
           manifest.write_text(content)
-          print("Android launcher name: OtakuDub")
+
+          print("App name configured: オタクダブ")
           PY
 
-      # 9. CONFIGURE ANDROID SDK 36
+      # =====================================
+      # 10. CONFIGURE ANDROID SDK 36
+      # =====================================
+
       - name: Configure Android SDK 36
         working-directory: android
+        shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
           import re
 
           app = Path("android/app/build.gradle.kts")
+
           content = app.read_text()
 
           content, count = re.subn(
@@ -147,22 +181,20 @@ jobs:
 
           if count != 1:
               raise SystemExit(
-                  "Could not configure app SDK"
+                  "Could not configure app compileSdk."
               )
 
           app.write_text(content)
+
           print("App compileSdk = 36")
 
           cache = Path.home() / ".pub-cache"
 
-          plugins = list(cache.glob(
-              "hosted/pub.dev/file_picker-*/android/build.gradle"
-          ))
-
-          if not plugins:
-              raise SystemExit(
-                  "file_picker Gradle file not found"
+          plugins = list(
+              cache.glob(
+                  "hosted/pub.dev/file_picker-*/android/build.gradle"
               )
+          )
 
           for plugin in plugins:
               content = plugin.read_text()
@@ -195,26 +227,36 @@ jobs:
 
               print(f"Updated plugin: {plugin}")
 
-              matches = re.findall(
-                  r'(?m)^\s*compileSdk[^\r\n]*',
-                  content
-              )
-
-              print(
-                  "Plugin SDK settings:",
-                  matches
-              )
           PY
 
-      # 10. BUILD APK
+      # =====================================
+      # 11. VERIFY FLUTTER PROJECT
+      # =====================================
+
+      - name: Verify Flutter installation
+        working-directory: android
+        shell: bash
+        run: |
+          flutter --version
+          flutter pub get
+
+      # =====================================
+      # 12. BUILD OTAKUDUB APK
+      # =====================================
+
       - name: Build OtakuDub APK
         working-directory: android
         run: flutter build apk --debug
 
-      # 11. UPLOAD APK
+      # =====================================
+      # 13. UPLOAD APK
+      # =====================================
+
       - name: Upload OtakuDub APK
         uses: actions/upload-artifact@v4
         with:
-          name: OtakuDub-APK
+          name: OtakuDub-Offline-V4-APK
           path: android/build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
+          retention-days: 7
+    
