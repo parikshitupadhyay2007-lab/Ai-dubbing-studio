@@ -1,3 +1,4 @@
+
 package co.parikshit.otakudub
 
 import io.flutter.embedding.android.FlutterActivity
@@ -21,15 +22,20 @@ class MainActivity : FlutterActivity() {
     }
 
     private val executor = Executors.newSingleThreadExecutor()
+
     private var loadedModelPath: String? = null
 
     private external fun nativeLoadModel(path: String): Boolean
+
     private external fun nativeGenerate(
         prompt: String,
         maxTokens: Int
     ): String
+
     private external fun nativeRelease()
+
     private external fun nativeIsLoaded(): Boolean
+
     private external fun nativeTranscribeWav(
         modelPath: String,
         wavPath: String,
@@ -48,7 +54,9 @@ class MainActivity : FlutterActivity() {
 
             when (call.method) {
 
-                "runtimeReady" -> result.success(nativeAvailable)
+                "runtimeReady" -> {
+                    result.success(nativeAvailable)
+                }
 
                 "transcribe" -> {
                     if (!nativeAvailable) {
@@ -60,8 +68,12 @@ class MainActivity : FlutterActivity() {
                         return@setMethodCallHandler
                     }
 
-                    val source = call.argument<String>("source_path")
-                    val model = call.argument<String>("model_path")
+                    val source =
+                        call.argument<String>("source_path")
+
+                    val model =
+                        call.argument<String>("model_path")
+
                     val language =
                         call.argument<String>("language") ?: "auto"
 
@@ -98,8 +110,10 @@ class MainActivity : FlutterActivity() {
                             ).mapIndexed { index, segment ->
                                 mapOf(
                                     "id" to index,
-                                    "start" to (segment["start"] ?: 0.0),
-                                    "end" to (segment["end"] ?: 0.0),
+                                    "start" to
+                                        (segment["start"] ?: 0.0),
+                                    "end" to
+                                        (segment["end"] ?: 0.0),
                                     "original" to
                                         (segment["original"] ?: ""),
                                     "translation" to "",
@@ -117,11 +131,13 @@ class MainActivity : FlutterActivity() {
                                     )
                                 )
                             }
+
                         } catch (error: Exception) {
                             runOnUiThread {
                                 result.error(
                                     "TRANSCRIPTION_ERROR",
-                                    error.message ?: "Transcription failed.",
+                                    error.message
+                                        ?: "Transcription failed.",
                                     null
                                 )
                             }
@@ -132,7 +148,9 @@ class MainActivity : FlutterActivity() {
                 }
 
                 "identifySpeakers" -> {
-                    val source = call.argument<String>("source_path")
+                    val source =
+                        call.argument<String>("source_path")
+
                     val segments =
                         call.argument<List<Map<String, Any?>>>(
                             "segments"
@@ -163,16 +181,20 @@ class MainActivity : FlutterActivity() {
                                 wav.absolutePath
                             )
 
-                            val identified = SpeakerDiarizer.identify(
-                                wav.absolutePath,
-                                segments
-                            )
+                            val identified =
+                                SpeakerDiarizer.identify(
+                                    wav.absolutePath,
+                                    segments
+                                )
 
                             runOnUiThread {
                                 result.success(
-                                    mapOf("segments" to identified)
+                                    mapOf(
+                                        "segments" to identified
+                                    )
                                 )
                             }
+
                         } catch (error: Exception) {
                             runOnUiThread {
                                 result.error(
@@ -214,7 +236,9 @@ class MainActivity : FlutterActivity() {
                 }
 
                 "chat" -> {
-                    val model = call.argument<String>("model_path")
+                    val model =
+                        call.argument<String>("model_path")
+
                     val message =
                         call.argument<String>("message") ?: ""
 
@@ -258,9 +282,12 @@ class MainActivity : FlutterActivity() {
 
                             runOnUiThread {
                                 result.success(
-                                    mapOf("reply" to reply.trim())
+                                    mapOf(
+                                        "reply" to reply.trim()
+                                    )
                                 )
                             }
+
                         } catch (error: Exception) {
                             runOnUiThread {
                                 result.error(
@@ -273,11 +300,79 @@ class MainActivity : FlutterActivity() {
                     }
                 }
 
-                "synthesize",
+                /*
+                 * Offline Piper speech synthesis.
+                 *
+                 * Receives the parsed voice models, character
+                 * assignments and translated dialogue.
+                 *
+                 * Returns individual WAV clips with timestamps.
+                 */
+                "synthesize" -> {
+                    executor.execute {
+                        try {
+                            val request =
+                                VoiceSynthesisRequest.parse(
+                                    call.arguments
+                                )
+
+                            val directory = File(
+                                filesDir,
+                                "synthesis/${System.nanoTime()}"
+                            )
+
+                            val clips = PiperSpeechSynthesizer(
+                                applicationContext
+                            ).use { synthesizer ->
+                                synthesizer.synthesize(
+                                    request,
+                                    directory
+                                )
+                            }
+
+                            val output = clips.map { clip ->
+                                mapOf(
+                                    "segment_id" to clip.segmentId,
+                                    "speaker_id" to clip.speakerId,
+                                    "voice_id" to clip.voiceId,
+                                    "start" to clip.start,
+                                    "end" to clip.end,
+                                    "wav_path" to clip.wavPath,
+                                    "sample_rate" to clip.sampleRate
+                                )
+                            }
+
+                            runOnUiThread {
+                                result.success(
+                                    mapOf(
+                                        "clips" to output,
+                                        "output_directory" to
+                                            directory.absolutePath
+                                    )
+                                )
+                            }
+
+                        } catch (error: Exception) {
+                            runOnUiThread {
+                                result.error(
+                                    "SYNTHESIS_ERROR",
+                                    error.message
+                                        ?: "Speech synthesis failed.",
+                                    null
+                                )
+                            }
+                        }
+                    }
+                }
+
+                /*
+                 * Video export will be connected after
+                 * dialogue synchronization and audio mixing.
+                 */
                 "exportVideo" -> {
                     result.error(
                         "ENGINE_NOT_INTEGRATED",
-                        "${call.method} is not implemented yet.",
+                        "Video export is not implemented yet.",
                         null
                     )
                 }
@@ -315,15 +410,27 @@ class MainActivity : FlutterActivity() {
                 ensureMindLoaded(model)
 
                 val output = segments.map { segment ->
+
                     val original =
-                        segment["original"]?.toString()?.trim().orEmpty()
+                        segment["original"]
+                            ?.toString()
+                            ?.trim()
+                            .orEmpty()
 
                     val existing =
-                        segment["translation"]?.toString()?.trim().orEmpty()
+                        segment["translation"]
+                            ?.toString()
+                            ?.trim()
+                            .orEmpty()
 
-                    val input = if (refine) existing else original
+                    val input =
+                        if (refine) existing else original
 
-                    if (refine && input.isBlank() && original.isNotBlank()) {
+                    if (
+                        refine &&
+                        input.isBlank() &&
+                        original.isNotBlank()
+                    ) {
                         throw IllegalStateException(
                             "Translation missing for segment ${segment["id"]}."
                         )
@@ -376,8 +483,11 @@ class MainActivity : FlutterActivity() {
                 }
 
                 runOnUiThread {
-                    result.success(mapOf("segments" to output))
+                    result.success(
+                        mapOf("segments" to output)
+                    )
                 }
+
             } catch (error: Exception) {
                 runOnUiThread {
                     result.error(
@@ -386,7 +496,8 @@ class MainActivity : FlutterActivity() {
                         } else {
                             "TRANSLATION_ERROR"
                         },
-                        error.message ?: "Dialogue processing failed.",
+                        error.message
+                            ?: "Dialogue processing failed.",
                         null
                     )
                 }
@@ -399,8 +510,13 @@ class MainActivity : FlutterActivity() {
         sourceLanguage: String,
         targetLanguage: String
     ): String {
+
         val target =
-            if (targetLanguage == "hi") "Hindi" else "English"
+            if (targetLanguage == "hi") {
+                "Hindi"
+            } else {
+                "English"
+            }
 
         val source = when (sourceLanguage) {
             "ja" -> "Japanese"
@@ -430,16 +546,24 @@ class MainActivity : FlutterActivity() {
         targetLanguage: String,
         segment: Map<String, Any?>
     ): String {
+
         val target =
-            if (targetLanguage == "hi") "Hindi" else "English"
+            if (targetLanguage == "hi") {
+                "Hindi"
+            } else {
+                "English"
+            }
 
-        val start = (segment["start"] as? Number)
-            ?.toDouble() ?: 0.0
+        val start =
+            (segment["start"] as? Number)
+                ?.toDouble() ?: 0.0
 
-        val end = (segment["end"] as? Number)
-            ?.toDouble() ?: start
+        val end =
+            (segment["end"] as? Number)
+                ?.toDouble() ?: start
 
-        val duration = (end - start).coerceAtLeast(0.0)
+        val duration =
+            (end - start).coerceAtLeast(0.0)
 
         return """
             You are OtakuMind, an anime dubbing dialogue editor.
@@ -465,7 +589,10 @@ class MainActivity : FlutterActivity() {
         """.trimIndent()
     }
 
-    private fun cleanDialogue(response: String): String {
+    private fun cleanDialogue(
+        response: String
+    ): String {
+
         val line = response
             .substringBefore("\n\n")
             .lineSequence()
@@ -482,7 +609,9 @@ class MainActivity : FlutterActivity() {
             .trim()
     }
 
-    private fun ensureMindLoaded(path: String) {
+    private fun ensureMindLoaded(
+        path: String
+    ) {
         if (
             loadedModelPath == path &&
             nativeIsLoaded()
@@ -509,6 +638,7 @@ class MainActivity : FlutterActivity() {
         }
 
         executor.shutdown()
+
         super.onDestroy()
     }
 }
