@@ -1,4 +1,4 @@
-  
+
 name: Build OtakuDub APK
 
 on:
@@ -7,39 +7,33 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
 
     steps:
-      # =====================================
       # 1. CHECKOUT REPOSITORY
-      # =====================================
 
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # =====================================
       # 2. VERIFY PROJECT STRUCTURE
-      # =====================================
 
       - name: Verify OtakuDub project files
         shell: bash
         run: |
-          set -e
+          set -euo pipefail
 
           echo "===== BUILD INFORMATION ====="
           echo "Branch: $GITHUB_REF_NAME"
           echo "Commit: $GITHUB_SHA"
-          echo "Working directory: $(pwd)"
-
-          echo "===== REPOSITORY ROOT ====="
-          ls -la
-
-          echo "===== REQUIRED FILES ====="
 
           for file in \
             android/pubspec.yaml \
             android/lib/main.dart \
-            android/assets/otakudub_icon.png
+            android/assets/otakudub_icon.png \
+            android/android/app/build.gradle.kts \
+            android/android/app/src/main/kotlin/co/parikshit/otakudub/MainActivity.kt \
+            android/android/app/src/main/cpp/CMakeLists.txt \
+            android/android/app/src/main/cpp/otakudub_jni.cpp
           do
             if [ -f "$file" ]; then
               echo "FOUND: $file"
@@ -49,11 +43,7 @@ jobs:
             fi
           done
 
-          echo "OtakuDub project structure verified."
-
-      # =====================================
-      # 3. INSTALL JAVA
-      # =====================================
+      # 3. INSTALL JAVA 17
 
       - name: Install Java 17
         uses: actions/setup-java@v4
@@ -61,9 +51,7 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      # =====================================
       # 4. INSTALL FLUTTER
-      # =====================================
 
       - name: Install Flutter
         uses: subosito/flutter-action@v2
@@ -71,60 +59,78 @@ jobs:
           channel: stable
           cache: true
 
-      # =====================================
       # 5. PREPARE ANDROID SDK
-      # =====================================
 
       - name: Prepare Android SDK
         shell: bash
         run: |
-          set -e
-
-          echo "ANDROID_HOME=$ANDROID_HOME"
+          set -euo pipefail
 
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
             --licenses > /dev/null || true
 
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
             "platforms;android-36" \
-            "build-tools;36.0.0"
+            "build-tools;36.0.0" \
+            "cmake;3.22.1" \
+            "ndk;27.0.12077973"
 
-      # =====================================
-      # 6. GENERATE ANDROID PLATFORM
-      # =====================================
+      # 6. GENERATE ANDROID PLATFORM SAFELY
 
-      - name: Generate Android platform
+      - name: Generate Android platform safely
         working-directory: android
         shell: bash
         run: |
-          set -e
+          set -euo pipefail
+
+          BACKUP="$(mktemp -d)"
+
+          echo "Backing up OtakuDub native files..."
+
+          cp -a android/app/src/main/kotlin "$BACKUP/kotlin"
+          cp -a android/app/src/main/cpp "$BACKUP/cpp"
+          cp android/app/build.gradle.kts "$BACKUP/build.gradle.kts"
+
+          echo "Generating Flutter Android platform..."
 
           flutter create --platforms=android .
 
+          echo "Restoring OtakuDub native files..."
+
+          mkdir -p android/app/src/main
+
+          rm -rf android/app/src/main/kotlin
+          cp -a "$BACKUP/kotlin" android/app/src/main/kotlin
+
+          rm -rf android/app/src/main/cpp
+          cp -a "$BACKUP/cpp" android/app/src/main/cpp
+
+          cp "$BACKUP/build.gradle.kts" android/app/build.gradle.kts
+
           test -f android/app/build.gradle.kts
           test -f android/app/src/main/AndroidManifest.xml
+          test -f android/app/src/main/kotlin/co/parikshit/otakudub/MainActivity.kt
+          test -f android/app/src/main/cpp/CMakeLists.txt
+          test -f android/app/src/main/cpp/otakudub_jni.cpp
 
-          echo "Android platform generated successfully."
+          echo "Custom Android files restored successfully."
 
-      # =====================================
       # 7. INSTALL FLUTTER DEPENDENCIES
-      # =====================================
 
-      - name: Install dependencies
+      - name: Install Flutter dependencies
         working-directory: android
-        run: flutter pub get
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter pub get
 
-      # =====================================
       # 8. GENERATE OTAKUDUB ICON
-      # =====================================
 
       - name: Generate OtakuDub launcher icon
         working-directory: android
         run: dart run flutter_launcher_icons
 
-      # =====================================
-      # 9. SET ANDROID APP NAME
-      # =====================================
+      # 9. CONFIGURE APP NAME
 
       - name: Configure OtakuDub app name
         working-directory: android
@@ -157,9 +163,7 @@ jobs:
           print("App name configured: オタクダブ")
           PY
 
-      # =====================================
       # 10. CONFIGURE ANDROID SDK 36
-      # =====================================
 
       - name: Configure Android SDK 36
         working-directory: android
@@ -226,37 +230,49 @@ jobs:
               plugin.write_text(content)
 
               print(f"Updated plugin: {plugin}")
-
           PY
 
-      # =====================================
       # 11. VERIFY FLUTTER PROJECT
-      # =====================================
 
       - name: Verify Flutter installation
         working-directory: android
         shell: bash
         run: |
+          set -euo pipefail
+
           flutter --version
           flutter pub get
+          flutter analyze
 
-      # =====================================
-      # 12. BUILD OTAKUDUB APK
-      # =====================================
+      # 12. VERIFY NATIVE DEPENDENCY
+
+      - name: Verify native AI dependency
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          LLAMA_DIR="android/android/app/src/main/cpp/llama.cpp"
+
+          if [ ! -f "$LLAMA_DIR/CMakeLists.txt" ]; then
+            echo "::error::llama.cpp source is missing."
+            echo "A compatible pinned llama.cpp revision must be installed before building."
+            exit 1
+          fi
+
+          echo "llama.cpp source directory found."
+
+      # 13. BUILD OTAKUDUB APK
 
       - name: Build OtakuDub APK
         working-directory: android
         run: flutter build apk --debug
 
-      # =====================================
-      # 13. UPLOAD APK
-      # =====================================
+      # 14. UPLOAD APK
 
       - name: Upload OtakuDub APK
         uses: actions/upload-artifact@v4
         with:
-          name: OtakuDub-Offline-V4-APK
+          name: OtakuDub-Offline-APK
           path: android/build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
           retention-days: 7
-    
