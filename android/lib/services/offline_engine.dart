@@ -1,4 +1,3 @@
-
 import 'package:flutter/services.dart';
 
 import '../models/dub_project.dart';
@@ -47,7 +46,8 @@ class OfflineEngine {
     Map<String, dynamic> arguments,
   ) async {
     try {
-      final response = await _channel.invokeMapMethod<String, dynamic>(
+      final response =
+          await _channel.invokeMapMethod<String, dynamic>(
         method,
         arguments,
       );
@@ -88,21 +88,16 @@ class OfflineEngine {
     });
   }
 
+  // The current speaker clustering baseline uses decoded audio
+  // directly and does not require an external speaker.bin file.
   Future<Map<String, dynamic>> identifySpeakers(
     DubProject project,
-  ) async {
-    final model = await models.path(AiModel.speaker);
-
-    if (model == null) {
-      throw OfflineEngineException(
-        'Speaker identification model is missing.',
-      );
-    }
-
+  ) {
     return _invoke('identifySpeakers', {
       'source_path': project.sourcePath,
-      'model_path': model,
-      'segments': project.segments.map((s) => s.toJson()).toList(),
+      'segments': project.segments
+          .map((segment) => segment.toJson())
+          .toList(),
     });
   }
 
@@ -121,7 +116,9 @@ class OfflineEngine {
       'model_path': model,
       'source_language': project.sourceLanguage,
       'target_language': project.targetLanguage,
-      'segments': project.segments.map((s) => s.toJson()).toList(),
+      'segments': project.segments
+          .map((segment) => segment.toJson())
+          .toList(),
     });
   }
 
@@ -139,7 +136,9 @@ class OfflineEngine {
     return _invoke('refineDialogue', {
       'model_path': model,
       'target_language': project.targetLanguage,
-      'segments': project.segments.map((s) => s.toJson()).toList(),
+      'segments': project.segments
+          .map((segment) => segment.toJson())
+          .toList(),
     });
   }
 
@@ -161,7 +160,9 @@ class OfflineEngine {
     return _invoke('synthesize', {
       'voice_model_path': voicePath,
       'target_language': project.targetLanguage,
-      'segments': project.segments.map((s) => s.toJson()).toList(),
+      'segments': project.segments
+          .map((segment) => segment.toJson())
+          .toList(),
       'character_voices': project.characterVoices,
     });
   }
@@ -178,6 +179,7 @@ class OfflineEngine {
     });
   }
 
+  // Internal OtakuMind access. No public chat screen is required.
   Future<String> chat({
     required String message,
     required String personality,
@@ -188,7 +190,7 @@ class OfflineEngine {
 
     if (model == null) {
       throw OfflineEngineException(
-        'Import a compatible OtakuMind GGUF model first.',
+        'OtakuMind GGUF model is missing.',
       );
     }
 
@@ -204,7 +206,7 @@ class OfflineEngine {
 
     if (reply is! String || reply.trim().isEmpty) {
       throw OfflineEngineException(
-        'Local OtakuMind returned an invalid response.',
+        'OtakuMind returned an invalid response.',
       );
     }
 
