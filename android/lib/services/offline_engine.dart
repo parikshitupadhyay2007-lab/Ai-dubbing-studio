@@ -26,7 +26,7 @@ class OfflineEngine {
 
   /// Runs native FFT and STFT numerical diagnostics.
   ///
-  /// Returns an overall pass/fail status and four individual
+  /// Returns an overall pass/fail status and twelve individual
   /// reconstruction test results.
   ///
   /// No ONNX model is required for these tests.
