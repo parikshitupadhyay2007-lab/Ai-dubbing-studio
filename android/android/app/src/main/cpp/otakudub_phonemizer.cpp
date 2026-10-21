@@ -1,10 +1,10 @@
 
-#include <jni.h>
-#include <espeak-ng/speak_lib.h>
-
 #include <mutex>
 #include <string>
 #include <vector>
+
+#include <jni.h>
+#include <espeak-ng/speak_lib.h>
 
 namespace {
 
