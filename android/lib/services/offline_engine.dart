@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/services.dart';
 
 import '../models/dub_project.dart';
@@ -243,16 +245,105 @@ class OfflineEngine {
     });
   }
 
-  Future<Map<String, dynamic>> exportVideo(
+  /// Places individual synthesized WAV clips onto
+  /// the original video's dialogue timeline.
+  Future<Map<String, dynamic>> mixDialogue(
     DubProject project,
     List<dynamic> audioClips,
-  ) {
-    return _invoke('exportVideo', {
+  ) async {
+    if (audioClips.isEmpty) {
+      throw OfflineEngineException(
+        'Cannot mix an empty dialogue clip list.',
+      );
+    }
+
+    final clips = <Map<String, dynamic>>[];
+
+    for (final item in audioClips) {
+      if (item is! Map) {
+        throw OfflineEngineException(
+          'Invalid synthesized dialogue clip.',
+        );
+      }
+
+      clips.add(Map<String, dynamic>.from(item));
+    }
+
+    final result = await _invoke('mixDialogue', {
       'source_path': project.sourcePath,
-      'audio_clips': audioClips,
-      'preserve_original_audio': true,
-      'reduce_original_volume': true,
+      'clips': clips,
     });
+
+    final wavPath = result['wav_path'];
+
+    if (wavPath is! String || wavPath.isEmpty) {
+      throw OfflineEngineException(
+        'Dialogue mixing returned no WAV path.',
+      );
+    }
+
+    if (!await File(wavPath).exists()) {
+      throw OfflineEngineException(
+        'The synchronized dialogue WAV was not created.',
+      );
+    }
+
+    return result;
+  }
+
+  /// Exports a dubbed MP4 using the original video
+  /// stream and the synchronized dialogue WAV.
+  ///
+  /// The original soundtrack is replaced, not mixed.
+  Future<Map<String, dynamic>> exportVideo(
+    DubProject project,
+    String dialogueWavPath,
+  ) async {
+    final dialogue = File(dialogueWavPath);
+
+    if (!await dialogue.exists()) {
+      throw OfflineEngineException(
+        'Synchronized dialogue WAV is missing.',
+      );
+    }
+
+    final source = File(project.sourcePath);
+
+    if (!await source.exists()) {
+      throw OfflineEngineException(
+        'Original source video is missing.',
+      );
+    }
+
+    final outputDirectory = source.parent;
+
+    final outputPath =
+        '$outputDirectory/OtakuDub-${project.id}.mp4';
+
+    final response = await _invoke('exportVideo', {
+      'source_path': project.sourcePath,
+      'dialogue_wav_path': dialogueWavPath,
+      'output_path': outputPath,
+    });
+
+    final exportedPath = response['output_path'];
+
+    if (exportedPath is! String || exportedPath.isEmpty) {
+      throw OfflineEngineException(
+        'Video export returned no output path.',
+      );
+    }
+
+    final exportedFile = File(exportedPath);
+
+    if (!await exportedFile.exists() ||
+        await exportedFile.length() == 0) {
+      throw OfflineEngineException(
+        'The exported MP4 is missing or empty.',
+      );
+    }
+
+    return response;
   }
 
   // Internal OtakuMind access.
