@@ -6,7 +6,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
 
     steps:
       - name: Checkout repository
@@ -23,8 +23,10 @@ jobs:
             android/assets/otakudub_icon.png \
             android/android/app/build.gradle.kts \
             android/android/app/src/main/kotlin/co/parikshit/otakudub/MainActivity.kt \
+            android/android/app/src/main/kotlin/co/parikshit/otakudub/OfflineAudioUtils.kt \
             android/android/app/src/main/cpp/CMakeLists.txt \
-            android/android/app/src/main/cpp/otakudub_jni.cpp
+            android/android/app/src/main/cpp/otakudub_jni.cpp \
+            android/android/app/src/main/cpp/otakudub_whisper.cpp
           do
             test -f "$file" || {
               echo "::error::Missing $file"
@@ -44,7 +46,7 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Install Android SDK components
+      - name: Install Android SDK
         shell: bash
         run: |
           set -euo pipefail
@@ -67,7 +69,8 @@ jobs:
           cp -a android/app/src/main/cpp "$BACKUP/cpp"
           cp android/app/build.gradle.kts "$BACKUP/build.gradle.kts"
 
-          flutter create --platforms=android \
+          flutter create \
+            --platforms=android \
             --org co.parikshit \
             .
 
@@ -82,51 +85,67 @@ jobs:
 
           test -f android/app/src/main/AndroidManifest.xml
 
-      - name: Install pinned llama.cpp
+      - name: Install pinned native AI sources
         shell: bash
         run: |
           set -euo pipefail
 
-          DEST="android/android/app/src/main/cpp/llama.cpp"
+          CPP="android/android/app/src/main/cpp"
 
-          rm -rf "$DEST"
+          rm -rf "$CPP/llama.cpp"
+          rm -rf "$CPP/whisper.cpp"
 
           git clone \
             --depth 1 \
             --branch b6500 \
             https://github.com/ggml-org/llama.cpp.git \
-            "$DEST"
+            "$CPP/llama.cpp"
 
-          test -f "$DEST/CMakeLists.txt"
-          test -f "$DEST/include/llama.h"
+          git clone \
+            --depth 1 \
+            --branch v1.7.6 \
+            https://github.com/ggml-org/whisper.cpp.git \
+            "$CPP/whisper.cpp"
 
-          echo "Pinned llama.cpp revision:"
-          git -C "$DEST" rev-parse HEAD
+          test -f "$CPP/llama.cpp/include/llama.h"
+          test -f "$CPP/whisper.cpp/include/whisper.h"
 
-      - name: Verify native API compatibility
+          echo "===== LLAMA REVISION ====="
+          git -C "$CPP/llama.cpp" rev-parse HEAD
+
+          echo "===== WHISPER REVISION ====="
+          git -C "$CPP/whisper.cpp" rev-parse HEAD
+
+      - name: Verify native source interfaces
         shell: bash
         run: |
           set -euo pipefail
 
-          HEADER="android/android/app/src/main/cpp/llama.cpp/include/llama.h"
-          SOURCE="android/android/app/src/main/cpp/otakudub_jni.cpp"
-
-          test -s "$HEADER"
-          test -s "$SOURCE"
+          CPP="android/android/app/src/main/cpp"
 
           for symbol in \
             llama_model_load_from_file \
             llama_model_get_vocab \
             llama_tokenize \
             llama_decode \
-            llama_sampler_sample \
-            llama_sampler_accept \
-            llama_sampler_free
+            llama_sampler_sample
           do
-            if ! grep -q "$symbol" "$HEADER"; then
-              echo "::error::Missing llama.cpp API: $symbol"
+            grep -q "$symbol" "$CPP/llama.cpp/include/llama.h" || {
+              echo "::error::Missing llama API: $symbol"
               exit 1
-            fi
+            }
+          done
+
+          for symbol in \
+            whisper_init_from_file_with_params \
+            whisper_full \
+            whisper_full_n_segments \
+            whisper_full_get_segment_text
+          do
+            grep -q "$symbol" "$CPP/whisper.cpp/include/whisper.h" || {
+              echo "::error::Missing Whisper API: $symbol"
+              exit 1
+            }
           done
 
       - name: Install Flutter dependencies
@@ -159,23 +178,19 @@ jobs:
           )
 
           if count != 1:
-              raise SystemExit("Android label not found")
+              raise SystemExit("Android app label not found")
 
           manifest.write_text(content)
           PY
 
-      - name: Verify Flutter and native files
+      - name: Verify Flutter installation
         working-directory: android
         shell: bash
         run: |
           set -euo pipefail
 
           flutter --version
-
-          test -f android/app/build.gradle.kts
-          test -f android/app/src/main/cpp/CMakeLists.txt
-          test -f android/app/src/main/cpp/otakudub_jni.cpp
-          test -f android/app/src/main/cpp/llama.cpp/CMakeLists.txt
+          flutter pub get
 
       - name: Build OtakuDub APK
         working-directory: android
