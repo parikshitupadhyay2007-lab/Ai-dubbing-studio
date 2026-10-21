@@ -58,6 +58,10 @@ kotlin {
     }
 }
 
+dependencies {
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.20.0")
+}
+
 flutter {
     source = "../.."
 }
