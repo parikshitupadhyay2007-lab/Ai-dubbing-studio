@@ -21,6 +21,7 @@ jobs:
             android/pubspec.yaml \
             android/lib/main.dart \
             android/assets/otakudub_icon.png \
+            android/assets/models/README.md \
             android/android/app/build.gradle.kts \
             android/android/app/src/main/kotlin/co/parikshit/otakudub/MainActivity.kt \
             android/android/app/src/main/kotlin/co/parikshit/otakudub/OfflineAudioUtils.kt \
@@ -148,6 +149,29 @@ jobs:
             }
           done
 
+      - name: Download bundled Whisper model
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          MODEL_DIR="android/assets/models"
+          mkdir -p "$MODEL_DIR"
+
+          curl \
+            --fail \
+            --location \
+            --retry 5 \
+            --retry-delay 5 \
+            --output "$MODEL_DIR/whisper.bin" \
+            "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin"
+
+          echo "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe  $MODEL_DIR/whisper.bin" \
+            | sha256sum --check --status
+
+          test "$(stat -c%s "$MODEL_DIR/whisper.bin")" -eq 147951465
+
+          echo "Whisper model downloaded and verified."
+
       - name: Install Flutter dependencies
         working-directory: android
         run: flutter pub get
@@ -191,6 +215,8 @@ jobs:
 
           flutter --version
           flutter pub get
+
+          test -s assets/models/whisper.bin
 
       - name: Build OtakuDub APK
         working-directory: android
