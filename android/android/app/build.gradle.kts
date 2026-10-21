@@ -10,7 +10,7 @@ plugins {
 android {
     namespace = "co.parikshit.otakudub"
     compileSdk = 36
-    ndkVersion = "27.0.12077973"
+    ndkVersion = "28.2.13676358"
 
     defaultConfig {
         applicationId = "co.parikshit.otakudub"
@@ -21,12 +21,14 @@ android {
         versionName = flutter.versionName
 
         ndk {
-            abiFilters += listOf("arm64-v8a")
+            abiFilters.clear()
+            abiFilters.add("arm64-v8a")
         }
 
         externalNativeBuild {
             cmake {
-                cppFlags += listOf("-std=c++17")
+                cppFlags.add("-std=c++17")
+                abiFilters.add("arm64-v8a")
             }
         }
     }
