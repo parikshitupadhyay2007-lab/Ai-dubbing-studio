@@ -1,7 +1,6 @@
 
 package co.parikshit.otakudub
 
-import android.os.Bundle
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -14,12 +13,17 @@ class MainActivity : FlutterActivity() {
         private const val CHANNEL =
             "co.parikshit.otakudub/offline_engine"
 
-        init {
+        private val nativeAvailable: Boolean = try {
             System.loadLibrary("otakudub_native")
+            true
+        } catch (error: UnsatisfiedLinkError) {
+            false
         }
     }
 
     private val executor = Executors.newSingleThreadExecutor()
+
+    private var loadedModelPath: String? = null
 
     private external fun nativeLoadModel(path: String): Boolean
 
@@ -45,16 +49,19 @@ class MainActivity : FlutterActivity() {
             when (call.method) {
 
                 "runtimeReady" -> {
-                    result.success(
-                        mapOf(
-                            "ready" to true,
-                            "engine" to "OtakuDub Native",
-                            "otakumind" to true
-                        )
-                    )
+                    result.success(nativeAvailable)
                 }
 
                 "chat" -> {
+                    if (!nativeAvailable) {
+                        result.error(
+                            "NATIVE_UNAVAILABLE",
+                            "OtakuDub native library is not installed.",
+                            null
+                        )
+                        return@setMethodCallHandler
+                    }
+
                     val modelPath =
                         call.argument<String>("model_path")
 
@@ -78,7 +85,7 @@ class MainActivity : FlutterActivity() {
                     ) {
                         result.error(
                             "MODEL_MISSING",
-                            "OtakuMind GGUF model is missing.",
+                            "Import a compatible OtakuMind GGUF model.",
                             null
                         )
                         return@setMethodCallHandler
@@ -95,12 +102,20 @@ class MainActivity : FlutterActivity() {
 
                     executor.execute {
                         try {
-                            if (!nativeIsLoaded()) {
+                            if (
+                                loadedModelPath != modelPath ||
+                                !nativeIsLoaded()
+                            ) {
+                                nativeRelease()
+                                loadedModelPath = null
+
                                 if (!nativeLoadModel(modelPath)) {
                                     throw IllegalStateException(
                                         "Could not load the GGUF model."
                                     )
                                 }
+
+                                loadedModelPath = modelPath
                             }
 
                             val prompt = buildPrompt(
@@ -119,22 +134,41 @@ class MainActivity : FlutterActivity() {
                                         reply,
                                         null
                                     )
+                                } else if (reply.isBlank()) {
+                                    result.error(
+                                        "EMPTY_RESPONSE",
+                                        "The local model returned no text.",
+                                        null
+                                    )
                                 } else {
                                     result.success(
                                         mapOf("reply" to reply.trim())
                                     )
                                 }
                             }
-                        } catch (e: Exception) {
+                        } catch (error: Exception) {
                             runOnUiThread {
                                 result.error(
                                     "OTAKUMIND_ERROR",
-                                    e.message ?: "Inference failed.",
+                                    error.message ?: "Inference failed.",
                                     null
                                 )
                             }
                         }
                     }
+                }
+
+                "transcribe",
+                "identifySpeakers",
+                "translate",
+                "refineDialogue",
+                "synthesize",
+                "exportVideo" -> {
+                    result.error(
+                        "ENGINE_NOT_INTEGRATED",
+                        "${call.method} requires its native engine integration.",
+                        null
+                    )
                 }
 
                 else -> result.notImplemented()
@@ -172,8 +206,13 @@ class MainActivity : FlutterActivity() {
 
     override fun onDestroy() {
         executor.execute {
-            nativeRelease()
+            if (nativeAvailable) {
+                nativeRelease()
+                loadedModelPath = null
+            }
         }
+
+        executor.shutdown()
         super.onDestroy()
     }
 }
