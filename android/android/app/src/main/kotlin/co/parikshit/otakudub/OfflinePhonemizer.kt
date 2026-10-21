@@ -1,19 +1,35 @@
 
 package co.parikshit.otakudub
 
+import android.content.Context
 import java.io.File
 
 /**
- * Offline phonemization interface for Piper-compatible voices.
+ * Offline phonemization interface for Piper voices.
  *
- * The native eSpeak NG implementation must provide the JNI
- * functions declared below before this component is operational.
+ * The native eSpeak NG library and compiled language-data
+ * assets must be included in the Android build.
  */
-class OfflinePhonemizer(
-    private val dataDirectory: File
+class OfflinePhonemizer private constructor(
+    private val dataParentDirectory: File
 ) {
 
     companion object {
+
+        /**
+         * Installs the bundled language data when necessary.
+         *
+         * eSpeak expects the parent directory containing
+         * the espeak-ng-data folder.
+         */
+        fun create(context: Context): OfflinePhonemizer {
+            val directory = EspeakDataInstaller.install(
+                context.applicationContext
+            )
+
+            return OfflinePhonemizer(directory)
+        }
+
         private val libraryAvailable: Boolean by lazy {
             try {
                 System.loadLibrary("otakudub_phonemizer")
@@ -40,28 +56,41 @@ class OfflinePhonemizer(
 
     private var initialized = false
 
+    @Synchronized
     fun initialize() {
+        if (initialized) return
+
         check(libraryAvailable) {
             "Native eSpeak NG phonemizer is not integrated."
         }
 
-        require(dataDirectory.isDirectory) {
-            "eSpeak NG language data directory is missing."
+        val data = File(
+            dataParentDirectory,
+            "espeak-ng-data"
+        )
+
+        require(data.isDirectory) {
+            "Offline language data is missing."
         }
 
-        check(nativeInitialize(dataDirectory.absolutePath)) {
-            "Could not initialize offline phonemizer."
+        check(
+            nativeInitialize(
+                dataParentDirectory.absolutePath
+            )
+        ) {
+            "Could not initialize eSpeak NG."
         }
 
         initialized = true
     }
 
+    @Synchronized
     fun phonemize(
         text: String,
         config: PiperPhonemizerConfig
     ): String {
         check(initialized) {
-            "Offline phonemizer has not been initialized."
+            "Offline phonemizer is not initialized."
         }
 
         require(text.isNotBlank()) {
@@ -73,7 +102,11 @@ class OfflinePhonemizer(
         }
 
         val voice = config.voice
-            ?: error("eSpeak voice identifier is missing.")
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+            ?: error(
+                "eSpeak voice identifier is missing."
+            )
 
         val result = nativePhonemize(
             text.trim(),
@@ -87,10 +120,12 @@ class OfflinePhonemizer(
         return result
     }
 
+    @Synchronized
     fun shutdown() {
-        if (initialized) {
-            nativeShutdown()
-            initialized = false
-        }
+        if (!initialized) return
+
+        nativeShutdown()
+        initialized = false
     }
 }
+
