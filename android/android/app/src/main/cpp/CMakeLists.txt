@@ -145,9 +145,12 @@ target_include_directories(
 target_link_libraries(
     otakudub_phonemizer
     PRIVATE
-    $<LINK_ONLY:espeak-ng>
+    $<TARGET_FILE:espeak-ng>
     ${ANDROID_LOG_LIB}
 )
+
+# Link the built archive directly to avoid inheriting eSpeak's compile usage requirements.
+add_dependencies(otakudub_phonemizer espeak-ng)
 
 # eSpeak also adds compat through directory-scoped include settings.
 # Explicitly restrict this C++ JNI translation unit to the public API
