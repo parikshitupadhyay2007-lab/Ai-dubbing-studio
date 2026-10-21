@@ -1,3 +1,4 @@
+
 package co.parikshit.otakudub
 
 import io.flutter.embedding.android.FlutterActivity
@@ -55,6 +56,43 @@ class MainActivity : FlutterActivity() {
 
                 "runtimeReady" -> {
                     result.success(nativeAvailable)
+                }
+
+                "inspectSeparationModel" -> {
+                    val modelPath =
+                        call.argument<String>("model_path")
+
+                    if (modelPath.isNullOrBlank()) {
+                        result.error(
+                            "INVALID_INPUT",
+                            "Separation model path is required.",
+                            null
+                        )
+                        return@setMethodCallHandler
+                    }
+
+                    executor.execute {
+                        try {
+                            val inspection =
+                                SeparationInspectionService.inspect(
+                                    modelPath
+                                )
+
+                            runOnUiThread {
+                                result.success(inspection)
+                            }
+
+                        } catch (error: Exception) {
+                            runOnUiThread {
+                                result.error(
+                                    "SEPARATION_INSPECTION_ERROR",
+                                    error.message
+                                        ?: "Could not inspect ONNX model.",
+                                    null
+                                )
+                            }
+                        }
+                    }
                 }
 
                 "transcribe" -> {
