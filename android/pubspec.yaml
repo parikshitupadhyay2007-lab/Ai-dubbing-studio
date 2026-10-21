@@ -1,3 +1,4 @@
+
 name: ai_dubbing_studio
 description: OtakuDub Offline V5 - Your Anime. Your Language.
 publish_to: none
@@ -10,7 +11,7 @@ dependencies:
   flutter:
     sdk: flutter
 
-  file_picker: ^8.3.7
+  file_picker: ^10.3.3
   path_provider: ^2.1.5
   shared_preferences: ^2.3.2
   open_filex: ^4.6.0
