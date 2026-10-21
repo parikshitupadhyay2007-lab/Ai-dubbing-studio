@@ -85,11 +85,19 @@ object SeparationAudioResampler {
                     val step =
                         sourceRate.toDouble() / targetRate.toDouble()
 
-                    val outputFrames = (
-                        sourceFrames.toDouble() *
-                            targetRate.toDouble() /
-                            sourceRate.toDouble()
-                    ).roundToInt().toLong()
+                    // Calculate in Long arithmetic; round to the nearest frame.
+                    // Standard PCM16 stereo WAV has a bounded RIFF data size.
+                    val maxFrames = (Int.MAX_VALUE - 44L) / 4L
+                    require(sourceFrames <= Long.MAX_VALUE / targetRate.toLong()) {
+                        "Resampled frame count overflow."
+                    }
+                    val scaledFrames = sourceFrames * targetRate.toLong()
+                    val outputFrames = scaledFrames / sourceRate.toLong() +
+                        if (scaledFrames % sourceRate.toLong() >=
+                            (sourceRate.toLong() + 1L) / 2L) 1L else 0L
+                    require(outputFrames in 1L..maxFrames) {
+                        "Resampled WAV exceeds supported size."
+                    }
 
                     while (outputIndex < outputFrames) {
                         val position = outputIndex * step
