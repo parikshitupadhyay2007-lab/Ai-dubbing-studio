@@ -56,7 +56,7 @@ jobs:
             "platforms;android-36" \
             "build-tools;36.0.0" \
             "cmake;3.22.1" \
-            "ndk;27.0.12077973"
+            "ndk;28.2.13676358"
 
       - name: Generate Android platform safely
         working-directory: android
@@ -72,7 +72,7 @@ jobs:
 
           flutter create \
             --platforms=android \
-            --org Blue industries \
+            --org co.parikshit \
             .
 
           mkdir -p android/app/src/main
@@ -196,7 +196,7 @@ jobs:
               ]
           if len(matches) != 1:
               raise SystemExit(
-                  f"Expected one Q4_K_M model; found: {matches}"
+                  f"Expected one Q3_K_M model; found: {matches}"
               )
 
           print(f"Downloading: {matches[0]}")
