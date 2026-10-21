@@ -1,4 +1,3 @@
-
 package co.parikshit.otakudub
 
 import android.content.Context
@@ -15,22 +14,17 @@ data class SynthesizedDialogueClip(
     val sampleRate: Int
 )
 
-/**
- * Converts translated dialogue into individual offline
- * Piper WAV clips.
- *
- * This class performs synthesis only. Synchronization,
- * audio mixing and video export are separate stages.
- */
 class PiperSpeechSynthesizer(
     context: Context
 ) : Closeable {
 
-    private val phonemizer = OfflinePhonemizer.create(context)
+    private val phonemizer =
+        OfflinePhonemizer.create(context.applicationContext)
 
     private val engine = PiperOnnxEngine()
 
     private var phonemizerInitialized = false
+    private var closed = false
 
     @Synchronized
     fun synthesize(
@@ -38,38 +32,53 @@ class PiperSpeechSynthesizer(
         outputDirectory: File
     ): List<SynthesizedDialogueClip> {
 
+        check(!closed) {
+            "Speech synthesizer is already closed."
+        }
+
         require(request.segments.isNotEmpty()) {
-            "No dialogue segments were supplied."
+            "No dialogue segments supplied."
         }
 
         check(
             outputDirectory.isDirectory ||
                 outputDirectory.mkdirs()
         ) {
-            "Cannot create synthesis output directory."
+            "Cannot create synthesis directory."
         }
+
+        val configs =
+            mutableMapOf<String, PiperPhonemizerConfig>()
+
+        val encoders =
+            mutableMapOf<String, PiperPhonemeEncoder>()
 
         val clips = ArrayList<SynthesizedDialogueClip>()
 
-        val configCache =
-            mutableMapOf<String, PiperPhonemizerConfig>()
-
-        val encoderCache =
-            mutableMapOf<String, PiperPhonemeEncoder>()
-
-        for (segment in request.segments.sortedWith(
+        val orderedSegments = request.segments.sortedWith(
             compareBy<NativeDialogueSegment> { it.start }
                 .thenBy { it.id }
-        )) {
+        )
+
+        for (segment in orderedSegments) {
+
+            require(segment.text.isNotBlank()) {
+                "Empty translation for segment ${segment.id}."
+            }
+
+            val assignedVoice =
+                request.characterVoices[segment.speakerId]
+
+            require(assignedVoice == segment.voiceId) {
+                "Character voice assignment mismatch."
+            }
 
             val voice = request.voices[segment.voiceId]
                 ?: error(
-                    "Missing assigned voice: ${segment.voiceId}"
+                    "Voice model unavailable: ${segment.voiceId}"
                 )
 
-            val config = configCache.getOrPut(
-                segment.voiceId
-            ) {
+            val config = configs.getOrPut(segment.voiceId) {
                 PiperPhonemizerConfig.load(
                     File(voice.configPath),
                     request.targetLanguage
@@ -77,19 +86,16 @@ class PiperSpeechSynthesizer(
             }
 
             require(config.sampleRate == voice.sampleRate) {
-                "Voice sample rate does not match its configuration."
+                "Voice sample rate mismatch."
             }
 
-            val encoder = encoderCache.getOrPut(
-                segment.voiceId
-            ) {
+            val encoder = encoders.getOrPut(segment.voiceId) {
                 PiperPhonemeEncoder(
                     File(voice.configPath)
                 )
             }
 
-            val phonemeText = when (config.type) {
-
+            val phonemes = when (config.type) {
                 PiperPhonemeType.ESPEAK -> {
                     if (!phonemizerInitialized) {
                         phonemizer.initialize()
@@ -105,31 +111,29 @@ class PiperSpeechSynthesizer(
                 PiperPhonemeType.TEXT -> segment.text
             }
 
-            val phonemeIds = encoder.encodeCodePoints(
-                phonemeText
-            )
+            val phonemeIds =
+                encoder.encodeCodePoints(phonemes)
 
             engine.load(voice.modelPath)
 
-            /*
-             * Single-speaker models do not require sid.
-             * Multi-speaker models use the configured
-             * speaker ID associated with this voice profile.
-             */
             val speakerId: Long? =
                 if (voice.numSpeakers > 1) {
                     val id = voice.speakerIds[segment.voiceId]
                         ?: voice.speakerIds[voice.profileId]
                         ?: error(
-                            "Missing Piper speaker ID for ${segment.voiceId}"
+                            "Missing model speaker ID: ${segment.voiceId}"
                         )
+
+                    require(id in 0 until voice.numSpeakers) {
+                        "Model speaker ID is out of range."
+                    }
 
                     id.toLong()
                 } else {
                     null
                 }
 
-            val audio = engine.synthesize(
+            val samples = engine.synthesize(
                 phonemeIds = phonemeIds,
                 speakerId = speakerId,
                 noiseScale = config.noiseScale,
@@ -137,14 +141,12 @@ class PiperSpeechSynthesizer(
                 noiseW = config.noiseW
             )
 
-            val destination = File(
-                outputDirectory,
-                "segment_${segment.id}.wav"
-            )
-
             val wav = VoiceWavWriter.write(
-                destination = destination,
-                samples = audio,
+                destination = File(
+                    outputDirectory,
+                    "segment_${segment.id}.wav"
+                ),
+                samples = samples,
                 sampleRate = config.sampleRate
             )
 
@@ -164,7 +166,10 @@ class PiperSpeechSynthesizer(
         return clips
     }
 
+    @Synchronized
     override fun close() {
+        if (closed) return
+
         try {
             engine.close()
         } finally {
@@ -172,6 +177,8 @@ class PiperSpeechSynthesizer(
                 phonemizer.shutdown()
                 phonemizerInitialized = false
             }
+
+            closed = true
         }
     }
 }
