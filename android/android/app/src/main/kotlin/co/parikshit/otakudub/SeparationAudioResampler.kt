@@ -63,6 +63,10 @@ object SeparationAudioResampler {
                 val sourceRate = metadata.first
                 val sourceFrames = metadata.second
 
+                require(sourceFrames <= (source.length() - 44L) / 4L) {
+                    "Input WAV audio data is truncated."
+                }
+
                 require(sourceFrames > 0) {
                     "Input WAV contains no audio."
                 }
