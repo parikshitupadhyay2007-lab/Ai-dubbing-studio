@@ -10,10 +10,12 @@ import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 
 /**
- * Copies the original video track and replaces its audio
- * with AAC-encoded dubbed dialogue.
+ * Offline MP4 exporter.
  *
- * No external FFmpeg dependency or internet connection.
+ * Pass 1: Encode synchronized PCM dialogue to temporary AAC.
+ * Pass 2: Interleave original compressed video and AAC audio.
+ *
+ * The original soundtrack is replaced in this implementation.
  */
 object OfflineVideoExporter {
 
@@ -22,95 +24,116 @@ object OfflineVideoExporter {
 
     fun export(request: VideoExportRequest): File {
         val output = File(request.outputPath)
-        val temporary = File(output.absolutePath + ".part")
+        val temporaryVideo = File(
+            output.absolutePath + ".part.mp4"
+        )
+        val temporaryAudio = File(
+            output.absolutePath + ".audio.part.m4a"
+        )
 
-        val extractor = MediaExtractor()
-        var codec: MediaCodec? = null
-        var muxer: MediaMuxer? = null
-        var completed = false
+        require(
+            request.sourceVideoPath != output.absolutePath &&
+                request.dialogueWavPath != output.absolutePath
+        ) {
+            "Export destination cannot overwrite an input."
+        }
 
         try {
-            extractor.setDataSource(request.sourceVideoPath)
-
-            val videoIndex = (0 until extractor.trackCount)
-                .firstOrNull { index ->
-                    extractor.getTrackFormat(index)
-                        .getString(MediaFormat.KEY_MIME)
-                        ?.startsWith("video/") == true
-                } ?: error("Source contains no video track.")
-
-            val videoFormat = extractor.getTrackFormat(videoIndex)
-            val videoMime = videoFormat.getString(
-                MediaFormat.KEY_MIME
-            ) ?: error("Unknown video codec.")
-
-            require(
-                videoMime == "video/avc" ||
-                    videoMime == "video/hevc" ||
-                    videoMime == "video/mp4v-es" ||
-                    videoMime == "video/3gpp" ||
-                    videoMime == "video/av01"
-            ) {
-                "Source video codec is not supported by this MP4 exporter: $videoMime"
+            require(!temporaryVideo.exists() ||
+                temporaryVideo.delete()) {
+                "Cannot clear previous temporary video."
             }
 
-            val rotation = if (
-                videoFormat.containsKey("rotation-degrees")
-            ) {
-                videoFormat.getInteger("rotation-degrees")
-            } else {
-                0
+            require(!temporaryAudio.exists() ||
+                temporaryAudio.delete()) {
+                "Cannot clear previous temporary audio."
             }
 
-            val audioFormat = MediaFormat.createAudioFormat(
-                MediaFormat.MIMETYPE_AUDIO_AAC,
-                request.sampleRate,
-                request.audioChannels
-            ).apply {
-                setInteger(
-                    MediaFormat.KEY_AAC_PROFILE,
-                    MediaCodecInfo.CodecProfileLevel.AACObjectLC
-                )
-                setInteger(
-                    MediaFormat.KEY_BIT_RATE,
-                    AAC_BITRATE
-                )
-                setInteger(
-                    MediaFormat.KEY_MAX_INPUT_SIZE,
-                    16384
-                )
-            }
-
-            codec = MediaCodec.createEncoderByType(
-                MediaFormat.MIMETYPE_AUDIO_AAC
+            encodeDialogue(
+                request = request,
+                destination = temporaryAudio
             )
-            val encoder = codec
 
+            combineTracks(
+                sourceVideo = request.sourceVideoPath,
+                encodedAudio = temporaryAudio.absolutePath,
+                destination = temporaryVideo
+            )
+
+            check(
+                temporaryVideo.isFile &&
+                    temporaryVideo.length() > 0L
+            ) {
+                "MP4 export produced an empty file."
+            }
+
+            if (output.exists()) {
+                check(output.delete()) {
+                    "Cannot replace the previous exported video."
+                }
+            }
+
+            check(temporaryVideo.renameTo(output)) {
+                "Cannot finalize exported MP4."
+            }
+
+            return output
+
+        } finally {
+            temporaryAudio.delete()
+            temporaryVideo.delete()
+        }
+    }
+
+    private fun encodeDialogue(
+        request: VideoExportRequest,
+        destination: File
+    ) {
+        val format = MediaFormat.createAudioFormat(
+            MediaFormat.MIMETYPE_AUDIO_AAC,
+            request.sampleRate,
+            request.audioChannels
+        ).apply {
+            setInteger(
+                MediaFormat.KEY_AAC_PROFILE,
+                MediaCodecInfo.CodecProfileLevel.AACObjectLC
+            )
+            setInteger(
+                MediaFormat.KEY_BIT_RATE,
+                AAC_BITRATE
+            )
+            setInteger(
+                MediaFormat.KEY_MAX_INPUT_SIZE,
+                16384
+            )
+        }
+
+        val encoder = MediaCodec.createEncoderByType(
+            MediaFormat.MIMETYPE_AUDIO_AAC
+        )
+
+        var muxer: MediaMuxer? = null
+        var encoderStarted = false
+        var muxerStarted = false
+
+        try {
             encoder.configure(
-                audioFormat,
+                format,
                 null,
                 null,
                 MediaCodec.CONFIGURE_FLAG_ENCODE
             )
-            encoder.start()
 
-            if (temporary.exists()) {
-                check(temporary.delete()) {
-                    "Cannot clear previous temporary export."
-                }
-            }
+            encoder.start()
+            encoderStarted = true
 
             muxer = MediaMuxer(
-                temporary.absolutePath,
+                destination.absolutePath,
                 MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4
             )
 
             val writer = muxer
-            val videoTrack = writer.addTrack(videoFormat)
-            writer.setOrientationHint(rotation)
-
             var audioTrack = -1
-            var muxerStarted = false
 
             val info = MediaCodec.BufferInfo()
             var inputFinished = false
@@ -130,17 +153,24 @@ object OfflineVideoExporter {
                 val bytesPerFrame =
                     request.audioChannels * 2
 
+                require(
+                    remaining % bytesPerFrame == 0L
+                ) {
+                    "Incomplete PCM audio frame."
+                }
+
                 while (!outputFinished) {
 
                     if (!inputFinished) {
-                        val inputIndex = encoder.dequeueInputBuffer(
-                            TIMEOUT_US
-                        )
+                        val inputIndex =
+                            encoder.dequeueInputBuffer(TIMEOUT_US)
 
                         if (inputIndex >= 0) {
                             val input = encoder.getInputBuffer(
                                 inputIndex
-                            ) ?: error("AAC input buffer unavailable.")
+                            ) ?: error(
+                                "AAC input buffer unavailable."
+                            )
 
                             input.clear()
 
@@ -173,9 +203,10 @@ object OfflineVideoExporter {
                                 remaining -= aligned
                                 submittedFrames +=
                                     aligned / bytesPerFrame
+
                             } else {
-                                require(remaining == 0L) {
-                                    "Incomplete PCM audio frame."
+                                check(remaining == 0L) {
+                                    "AAC input buffer is too small."
                                 }
 
                                 encoder.queueInputBuffer(
@@ -191,10 +222,11 @@ object OfflineVideoExporter {
                         }
                     }
 
-                    val outputIndex = encoder.dequeueOutputBuffer(
-                        info,
-                        TIMEOUT_US
-                    )
+                    val outputIndex =
+                        encoder.dequeueOutputBuffer(
+                            info,
+                            TIMEOUT_US
+                        )
 
                     when (outputIndex) {
                         MediaCodec.INFO_TRY_AGAIN_LATER -> Unit
@@ -210,77 +242,27 @@ object OfflineVideoExporter {
 
                             writer.start()
                             muxerStarted = true
-
-                            // Preserve the compressed video samples.
-                            extractor.selectTrack(videoIndex)
-
-                            val maxInputSize = if (
-                                videoFormat.containsKey(
-                                    MediaFormat.KEY_MAX_INPUT_SIZE
-                                )
-                            ) {
-                                videoFormat.getInteger(
-                                    MediaFormat.KEY_MAX_INPUT_SIZE
-                                )
-                            } else {
-                                1024 * 1024
-                            }
-
-                            val videoBuffer = ByteBuffer.allocateDirect(
-                                maxOf(maxInputSize, 4 * 1024 * 1024)
-                            )
-
-                            val videoInfo = MediaCodec.BufferInfo()
-
-                            while (true) {
-                                videoBuffer.clear()
-
-                                val size = extractor.readSampleData(
-                                    videoBuffer,
-                                    0
-                                )
-
-                                if (size < 0) break
-
-                                require(size <= videoBuffer.capacity()) {
-                                    "Video sample exceeds export buffer."
-                                }
-
-                                videoInfo.set(
-                                    0,
-                                    size,
-                                    extractor.sampleTime,
-                                    extractor.sampleFlags
-                                )
-
-                                videoBuffer.position(0)
-                                videoBuffer.limit(size)
-
-                                writer.writeSampleData(
-                                    videoTrack,
-                                    videoBuffer,
-                                    videoInfo
-                                )
-
-                                extractor.advance()
-                            }
                         }
 
                         else -> {
                             if (outputIndex >= 0) {
-                                val encoded = encoder.getOutputBuffer(
-                                    outputIndex
-                                ) ?: error(
-                                    "AAC output buffer unavailable."
-                                )
+                                val encoded =
+                                    encoder.getOutputBuffer(
+                                        outputIndex
+                                    ) ?: error(
+                                        "AAC output buffer unavailable."
+                                    )
 
                                 if (
                                     info.size > 0 &&
                                     info.flags and
                                         MediaCodec.BUFFER_FLAG_CODEC_CONFIG == 0
                                 ) {
-                                    check(muxerStarted && audioTrack >= 0) {
-                                        "MP4 muxer is not ready."
+                                    check(
+                                        muxerStarted &&
+                                            audioTrack >= 0
+                                    ) {
+                                        "AAC muxer is not ready."
                                     }
 
                                     encoded.position(info.offset)
@@ -295,17 +277,18 @@ object OfflineVideoExporter {
                                     )
                                 }
 
-                                if (
+                                val endOfStream =
                                     info.flags and
                                         MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0
-                                ) {
-                                    outputFinished = true
-                                }
 
                                 encoder.releaseOutputBuffer(
                                     outputIndex,
                                     false
                                 )
+
+                                if (endOfStream) {
+                                    outputFinished = true
+                                }
                             }
                         }
                     }
@@ -316,50 +299,231 @@ object OfflineVideoExporter {
                 "AAC encoder produced no output format."
             }
 
-            writer.stop()
-            writer.release()
-            muxer = null
-
-            encoder.stop()
-            encoder.release()
-            codec = null
-
-            extractor.release()
-
-            check(temporary.isFile && temporary.length() > 0L) {
-                "MP4 export produced no output."
-            }
-
-            if (output.exists()) {
-                check(output.delete()) {
-                    "Cannot replace previous exported video."
-                }
-            }
-
-            check(temporary.renameTo(output)) {
-                "Cannot finalize exported MP4."
-            }
-
-            completed = true
-            return output
-
         } finally {
-            runCatching { codec?.stop() }
-            runCatching { codec?.release() }
-            runCatching { muxer?.stop() }
-            runCatching { muxer?.release() }
-            runCatching { extractor.release() }
-
-            if (!completed) {
-                temporary.delete()
+            if (encoderStarted) {
+                runCatching { encoder.stop() }
             }
+
+            runCatching { encoder.release() }
+
+            if (muxerStarted) {
+                runCatching { muxer?.stop() }
+            }
+
+            runCatching { muxer?.release() }
+        }
+
+        check(destination.isFile && destination.length() > 0L) {
+            "AAC encoding produced no audio."
         }
     }
 
-    /**
-     * Locates PCM data rather than assuming every WAV
-     * has a fixed 44-byte header.
-     */
+    private fun combineTracks(
+        sourceVideo: String,
+        encodedAudio: String,
+        destination: File
+    ) {
+        val videoExtractor = MediaExtractor()
+        val audioExtractor = MediaExtractor()
+
+        var muxer: MediaMuxer? = null
+        var started = false
+
+        try {
+            videoExtractor.setDataSource(sourceVideo)
+            audioExtractor.setDataSource(encodedAudio)
+
+            val videoIndex =
+                (0 until videoExtractor.trackCount)
+                    .firstOrNull { index ->
+                        videoExtractor.getTrackFormat(index)
+                            .getString(MediaFormat.KEY_MIME)
+                            ?.startsWith("video/") == true
+                    } ?: error(
+                        "Source contains no video track."
+                    )
+
+            val audioIndex =
+                (0 until audioExtractor.trackCount)
+                    .firstOrNull { index ->
+                        audioExtractor.getTrackFormat(index)
+                            .getString(MediaFormat.KEY_MIME)
+                            ?.startsWith("audio/") == true
+                    } ?: error(
+                        "Encoded dialogue contains no audio track."
+                    )
+
+            val videoFormat =
+                videoExtractor.getTrackFormat(videoIndex)
+
+            val audioFormat =
+                audioExtractor.getTrackFormat(audioIndex)
+
+            val videoMime = videoFormat.getString(
+                MediaFormat.KEY_MIME
+            ) ?: error("Unknown video codec.")
+
+            require(
+                videoMime == "video/avc" ||
+                    videoMime == "video/hevc" ||
+                    videoMime == "video/mp4v-es" ||
+                    videoMime == "video/3gpp" ||
+                    videoMime == "video/av01"
+            ) {
+                "Unsupported MP4 video codec: $videoMime"
+            }
+
+            videoExtractor.selectTrack(videoIndex)
+            audioExtractor.selectTrack(audioIndex)
+
+            muxer = MediaMuxer(
+                destination.absolutePath,
+                MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4
+            )
+
+            val writer = muxer
+
+            val videoTrack = writer.addTrack(videoFormat)
+            val audioTrack = writer.addTrack(audioFormat)
+
+            val rotation = if (
+                videoFormat.containsKey("rotation-degrees")
+            ) {
+                videoFormat.getInteger("rotation-degrees")
+            } else {
+                0
+            }
+
+            if (rotation in listOf(0, 90, 180, 270)) {
+                writer.setOrientationHint(rotation)
+            }
+
+            writer.start()
+            started = true
+
+            val videoBuffer = ByteBuffer.allocateDirect(
+                bufferCapacity(videoFormat)
+            )
+
+            val audioBuffer = ByteBuffer.allocateDirect(
+                bufferCapacity(audioFormat)
+            )
+
+            val videoInfo = MediaCodec.BufferInfo()
+            val audioInfo = MediaCodec.BufferInfo()
+
+            var videoReady = readSample(
+                videoExtractor,
+                videoBuffer,
+                videoInfo
+            )
+
+            var audioReady = readSample(
+                audioExtractor,
+                audioBuffer,
+                audioInfo
+            )
+
+            while (videoReady || audioReady) {
+                val writeVideo = videoReady && (
+                    !audioReady ||
+                        videoInfo.presentationTimeUs <=
+                        audioInfo.presentationTimeUs
+                )
+
+                if (writeVideo) {
+                    writer.writeSampleData(
+                        videoTrack,
+                        videoBuffer,
+                        videoInfo
+                    )
+
+                    videoExtractor.advance()
+
+                    videoReady = readSample(
+                        videoExtractor,
+                        videoBuffer,
+                        videoInfo
+                    )
+
+                } else {
+                    writer.writeSampleData(
+                        audioTrack,
+                        audioBuffer,
+                        audioInfo
+                    )
+
+                    audioExtractor.advance()
+
+                    audioReady = readSample(
+                        audioExtractor,
+                        audioBuffer,
+                        audioInfo
+                    )
+                }
+            }
+
+        } finally {
+            if (started) {
+                runCatching { muxer?.stop() }
+            }
+
+            runCatching { muxer?.release() }
+            runCatching { videoExtractor.release() }
+            runCatching { audioExtractor.release() }
+        }
+    }
+
+    private fun bufferCapacity(format: MediaFormat): Int {
+        val requested = if (
+            format.containsKey(MediaFormat.KEY_MAX_INPUT_SIZE)
+        ) {
+            format.getInteger(
+                MediaFormat.KEY_MAX_INPUT_SIZE
+            )
+        } else {
+            0
+        }
+
+        return maxOf(
+            requested,
+            8 * 1024 * 1024
+        )
+    }
+
+    private fun readSample(
+        extractor: MediaExtractor,
+        buffer: ByteBuffer,
+        info: MediaCodec.BufferInfo
+    ): Boolean {
+        buffer.clear()
+
+        val size = extractor.readSampleData(
+            buffer,
+            0
+        )
+
+        if (size < 0) {
+            return false
+        }
+
+        require(size <= buffer.capacity()) {
+            "Media sample exceeds export buffer."
+        }
+
+        info.set(
+            0,
+            size,
+            extractor.sampleTime,
+            extractor.sampleFlags
+        )
+
+        buffer.position(0)
+        buffer.limit(size)
+
+        return true
+    }
+
     private fun locatePcmData(
         wav: RandomAccessFile
     ): Pair<Long, Long> {
@@ -367,17 +531,22 @@ object OfflineVideoExporter {
         fun ascii(): String {
             val bytes = ByteArray(4)
             wav.readFully(bytes)
-            return String(bytes, Charsets.US_ASCII)
+            return String(
+                bytes,
+                Charsets.US_ASCII
+            )
         }
 
         fun uint32(): Long {
             var value = 0L
+
             repeat(4) { shift ->
                 value = value or (
                     wav.readUnsignedByte().toLong() shl
                         (shift * 8)
                 )
             }
+
             return value
         }
 
@@ -411,13 +580,16 @@ object OfflineVideoExporter {
                 require(size > 0L) {
                     "Dialogue WAV contains no audio."
                 }
+
                 return start to size
             }
 
             val next = end + (size and 1L)
+
             require(next <= limit) {
                 "Invalid WAV chunk padding."
             }
+
             wav.seek(next)
         }
 
