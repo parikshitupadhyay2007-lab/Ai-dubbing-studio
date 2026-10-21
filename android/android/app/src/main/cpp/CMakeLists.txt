@@ -94,6 +94,14 @@ if(NOT TARGET espeak-ng)
     message(FATAL_ERROR "Missing eSpeak NG library target")
 endif()
 
+# eSpeak exports src/include/compat as a PUBLIC include directory.
+# Its wctype.h shadows the Android NDK standard header in C++ consumers.
+# Keep eSpeak's own PRIVATE compilation settings, but expose only the
+# public API headers to our JNI target.
+set_target_properties(espeak-ng PROPERTIES
+    INTERFACE_INCLUDE_DIRECTORIES "${ESPEAK_DIR}/src/include"
+)
+
 find_library(ANDROID_LOG_LIB log)
 
 # Existing OtakuDub native engine.
