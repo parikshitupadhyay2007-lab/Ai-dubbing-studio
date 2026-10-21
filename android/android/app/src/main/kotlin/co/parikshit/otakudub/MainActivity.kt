@@ -1,4 +1,3 @@
-
 package co.parikshit.otakudub
 
 import io.flutter.embedding.android.FlutterActivity
@@ -300,14 +299,6 @@ class MainActivity : FlutterActivity() {
                     }
                 }
 
-                /*
-                 * Offline Piper speech synthesis.
-                 *
-                 * Receives the parsed voice models, character
-                 * assignments and translated dialogue.
-                 *
-                 * Returns individual WAV clips with timestamps.
-                 */
                 "synthesize" -> {
                     executor.execute {
                         try {
@@ -366,8 +357,61 @@ class MainActivity : FlutterActivity() {
                 }
 
                 /*
-                 * Video export will be connected after
-                 * dialogue synchronization and audio mixing.
+                 * Combines generated character dialogue into
+                 * one timestamp-aligned offline audio track.
+                 */
+                "mixDialogue" -> {
+                    executor.execute {
+                        try {
+                            val request =
+                                DialogueMixRequest.parse(
+                                    call.arguments
+                                )
+
+                            val outputDirectory = File(
+                                filesDir,
+                                "dialogue_mix/${System.nanoTime()}"
+                            )
+
+                            val mix =
+                                OfflineDialogueMixService.createMix(
+                                    sourceVideoPath =
+                                        request.sourceVideoPath,
+                                    clips = request.clips,
+                                    outputDirectory = outputDirectory
+                                )
+
+                            runOnUiThread {
+                                result.success(
+                                    mapOf(
+                                        "wav_path" to mix.wavPath,
+                                        "duration_ms" to mix.durationMs,
+                                        "segment_count" to
+                                            mix.segmentCount,
+                                        "overlap_count" to
+                                            mix.overlapCount,
+                                        "sample_rate" to
+                                            mix.sampleRate
+                                    )
+                                )
+                            }
+
+                        } catch (error: Exception) {
+                            runOnUiThread {
+                                result.error(
+                                    "DIALOGUE_MIX_ERROR",
+                                    error.message
+                                        ?: "Offline dialogue mixing failed.",
+                                    null
+                                )
+                            }
+                        }
+                    }
+                }
+
+                /*
+                 * Final video export will be integrated
+                 * after soundtrack processing and muxing.
                  */
                 "exportVideo" -> {
                     result.error(
