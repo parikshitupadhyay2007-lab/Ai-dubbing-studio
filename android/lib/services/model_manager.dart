@@ -6,6 +6,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'voice_model_config.dart';
+
 enum AiModel {
   whisper,
   translator,
@@ -44,6 +46,19 @@ extension AiModelName on AiModel {
       };
 
   String get assetPath => 'assets/models/$filename';
+
+  bool get isVoice =>
+      this == AiModel.hindiVoice ||
+      this == AiModel.englishVoice;
+
+  String? get voiceLanguage => switch (this) {
+        AiModel.hindiVoice => 'hi',
+        AiModel.englishVoice => 'en',
+        _ => null,
+      };
+
+  String? get configFilename =>
+      isVoice ? '$filename.json' : null;
 }
 
 class ModelManager {
@@ -66,50 +81,78 @@ class ModelManager {
     return File('${folder.path}/${model.filename}');
   }
 
-  Future<bool> _valid(File file) async {
-    if (!await file.exists()) return false;
-    return await file.length() > 0;
+  Future<File?> voiceConfigFile(AiModel model) async {
+    final filename = model.configFilename;
+
+    if (filename == null) return null;
+
+    final folder = await directory;
+    return File('${folder.path}/$filename');
   }
 
-  Future<bool> ensureBundledModel(AiModel model) async {
-    final destination = await modelFile(model);
+  Future<bool> _valid(File file) async {
+    return await file.exists() && await file.length() > 0;
+  }
 
-    if (await _valid(destination)) {
-      return true;
+  Future<void> _copyAtomically(
+    File source,
+    File destination,
+  ) async {
+    if (!await _valid(source)) {
+      throw StateError('Source file is missing or empty.');
     }
 
-    ByteData data;
-
-    try {
-      data = await rootBundle.load(model.assetPath);
-    } on FlutterError {
-      return false;
-    }
-
-    if (data.lengthInBytes == 0) {
-      return false;
-    }
-
-    final bytes = Uint8List.sublistView(data);
-
-    final temporary = File(
-      '${destination.path}.extracting',
-    );
+    final temporary = File('${destination.path}.importing');
 
     try {
       if (await temporary.exists()) {
         await temporary.delete();
       }
 
-      await temporary.writeAsBytes(
-        bytes,
-        flush: true,
-      );
+      await source.copy(temporary.path);
+
+      if (await temporary.length() != await source.length()) {
+        throw StateError('Incomplete file import.');
+      }
+
+      if (await destination.exists()) {
+        await destination.delete();
+      }
+
+      await temporary.rename(destination.path);
+    } finally {
+      if (await temporary.exists()) {
+        await temporary.delete();
+      }
+    }
+  }
+
+  Future<bool> _extractAsset(
+    String assetPath,
+    File destination,
+  ) async {
+    ByteData data;
+
+    try {
+      data = await rootBundle.load(assetPath);
+    } on FlutterError {
+      return false;
+    }
+
+    if (data.lengthInBytes == 0) return false;
+
+    final bytes = Uint8List.sublistView(data);
+    final temporary = File('${destination.path}.extracting');
+
+    try {
+      if (await temporary.exists()) {
+        await temporary.delete();
+      }
+
+      await temporary.writeAsBytes(bytes, flush: true);
 
       if (await temporary.length() != bytes.length) {
-        throw StateError(
-          'Incomplete bundled model: ${model.filename}',
-        );
+        throw StateError('Incomplete bundled asset: $assetPath');
       }
 
       if (await destination.exists()) {
@@ -126,6 +169,87 @@ class ModelManager {
     }
   }
 
+  Future<bool> ensureBundledModel(AiModel model) async {
+    final destination = await modelFile(model);
+
+    if (!await _valid(destination)) {
+      final extracted = await _extractAsset(
+        model.assetPath,
+        destination,
+      );
+
+      if (!extracted) return false;
+    }
+
+    if (!model.isVoice) return true;
+
+    final config = await voiceConfigFile(model);
+
+    if (config == null) return false;
+
+    if (!await _valid(config)) {
+      final extracted = await _extractAsset(
+        'assets/models/${model.configFilename}',
+        config,
+      );
+
+      if (!extracted) return false;
+    }
+
+    return await validateVoiceModel(model);
+  }
+
+  Future<bool> validateVoiceModel(AiModel model) async {
+    if (!model.isVoice) return false;
+
+    final file = await modelFile(model);
+    final config = await voiceConfigFile(model);
+
+    if (config == null ||
+        !await _valid(file) ||
+        !await _valid(config)) {
+      return false;
+    }
+
+    try {
+      await VoiceModelConfig.load(
+        modelPath: file.path,
+        configPath: config.path,
+        expectedLanguage: model.voiceLanguage!,
+      );
+
+      return true;
+    } catch (error) {
+      debugPrint(
+        'OtakuDub voice validation failed: $error',
+      );
+      return false;
+    }
+  }
+
+  Future<VoiceModelConfig> loadVoiceConfig(
+    AiModel model,
+  ) async {
+    if (!model.isVoice) {
+      throw ArgumentError('Selected model is not a voice model.');
+    }
+
+    if (!await ensureBundledModel(model)) {
+      throw StateError(
+        'Missing or incompatible ${model.displayName} files.',
+      );
+    }
+
+    final file = await modelFile(model);
+    final config = await voiceConfigFile(model);
+
+    return VoiceModelConfig.load(
+      modelPath: file.path,
+      configPath: config!.path,
+      expectedLanguage: model.voiceLanguage!,
+    );
+  }
+
   Future<Map<String, bool>> installBundledModels() async {
     final results = <String, bool>{};
 
@@ -136,7 +260,7 @@ class ModelManager {
     return results;
   }
 
-  Future<bool> installed(AiModel model) async {
+  Future<bool> installed(AiModel model) {
     return ensureBundledModel(model);
   }
 
@@ -151,64 +275,65 @@ class ModelManager {
   Future<int> modelSize(AiModel model) async {
     final file = await modelFile(model);
 
-    if (!await file.exists()) {
-      return 0;
-    }
+    if (!await file.exists()) return 0;
 
     return file.length();
   }
 
   Future<bool> importModel(AiModel model) async {
-    final result = await FilePicker.platform.pickFiles(
+    final selection = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: [model.extension],
     );
 
-    if (result == null || result.files.isEmpty) {
+    if (selection == null || selection.files.isEmpty) {
       return false;
     }
 
-    final selected = result.files.single;
+    final selectedPath = selection.files.single.path;
 
-    if (selected.path == null) {
-      return false;
-    }
-
-    final source = File(selected.path!);
-
-    if (!await _valid(source)) {
-      throw StateError('Selected model file is empty.');
-    }
+    if (selectedPath == null) return false;
 
     final destination = await modelFile(model);
 
-    final temporary = File(
-      '${destination.path}.importing',
+    await _copyAtomically(
+      File(selectedPath),
+      destination,
     );
 
-    try {
-      if (await temporary.exists()) {
-        await temporary.delete();
-      }
+    return model.isVoice
+        ? validateVoiceModel(model)
+        : _valid(destination);
+  }
 
-      await source.copy(temporary.path);
-
-      if (await temporary.length() != await source.length()) {
-        throw StateError('Model import was incomplete.');
-      }
-
-      if (await destination.exists()) {
-        await destination.delete();
-      }
-
-      await temporary.rename(destination.path);
-
-      return true;
-    } finally {
-      if (await temporary.exists()) {
-        await temporary.delete();
-      }
+  Future<bool> importVoiceConfig(AiModel model) async {
+    if (!model.isVoice) {
+      throw ArgumentError('A voice model must be selected.');
     }
+
+    final selection = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['json'],
+    );
+
+    if (selection == null || selection.files.isEmpty) {
+      return false;
+    }
+
+    final selectedPath = selection.files.single.path;
+
+    if (selectedPath == null) return false;
+
+    final destination = await voiceConfigFile(model);
+
+    if (destination == null) return false;
+
+    await _copyAtomically(
+      File(selectedPath),
+      destination,
+    );
+
+    return validateVoiceModel(model);
   }
 
   Future<List<AiModel>> missingModels() async {
