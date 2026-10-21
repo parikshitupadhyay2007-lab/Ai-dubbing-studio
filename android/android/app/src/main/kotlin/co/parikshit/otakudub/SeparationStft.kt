@@ -2,15 +2,16 @@ package co.parikshit.otakudub
 
 import kotlin.math.PI
 import kotlin.math.cos
-import kotlin.math.sqrt
 
 /**
  * Stereo Short-Time Fourier Transform.
  *
- * Produces separate complex spectrograms for left and right audio.
+ * Supported FFT sizes:
+ * - Powers of two
+ * - 6144 (mixed radix)
  *
- * Model-specific normalization, frequency cropping and tensor
- * formatting must be implemented separately.
+ * Model-specific tensor formatting, normalization and
+ * frequency cropping are handled separately.
  */
 object SeparationStft {
 
@@ -22,9 +23,12 @@ object SeparationStft {
         init {
             require(
                 fftSize >= 2 &&
-                    (fftSize and (fftSize - 1)) == 0
+                    (
+                        fftSize == 6144 ||
+                            (fftSize and (fftSize - 1)) == 0
+                    )
             ) {
-                "FFT size must be a power of two >= 2."
+                "Unsupported FFT size."
             }
 
             require(hopSize in 1..fftSize) {
@@ -57,7 +61,7 @@ object SeparationStft {
         config: Config
     ): StereoSpectrogram {
         require(left.size == right.size) {
-            "Stereo channels must have equal lengths."
+            "Stereo channel lengths differ."
         }
 
         require(left.isNotEmpty()) {
@@ -88,17 +92,20 @@ object SeparationStft {
             0
         }
 
-        val paddedLength = audio.size.toLong() +
-            padding.toLong() * 2L
+        val paddedLength =
+            audio.size.toLong() + padding.toLong() * 2L
 
-        val frameCount = if (paddedLength <= fftSize) {
-            1
+        val frameCountLong = if (paddedLength <= fftSize) {
+            1L
         } else {
-            (
-                (paddedLength - fftSize) / hopSize + 1L
-            ).toInt()
+            (paddedLength - fftSize) / hopSize + 1L
         }
 
+        require(frameCountLong <= Int.MAX_VALUE) {
+            "Too many STFT frames."
+        }
+
+        val frameCount = frameCountLong.toInt()
         val bins = fftSize / 2 + 1
 
         val realFrames = Array(frameCount) {
@@ -113,7 +120,8 @@ object SeparationStft {
             val real = DoubleArray(fftSize)
             val imaginary = DoubleArray(fftSize)
 
-            val start = frame.toLong() * hopSize - padding
+            val start =
+                frame.toLong() * hopSize - padding
 
             for (index in 0 until fftSize) {
                 val sourceIndex = start + index
@@ -130,7 +138,10 @@ object SeparationStft {
                 real[index] = sample * window[index]
             }
 
-            SeparationFft.forward(real, imaginary)
+            SeparationMixedRadixFft.forward(
+                real,
+                imaginary
+            )
 
             for (bin in 0 until bins) {
                 realFrames[frame][bin] = real[bin]
@@ -144,46 +155,38 @@ object SeparationStft {
         )
     }
 
-    /**
-     * Periodic Hann window.
-     *
-     * This convention must match the selected ONNX model.
-     */
-    private fun hannWindow(size: Int): DoubleArray {
-        return DoubleArray(size) { index ->
-            0.5 - 0.5 * cos(
-                2.0 * PI * index / size
-            )
-        }
-    }
-
-    /**
-     * Reconstructs stereo audio from a complex spectrogram.
-     *
-     * Uses overlap-add and window-square normalization.
-     */
     fun inverse(
         spectrogram: StereoSpectrogram
     ): Pair<FloatArray, FloatArray> {
-        val left = inverseChannel(
-            spectrogram.left,
-            spectrogram.originalFrames,
-            spectrogram.config
+        require(spectrogram.originalFrames > 0) {
+            "Invalid original audio length."
+        }
+
+        val window = hannWindow(
+            spectrogram.config.fftSize
         )
 
-        val right = inverseChannel(
-            spectrogram.right,
-            spectrogram.originalFrames,
-            spectrogram.config
+        return Pair(
+            inverseChannel(
+                spectrogram.left,
+                spectrogram.originalFrames,
+                spectrogram.config,
+                window
+            ),
+            inverseChannel(
+                spectrogram.right,
+                spectrogram.originalFrames,
+                spectrogram.config,
+                window
+            )
         )
-
-        return left to right
     }
 
     private fun inverseChannel(
         spectrum: ComplexSpectrum,
         originalFrames: Int,
-        config: Config
+        config: Config,
+        window: DoubleArray
     ): FloatArray {
         val fftSize = config.fftSize
         val hopSize = config.hopSize
@@ -196,19 +199,12 @@ object SeparationStft {
         require(
             spectrum.imaginary.size == spectrum.frameCount
         ) {
-            "Spectrogram frame counts do not match."
+            "Spectrogram frame counts differ."
         }
 
-        val padding = if (config.center) {
-            fftSize / 2
-        } else {
-            0
-        }
-
-        val reconstructedLength = (
+        val reconstructedLength =
             (spectrum.frameCount - 1).toLong() *
                 hopSize + fftSize
-        )
 
         require(reconstructedLength <= Int.MAX_VALUE) {
             "Reconstructed audio is too large."
@@ -220,14 +216,12 @@ object SeparationStft {
 
         val normalization = DoubleArray(output.size)
 
-        val window = hannWindow(fftSize)
-
         for (frame in 0 until spectrum.frameCount) {
             require(
                 spectrum.real[frame].size == bins &&
                     spectrum.imaginary[frame].size == bins
             ) {
-                "Unexpected spectrogram frequency-bin count."
+                "Invalid spectrogram frequency dimensions."
             }
 
             val real = DoubleArray(fftSize)
@@ -238,18 +232,25 @@ object SeparationStft {
                 imaginary[bin] = spectrum.imaginary[frame][bin]
             }
 
-            // Restore conjugate symmetry for a real-valued signal.
+            // Restore negative-frequency conjugate symmetry.
             for (bin in 1 until fftSize / 2) {
                 real[fftSize - bin] = real[bin]
                 imaginary[fftSize - bin] = -imaginary[bin]
             }
 
-            SeparationFft.inverse(real, imaginary)
+            // DC and Nyquist bins must be real-valued.
+            imaginary[0] = 0.0
+            imaginary[fftSize / 2] = 0.0
 
-            val start = frame * hopSize
+            SeparationMixedRadixFft.inverse(
+                real,
+                imaginary
+            )
+
+            val start = frame.toLong() * hopSize
 
             for (index in 0 until fftSize) {
-                val position = start + index
+                val position = (start + index).toInt()
                 val weight = window[index]
 
                 output[position] += real[index] * weight
@@ -257,24 +258,42 @@ object SeparationStft {
             }
         }
 
+        val padding = if (config.center) {
+            fftSize / 2
+        } else {
+            0
+        }
+
         val result = FloatArray(originalFrames)
 
-        for (index in 0 until originalFrames) {
-            val position = index + padding
+        for (index in result.indices) {
+            val position = index.toLong() + padding
 
-            if (position !in output.indices) {
+            if (position >= output.size) {
                 continue
             }
 
-            val weight = normalization[position]
+            val positionIndex = position.toInt()
+            val weight = normalization[positionIndex]
 
             result[index] = if (weight > 1e-10) {
-                (output[position] / weight).toFloat()
+                (output[positionIndex] / weight).toFloat()
             } else {
                 0f
             }
         }
 
         return result
+    }
+
+    /**
+     * Periodic Hann window.
+     */
+    private fun hannWindow(size: Int): DoubleArray {
+        return DoubleArray(size) { index ->
+            0.5 - 0.5 * cos(
+                2.0 * PI * index / size
+            )
+        }
     }
 }
