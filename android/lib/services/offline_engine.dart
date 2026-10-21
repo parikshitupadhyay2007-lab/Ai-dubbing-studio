@@ -1,3 +1,4 @@
+
 import 'package:flutter/services.dart';
 
 import '../models/dub_project.dart';
@@ -72,8 +73,6 @@ class OfflineEngine {
     }
   }
 
-  // MILESTONE 1: OFFLINE TRANSCRIPTION
-
   Future<Map<String, dynamic>> transcribe(
     DubProject project,
   ) async {
@@ -92,10 +91,6 @@ class OfflineEngine {
     });
   }
 
-  // MILESTONE 2: AUTOMATIC SPEAKER IDENTIFICATION
-  // Uses the native audio-based speaker clustering baseline.
-  // No separate speaker.bin file is required.
-
   Future<Map<String, dynamic>> identifySpeakers(
     DubProject project,
   ) {
@@ -106,10 +101,6 @@ class OfflineEngine {
           .toList(),
     });
   }
-
-  // MILESTONE 3: AUTOMATIC OFFLINE TRANSLATION
-  // Reuses the bundled OtakuMind GGUF model.
-  // No separate translator.bin file is required.
 
   Future<Map<String, dynamic>> translate(
     DubProject project,
@@ -132,8 +123,6 @@ class OfflineEngine {
     });
   }
 
-  // MILESTONE 4: INTERNAL OTAKUMIND DIALOGUE REFINEMENT
-
   Future<Map<String, dynamic>> refineDialogue(
     DubProject project,
   ) async {
@@ -154,25 +143,52 @@ class OfflineEngine {
     });
   }
 
-  // MILESTONE 5: CHARACTER VOICE SYNTHESIS
+  // Offline character voice synthesis.
+  // Requires a matching Piper model and configuration.
 
   Future<Map<String, dynamic>> synthesize(
     DubProject project,
   ) async {
+    if (project.targetLanguage != 'hi' &&
+        project.targetLanguage != 'en') {
+      throw OfflineEngineException(
+        'Voice synthesis currently supports Hindi and English.',
+      );
+    }
+
     final voiceModel = project.targetLanguage == 'hi'
         ? AiModel.hindiVoice
         : AiModel.englishVoice;
 
-    final voicePath = await models.path(voiceModel);
+    final config = await models.loadVoiceConfig(voiceModel);
 
-    if (voicePath == null) {
+    if (project.segments.isEmpty) {
       throw OfflineEngineException(
-        'Install a compatible local voice model first.',
+        'No dialogue is available for voice synthesis.',
       );
     }
 
+    for (final segment in project.segments) {
+      if (segment.translation.trim().isEmpty) {
+        throw OfflineEngineException(
+          'Translated dialogue is missing for segment ${segment.id}.',
+        );
+      }
+
+      if (segment.end <= segment.start) {
+        throw OfflineEngineException(
+          'Invalid dialogue timing for segment ${segment.id}.',
+        );
+      }
+    }
+
     return _invoke('synthesize', {
-      'voice_model_path': voicePath,
+      'voice_model_path': config.modelPath,
+      'voice_config_path': config.configPath,
+      'voice_architecture': config.architecture,
+      'sample_rate': config.sampleRate,
+      'num_speakers': config.numSpeakers,
+      'speaker_id_map': config.speakers,
       'target_language': project.targetLanguage,
       'segments': project.segments
           .map((segment) => segment.toJson())
@@ -180,8 +196,6 @@ class OfflineEngine {
       'character_voices': project.characterVoices,
     });
   }
-
-  // MILESTONE 6: FINAL DUBBED VIDEO EXPORT
 
   Future<Map<String, dynamic>> exportVideo(
     DubProject project,
@@ -195,9 +209,8 @@ class OfflineEngine {
     });
   }
 
-  // INTERNAL OTAKUMIND ACCESS
-  // Retained for engine compatibility.
-  // The public chatbot interface is removed.
+  // Internal OtakuMind access.
+  // The public chatbot interface remains removed.
 
   Future<String> chat({
     required String message,
@@ -232,3 +245,4 @@ class OfflineEngine {
     return reply;
   }
 }
+
