@@ -1,6 +1,6 @@
-
 package co.parikshit.otakudub
 
+import android.os.Bundle
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -22,7 +22,6 @@ class MainActivity : FlutterActivity() {
     }
 
     private val executor = Executors.newSingleThreadExecutor()
-
     private var loadedModelPath: String? = null
 
     private external fun nativeLoadModel(path: String): Boolean
@@ -35,6 +34,12 @@ class MainActivity : FlutterActivity() {
     private external fun nativeRelease()
 
     private external fun nativeIsLoaded(): Boolean
+
+    private external fun nativeTranscribeWav(
+        modelPath: String,
+        wavPath: String,
+        language: String
+    ): List<Map<String, Any>>
 
     override fun configureFlutterEngine(
         flutterEngine: FlutterEngine
@@ -52,11 +57,94 @@ class MainActivity : FlutterActivity() {
                     result.success(nativeAvailable)
                 }
 
+                "transcribe" -> {
+                    if (!nativeAvailable) {
+                        result.error(
+                            "NATIVE_UNAVAILABLE",
+                            "Native AI library is unavailable.",
+                            null
+                        )
+                        return@setMethodCallHandler
+                    }
+
+                    val sourcePath =
+                        call.argument<String>("source_path")
+
+                    val modelPath =
+                        call.argument<String>("model_path")
+
+                    val language =
+                        call.argument<String>("language") ?: "auto"
+
+                    if (
+                        sourcePath.isNullOrBlank() ||
+                        modelPath.isNullOrBlank() ||
+                        !File(sourcePath).isFile ||
+                        !File(modelPath).isFile
+                    ) {
+                        result.error(
+                            "FILE_MISSING",
+                            "Source media or Whisper model is missing.",
+                            null
+                        )
+                        return@setMethodCallHandler
+                    }
+
+                    executor.execute {
+                        try {
+                            // The native Whisper reader requires
+                            // mono, 16 kHz, PCM16 WAV input.
+                            // Other media formats need conversion first.
+                            if (!sourcePath.endsWith(
+                                    ".wav",
+                                    ignoreCase = true
+                                )
+                            ) {
+                                throw IllegalArgumentException(
+                                    "Audio conversion is required before transcription."
+                                )
+                            }
+
+                            val segments = nativeTranscribeWav(
+                                modelPath,
+                                sourcePath,
+                                language
+                            ).mapIndexed { index, segment ->
+                                mapOf(
+                                    "id" to "segment_$index",
+                                    "start" to segment["start"],
+                                    "end" to segment["end"],
+                                    "original" to segment["original"],
+                                    "translation" to "",
+                                    "speaker_id" to "speaker_1",
+                                    "voice_id" to "",
+                                    "speaker_confidence" to 0.0
+                                )
+                            }
+
+                            runOnUiThread {
+                                result.success(
+                                    mapOf("segments" to segments)
+                                )
+                            }
+                        } catch (error: Exception) {
+                            runOnUiThread {
+                                result.error(
+                                    "TRANSCRIPTION_ERROR",
+                                    error.message
+                                        ?: "Whisper transcription failed.",
+                                    null
+                                )
+                            }
+                        }
+                    }
+                }
+
                 "chat" -> {
                     if (!nativeAvailable) {
                         result.error(
                             "NATIVE_UNAVAILABLE",
-                            "OtakuDub native library is not installed.",
+                            "OtakuMind native library is unavailable.",
                             null
                         )
                         return@setMethodCallHandler
@@ -111,7 +199,7 @@ class MainActivity : FlutterActivity() {
 
                                 if (!nativeLoadModel(modelPath)) {
                                     throw IllegalStateException(
-                                        "Could not load the GGUF model."
+                                        "Could not load OtakuMind."
                                     )
                                 }
 
@@ -134,15 +222,11 @@ class MainActivity : FlutterActivity() {
                                         reply,
                                         null
                                     )
-                                } else if (reply.isBlank()) {
-                                    result.error(
-                                        "EMPTY_RESPONSE",
-                                        "The local model returned no text.",
-                                        null
-                                    )
                                 } else {
                                     result.success(
-                                        mapOf("reply" to reply.trim())
+                                        mapOf(
+                                            "reply" to reply.trim()
+                                        )
                                     )
                                 }
                             }
@@ -150,7 +234,8 @@ class MainActivity : FlutterActivity() {
                             runOnUiThread {
                                 result.error(
                                     "OTAKUMIND_ERROR",
-                                    error.message ?: "Inference failed.",
+                                    error.message
+                                        ?: "Local inference failed.",
                                     null
                                 )
                             }
@@ -158,7 +243,6 @@ class MainActivity : FlutterActivity() {
                     }
                 }
 
-                "transcribe",
                 "identifySpeakers",
                 "translate",
                 "refineDialogue",
@@ -166,7 +250,7 @@ class MainActivity : FlutterActivity() {
                 "exportVideo" -> {
                     result.error(
                         "ENGINE_NOT_INTEGRATED",
-                        "${call.method} requires its native engine integration.",
+                        "${call.method} requires native integration.",
                         null
                     )
                 }
