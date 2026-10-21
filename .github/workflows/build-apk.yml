@@ -193,7 +193,7 @@ jobs:
           matches = [
               name for name in files
               if name.lower().endswith(".gguf") and "q4_k_m" in name.lower()
-
+              ]
           if len(matches) != 1:
               raise SystemExit(
                   f"Expected one Q4_K_M model; found: {matches}"
