@@ -172,35 +172,45 @@ jobs:
 
           echo "Whisper model downloaded and verified."
 
+      
       - name: Download bundled OtakuMind model
         shell: bash
         run: |
           set -euo pipefail
 
-          MODEL_DIR="android/assets/models"
-          mkdir -p "$MODEL_DIR"
+          python3 -m pip install --upgrade huggingface_hub
 
-          curl \
-            --fail \
-            --location \
-            --retry 5 \
-            --retry-delay 5 \
-            --output "$MODEL_DIR/otakumind.gguf" \
-            "https://huggingface.co/tensorblock/Qwen_Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q4_K_M.gguf"
+          mkdir -p android/assets/models
 
           python3 - <<'PY'
           from pathlib import Path
+          from huggingface_hub import hf_hub_download
+          import shutil
 
-          model = Path("android/assets/models/otakumind.gguf")
+          source = hf_hub_download(
+              repo_id="tensorblock/Qwen_Qwen3-0.6B-GGUF",
+              filename="Qwen3-0.6B-Q4_K_M.gguf",
+          )
 
-          if model.stat().st_size < 400_000_000:
-              raise SystemExit("OtakuMind model download is incomplete")
+          destination = Path(
+              "android/assets/models/otakumind.gguf"
+          )
 
-          with model.open("rb") as file:
+          shutil.copyfile(source, destination)
+
+          size = destination.stat().st_size
+
+          if size < 400_000_000:
+              raise SystemExit(
+                  "OtakuMind model download is incomplete"
+              )
+
+          with destination.open("rb") as file:
               if file.read(4) != b"GGUF":
-                  raise SystemExit("Invalid OtakuMind GGUF header")
+                  raise SystemExit("Invalid GGUF model")
 
-          print("OtakuMind model downloaded and checked.")
+          print("OtakuMind bundled successfully")
+          print(f"Model size: {size:,} bytes")
           PY
 
       - name: Install Flutter dependencies
