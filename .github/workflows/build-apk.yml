@@ -262,6 +262,40 @@ jobs:
           print("Validated separation tensor metadata and wrote bundled manifest.")
           PY
 
+      - name: Bundle verified Hindi and English Piper voices
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p android/assets/models/voices
+          python3 - <<'PY'
+          import hashlib, json, urllib.request
+          from pathlib import Path
+          base = "https://huggingface.co/rhasspy/piper-voices/resolve/main/"
+          voices = [
+            ("hi_hero", "hi/hi_IN/pratham/medium/hi_IN-pratham-medium",
+             "169964b0871667f6793416d4b35e97357a68ba1ad01df8580c28048989ee7693", "hi"),
+            ("en_hero", "en/en_US/lessac/medium/en_US-lessac-medium",
+             "5efe09e69902187827af646e1a6e9d269dee769f9877d17b16b1b46eeaaf019f", "en"),
+          ]
+          target = Path("android/assets/models/voices")
+          for profile, remote, digest, language in voices:
+              for suffix in (".onnx", ".onnx.json"):
+                  path = target / (profile + suffix)
+                  urllib.request.urlretrieve(base + remote + suffix, path)
+                  if not path.is_file() or not path.stat().st_size:
+                      raise SystemExit("Missing voice asset: " + str(path))
+              model = target / (profile + ".onnx")
+              actual = hashlib.sha256(model.read_bytes()).hexdigest()
+              if actual != digest:
+                  raise SystemExit(f"Checksum mismatch for {profile}: {actual}")
+              config = json.loads((target / (profile + ".onnx.json")).read_text())
+              if config["language"]["code"].split("_")[0] != language:
+                  raise SystemExit("Voice language mismatch: " + profile)
+              if not config.get("phoneme_id_map") or config.get("num_speakers") != 1:
+                  raise SystemExit("Unsupported Piper configuration: " + profile)
+              print(profile, "verified:", model.stat().st_size, "bytes")
+          PY
+
       - name: Install Flutter dependencies
         working-directory: android
         run: flutter pub get
