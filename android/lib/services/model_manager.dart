@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
@@ -267,7 +266,7 @@ class ModelManager {
   Future<Map<String, bool>> installBundledModels() async {
     final results = <String, bool>{};
 
-    for (final model in AiModel.values) {
+    for (final model in [AiModel.whisper, AiModel.otakuMind]) {
       results[model.name] = await ensureBundledModel(model);
     }
 
@@ -353,7 +352,7 @@ class ModelManager {
   Future<List<AiModel>> missingModels() async {
     final missing = <AiModel>[];
 
-    for (final model in AiModel.values) {
+    for (final model in [AiModel.whisper, AiModel.otakuMind]) {
       if (!await installed(model)) {
         missing.add(model);
       }
@@ -365,7 +364,7 @@ class ModelManager {
   Future<Map<String, bool>> installationStatus() async {
     final status = <String, bool>{};
 
-    for (final model in AiModel.values) {
+    for (final model in [AiModel.whisper, AiModel.otakuMind]) {
       status[model.name] = await installed(model);
     }
 
