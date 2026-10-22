@@ -557,4 +557,4 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-# Deployment build: compile and validate latest long-video audio and model-installation fixes.
+# Build latest Whisper diagnostics, model-status, speaker fallback and cache fixes.
