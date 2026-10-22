@@ -23,3 +23,7 @@ Status: **BLOCKED — do not certify release readiness or trigger the consolidat
 - Only then trigger one consolidated GitHub Actions build and resolve failures.
 
 Do not describe milestone 1, 2, 4 or 6 as complete while these blockers remain.
+
+## Update — 22 October 2026
+
+Commits `37456db`, `3b333b6` and `f2d1e7e` added a local separation manifest loader and connected separation → stereo soundtrack mixing → export in DubbingPipeline. The earlier statement that DubbingPipeline does not invoke separation describes the previous revision, not the current code. These changes are **unbuilt and not validated**. A user-supplied manifest is not an independently trusted checkpoint; the exact ONNX file, transform, stem polarity, and on-device parity must be reviewed before provisioning. The release remains blocked until acceptance tests pass.
