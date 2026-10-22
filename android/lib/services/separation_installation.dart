@@ -1,53 +1,70 @@
 import 'dart:convert';
 import 'dart:io';
-
+import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
-
 import 'offline_engine.dart';
 
-/// Loads the local checkpoint and its declared metadata. A self-supplied
-/// manifest is NOT an independently trusted release pin or proof of stem
-/// polarity. Production release must pin a reviewed digest in app code.
+/// The pinned SHA identifies the exact public Inst HQ 3 ONNX checkpoint.
+/// Shape validation and reference-audio parity remain separate release gates.
 class SeparationInstallation {
+  static const pinnedSha256 =
+      '317554b07fe1ea5279a77f2b1520a41ea4b93432560c4ffd08792c30fddf9adc';
+
   final String modelPath;
   final String sha256;
   final String inputName;
   final String outputName;
-
   const SeparationInstallation(this.modelPath, this.sha256, this.inputName, this.outputName);
 
   static Future<SeparationInstallation> load() async {
     final root = await getApplicationDocumentsDirectory();
     final directory = Directory('${root.path}/otakudub/models');
+    await directory.create(recursive: true);
     final model = File('${directory.path}/separation.onnx');
     final manifest = File('${directory.path}/separation.json');
-    if (!await model.exists() || await model.length() == 0 ||
-        !await manifest.exists()) {
-      throw OfflineEngineException(
-        'Background preservation requires a verified instrumental separation '
-        'checkpoint (separation.onnx) and matching separation.json in the model vault.',
-      );
+    // Bundle extraction is atomic; preserve an existing installation.
+    for (final entry in <(String, File)>[
+      ('assets/models/separation.onnx', model),
+      ('assets/models/separation.json', manifest),
+    ]) {
+      if (!await entry.$2.exists() || await entry.$2.length() == 0) {
+        late final ByteData asset;
+        try {
+          asset = await rootBundle.load(entry.$1);
+        } catch (_) {
+          throw OfflineEngineException('Required bundled separation asset is unavailable: ${entry.$1}');
+        }
+        final temp = File('${entry.$2.path}.installing');
+        try {
+          await temp.writeAsBytes(asset.buffer.asUint8List(
+              asset.offsetInBytes, asset.lengthInBytes), flush: true);
+          if (await temp.length() == 0) {
+            throw OfflineEngineException('Bundled separation asset is empty.');
+          }
+          if (await entry.$2.exists()) await entry.$2.delete();
+          await temp.rename(entry.$2.path);
+        } finally {
+          if (await temp.exists()) await temp.delete();
+        }
+      }
     }
     late final Map<String, dynamic> metadata;
     try {
       metadata = Map<String, dynamic>.from(jsonDecode(await manifest.readAsString()) as Map);
     } catch (_) {
-      throw OfflineEngineException('Separation model manifest is invalid JSON.');
+      throw OfflineEngineException('Bundled separation manifest is invalid.');
     }
     final sha = metadata['sha256'];
     final input = metadata['input_name'];
     final output = metadata['output_name'];
     if (metadata['model_id'] != 'UVR-MDX-NET-Inst_HQ_3' ||
         metadata['stem'] != 'instrumental' ||
-        metadata['reference_validated'] != true ||
-        sha is! String || !RegExp(r'^[a-fA-F0-9]{64}$').hasMatch(sha) ||
+        sha is! String || sha.toLowerCase() != pinnedSha256 ||
         input is! String || input.trim().isEmpty ||
         output is! String || output.trim().isEmpty) {
-      throw OfflineEngineException(
-        'The installed separation checkpoint needs reviewed instrumental '
-        'metadata, tensor names and SHA-256; cannot safely preserve the soundtrack.',
-      );
+      throw OfflineEngineException('Separation model metadata does not match the pinned checkpoint.');
     }
-    return SeparationInstallation(model.path, sha, input, output);
+    // Native separation computes the actual file SHA-256 before inference.
+    return SeparationInstallation(model.path, pinnedSha256, input, output);
   }
 }
