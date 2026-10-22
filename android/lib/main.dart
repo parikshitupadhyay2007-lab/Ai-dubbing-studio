@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:open_filex/open_filex.dart';
 
 import 'models/dub_project.dart';
@@ -510,7 +511,11 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
       dubPercent = 0;
     });
 
+    var backgroundStarted = false;
     try {
+      await const MethodChannel('co.parikshit.otakudub/offline_engine')
+          .invokeMethod<bool>('startBackgroundDubbing');
+      backgroundStarted = true;
       await pipeline.process(
         project,
         onProgress: (stage) {
@@ -530,6 +535,14 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
         setState(() => status = 'Processing stopped: $e');
       }
     } finally {
+      if (backgroundStarted) {
+        try {
+          await const MethodChannel('co.parikshit.otakudub/offline_engine')
+              .invokeMethod<bool>('stopBackgroundDubbing');
+        } catch (error) {
+          debugPrint('Could not stop background notification: $error');
+        }
+      }
       if (mounted) setState(() => busy = false);
     }
   }
