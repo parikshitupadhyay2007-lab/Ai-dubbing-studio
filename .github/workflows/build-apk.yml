@@ -269,6 +269,10 @@ jobs:
 
           test -s assets/models/whisper.bin
 
+      - name: Run Flutter regression tests
+        working-directory: android
+        run: flutter test
+
       - name: Build OtakuDub APK
         working-directory: android
         run: flutter build apk --debug
