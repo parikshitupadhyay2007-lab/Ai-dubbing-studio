@@ -173,6 +173,18 @@ jobs:
             | sha256sum --check --status
 
           test "$(stat -c%s "$MODEL_DIR/whisper.bin")" -eq 147951465
+          python3 - <<'PY'
+          from pathlib import Path
+          model = Path("android/assets/models/whisper.bin")
+          header = model.open("rb").read(4)
+          if header != bytes.fromhex("6c6d6767"):
+              raise SystemExit(f"Unexpected Whisper ggml magic: {header.hex()}")
+          manager = Path("android/lib/services/model_manager.dart").read_text()
+          for check in ("header[0] == 0x6c", "header[1] == 0x6d", "header[2] == 0x67", "header[3] == 0x67"):
+              if check not in manager:
+                  raise SystemExit("Whisper validator disagrees with bundled model: " + check)
+          print("Whisper header and Dart validator agree.")
+          PY
 
           echo "Whisper model downloaded and verified."
 
@@ -557,4 +569,4 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-# Build latest Whisper diagnostics, model-status, speaker fallback and cache fixes.
+# Rebuild with corrected Whisper header validation and asset regression check.
