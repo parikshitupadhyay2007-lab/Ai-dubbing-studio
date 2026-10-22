@@ -335,6 +335,39 @@ jobs:
           print("ALL REQUIRED AI ASSETS VERIFIED")
           PY
 
+      - name: Verify all required AI assets before APK compilation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          root = Path("android/assets/models")
+          required = {
+              "whisper.bin": 147951465,
+              "otakumind.gguf": 400000000,
+              "separation.onnx": 1000000,
+              "separation.json": 10,
+              "voices/hi_hero.onnx": 1000000,
+              "voices/hi_hero.onnx.json": 100,
+              "voices/en_hero.onnx": 1000000,
+              "voices/en_hero.onnx.json": 100,
+          }
+          for name, minimum in required.items():
+              path = root / name
+              if not path.is_file() or path.stat().st_size < minimum:
+                  raise SystemExit(f"Required AI asset absent/incomplete: {path}")
+              print("PRE-BUILD VERIFIED:", name, path.stat().st_size)
+          with (root / "otakumind.gguf").open("rb") as stream:
+              if stream.read(4) != b"GGUF":
+                  raise SystemExit("Invalid OtakuMind GGUF signature")
+          for language, profile in (("hi", "hi_hero"), ("en", "en_hero")):
+              config = json.loads((root / "voices" / (profile + ".onnx.json")).read_text())
+              if config["language"]["code"].split("_")[0] != language or not config.get("phoneme_id_map"):
+                  raise SystemExit("Invalid voice configuration: " + profile)
+          print("ALL REQUIRED AI ASSETS VERIFIED BEFORE COMPILATION")
+          PY
+
       - name: Install Flutter dependencies
         working-directory: android
         run: flutter pub get
