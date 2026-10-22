@@ -7,6 +7,9 @@ object OfflineSoundtrackMixer {
     fun mix(dialoguePath: String, accompanimentPath: String, outputPath: String): String {
         val speech = File(dialoguePath)
         val music = File(accompanimentPath)
+        require(speech.canonicalPath != music.canonicalPath) {
+            "Dialogue and accompaniment must be separate files."
+        }
         require(speech.isFile && music.isFile)
         require(File(outputPath).canonicalPath != speech.canonicalPath &&
             File(outputPath).canonicalPath != music.canonicalPath)
@@ -65,6 +68,8 @@ object OfflineSoundtrackMixer {
             word(22) == channels && integer(24) == rate.toLong() &&
             word(34) == 16)
         val bytes = integer(40)
+        require(integer(28) == rate.toLong() * channels * 2L &&
+            word(32) == channels * 2)
         require(bytes > 0 && bytes % (channels * 2) == 0L &&
             bytes <= file.length() - 44L)
         return bytes / (channels * 2)
