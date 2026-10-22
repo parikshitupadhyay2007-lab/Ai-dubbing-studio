@@ -68,15 +68,14 @@ class OfflineMdxSeparator(
             val audio = SeparationAudioDecoder.decode(
                 request.sourceMediaPath, decoded.absolutePath
             )
-            val source = if (audio.sampleRate == profile.sampleRate) {
-                decoded
+            val sourceWavPath = if (audio.sampleRate == profile.sampleRate) {
+                audio.wavPath
             } else {
                 SeparationAudioResampler.resample(
                     decoded.absolutePath,
                     resampled.absolutePath,
                     profile.sampleRate
-                )
-                resampled
+                ).wavPath
             }
 
             // For centered STFT, N=(T-1)*hop yields exactly T frames.
@@ -90,7 +89,7 @@ class OfflineMdxSeparator(
 
             SeparationOnnxRunner(config).use { runner ->
                 SeparationAudioChunkReader(
-                    source.absolutePath, chunkFrames, overlapFrames
+                    sourceWavPath, chunkFrames, overlapFrames
                 ).use { reader ->
                     require(reader.sampleRate == profile.sampleRate) {
                         "Source WAV sample rate does not match model."
