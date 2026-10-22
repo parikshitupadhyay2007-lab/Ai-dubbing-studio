@@ -197,9 +197,11 @@ Java_co_parikshit_otakudub_MainActivity_nativeTranscribeWav(
     params.print_special = false;
     params.translate = false;
     params.n_threads = 4;
+    params.no_context = true;
+    params.single_segment = false;
 
     params.language =
-        lang.empty() || lang == "auto"
+        lang.empty() || lang == "auto" || lang == "unknown"
             ? nullptr
             : lang.c_str();
 
