@@ -28,6 +28,11 @@ class CharacterVoiceCaster {
     }
 
     final speakers = <String>[];
+    final existingRoles = <String, VoiceRole>{};
+    for (final entry in project.characterVoices.entries) {
+      final profile = VoiceCatalog.profiles.where((p) => p.id == entry.value);
+      if (profile.isNotEmpty) existingRoles[entry.key] = profile.first.role;
+    }
 
     for (final segment in project.segments) {
       final speaker = segment.speakerId.trim();
@@ -46,7 +51,9 @@ class CharacterVoiceCaster {
     project.characterVoices.removeWhere(
       (speaker, voice) =>
           !speakers.contains(speaker) ||
-          !validIds.contains(voice),
+          !validIds.contains(voice) ||
+          (preferredRoles.containsKey(speaker) &&
+              VoiceCatalog.byId(voice).role != preferredRoles[speaker]),
     );
 
     final used = project.characterVoices.values.toSet();
@@ -56,7 +63,7 @@ class CharacterVoiceCaster {
         continue;
       }
 
-      final preferredRole = preferredRoles[speaker];
+      final preferredRole = preferredRoles[speaker] ?? existingRoles[speaker];
 
       final candidates = available.where((voice) {
         return preferredRole == null ||
