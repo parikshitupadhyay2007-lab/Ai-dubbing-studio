@@ -268,6 +268,7 @@ jobs:
 
       # Blackheart identity artwork is generated from original geometry, not copied branding.
       # Rebuild includes the restored five-second company and app introduction.
+      # Validate the new stage-based video percentage and clarified engine library.
       - name: Create Blackheart OtakuDub launcher artwork
         shell: bash
         run: |
