@@ -735,12 +735,12 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
             padding: EdgeInsets.all(16),
             child: Text(
               'OtakuMind runs internally for dialogue refinement. '
-              'Only compatible and integrated AI models can perform dubbing.',
+              'Translation uses OtakuMind and speaker identification runs in the native engine. Voice synthesis requires compatible installed voice models.',
             ),
           ),
         ),
         const SizedBox(height: 12),
-        for (final model in AiModel.values)
+        for (final model in AiModel.values.where((model) => model != AiModel.translator && model != AiModel.speaker))
           FutureBuilder<bool>(
             future: models.installed(model),
             builder: (context, snapshot) {
