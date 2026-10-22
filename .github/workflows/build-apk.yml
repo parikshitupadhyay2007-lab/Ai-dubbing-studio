@@ -251,7 +251,7 @@ jobs:
           def shape(node):
               return [dim.dim_value if dim.HasField("dim_value") else -1
                       for dim in node.type.tensor_type.shape.dim]
-          if len(inputs) != 1 or len(outputs) != 1 or shape(inputs[0]) != [1,4,3072,256] or shape(outputs[0]) != [1,4,3072,256]:
+          if len(inputs) != 1 or len(outputs) != 1 or shape(inputs[0]) != [-1,4,3072,256] or shape(outputs[0]) != [-1,4,3072,256]:
               raise SystemExit(f"Unexpected model I/O: {[(x.name,shape(x)) for x in inputs]} -> {[(x.name,shape(x)) for x in outputs]}")
           manifest = dict(model_id="UVR-MDX-NET-Inst_HQ_3",
               stem="instrumental",
