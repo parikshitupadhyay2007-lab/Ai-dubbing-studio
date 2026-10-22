@@ -285,6 +285,30 @@ class DubbingPipeline {
         );
       }
 
+      final expectedIds = project.segments.map((segment) => segment.id).toSet();
+      final returnedIds = <int>{};
+      for (final item in clips) {
+        if (item is! Map || item['segment_id'] is! int ||
+            !returnedIds.add(item['segment_id'] as int)) {
+          throw OfflineEngineException('Synthesis returned invalid or duplicate clip IDs.');
+        }
+        final segment = project.segments.firstWhere(
+          (s) => s.id == item['segment_id'],
+          orElse: () => throw OfflineEngineException('Synthesis returned an unknown segment.'),
+        );
+        if (item['speaker_id'] != segment.speakerId ||
+            item['voice_id'] != segment.voiceId ||
+            item['start'] is! num || item['end'] is! num ||
+            ((item['start'] as num).toDouble() - segment.start).abs() > 0.001 ||
+            ((item['end'] as num).toDouble() - segment.end).abs() > 0.001) {
+          throw OfflineEngineException('Synthesis changed character or timing for segment ${segment.id}.');
+        }
+      }
+      if (returnedIds.length != expectedIds.length ||
+          !returnedIds.containsAll(expectedIds)) {
+        throw OfflineEngineException('Synthesis omitted dialogue segments.');
+      }
+
       // STEP 7: Synchronize dialogue and export MP4
       await _stage(
         project,
