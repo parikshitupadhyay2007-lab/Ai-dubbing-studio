@@ -108,7 +108,8 @@ class MainActivity : FlutterActivity() {
                             val separator = OfflineMdxSeparator(
                                 SeparationModelConfig(model, profile.sampleRate,
                                     profile.channels, input, listOf(output),
-                                    shape, listOf(shape)),
+                                    listOf(-1L) + shape.drop(1),
+                                    listOf(listOf(-1L) + shape.drop(1))),
                                 profile, checksum
                             )
                             val stems = separator.separate(SeparationRequest(
