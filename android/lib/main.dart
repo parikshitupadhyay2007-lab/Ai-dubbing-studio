@@ -742,7 +742,11 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
         const SizedBox(height: 12),
         for (final model in AiModel.values.where((model) => model != AiModel.translator && model != AiModel.speaker))
           FutureBuilder<bool>(
-            future: models.installed(model),
+            future: model == AiModel.hindiVoice
+                ? const VoiceInstallationRegistry().isInstalled('hi_hero')
+                : model == AiModel.englishVoice
+                    ? const VoiceInstallationRegistry().isInstalled('en_hero')
+                    : models.installed(model),
             builder: (context, snapshot) {
               final installed = snapshot.data == true;
 
@@ -766,7 +770,11 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
                     icon: const Icon(Icons.file_upload_outlined),
                     onPressed: () async {
                       try {
-                        await models.importModel(model);
+                        if (model.isVoice) {
+                          await const VoiceInstallationRegistry().refresh();
+                        } else {
+                          await models.importModel(model);
+                        }
                         if (mounted) setState(() {});
                       } catch (e) {
                         if (mounted) {
