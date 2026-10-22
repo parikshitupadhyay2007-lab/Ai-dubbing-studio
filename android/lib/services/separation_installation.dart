@@ -28,23 +28,24 @@ class SeparationInstallation {
       ('assets/models/separation.json', manifest),
     ]) {
       if (!await entry.$2.exists() || await entry.$2.length() == 0) {
-        late final ByteData asset;
         try {
-          asset = await rootBundle.load(entry.$1);
-        } catch (_) {
-          throw OfflineEngineException('Required bundled separation asset is unavailable: ${entry.$1}');
-        }
-        final temp = File('${entry.$2.path}.installing');
-        try {
-          await temp.writeAsBytes(asset.buffer.asUint8List(
-              asset.offsetInBytes, asset.lengthInBytes), flush: true);
-          if (await temp.length() == 0) {
-            throw OfflineEngineException('Bundled separation asset is empty.');
+          final copied = await const MethodChannel(
+            'co.parikshit.otakudub/offline_engine',
+          ).invokeMethod<int>('installBundledAsset', {
+            'asset': entry.$1,
+            'destination': entry.$2.path,
+          });
+          if (copied == null || copied <= 0 ||
+              !await entry.$2.exists() ||
+              await entry.$2.length() != copied) {
+            throw OfflineEngineException(
+              'Bundled separation asset was not completely installed: ${entry.$1}',
+            );
           }
-          if (await entry.$2.exists()) await entry.$2.delete();
-          await temp.rename(entry.$2.path);
-        } finally {
-          if (await temp.exists()) await temp.delete();
+        } on PlatformException catch (error) {
+          throw OfflineEngineException(
+            'Cannot install bundled separation asset ${entry.$1}: ${error.message}',
+          );
         }
       }
     }
