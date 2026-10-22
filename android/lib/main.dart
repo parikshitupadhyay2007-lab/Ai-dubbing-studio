@@ -104,7 +104,7 @@ class _OtakuDubLaunchState extends State<OtakuDubLaunch>
 
     animation = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 3),
+      duration: const Duration(seconds: 5),
     );
 
     animation.forward().whenComplete(() {
@@ -176,7 +176,7 @@ class _OtakuDubLaunchState extends State<OtakuDubLaunch>
                       child: FadeTransition(
                         opacity: animation,
                         child: const Text(
-                          'BLACKHEART',
+                          'BLACKHEART PRESENTS',
                           style: TextStyle(
                             color: cyan,
                             letterSpacing: 5,
@@ -224,7 +224,7 @@ class _OtakuDubLaunchState extends State<OtakuDubLaunch>
                           ),
                           const SizedBox(height: 15),
                           const Text(
-                            'A BLACKHEART ORIGINAL',
+                            'POWERED BY BLACKHEART',
                             style: TextStyle(
                               letterSpacing: 6,
                               fontSize: 13,
