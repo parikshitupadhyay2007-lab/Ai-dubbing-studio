@@ -227,6 +227,7 @@ jobs:
           PY
 
 
+      # Supports a dynamic ONNX batch dimension; native inference uses batch 1.
       - name: Bundle pinned instrumental ONNX checkpoint
         shell: bash
         run: |
