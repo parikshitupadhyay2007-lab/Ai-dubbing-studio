@@ -266,6 +266,37 @@ jobs:
         working-directory: android
         run: flutter pub get
 
+      - name: Create Blackheart OtakuDub launcher artwork
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install 'Pillow>=10,<13'
+          python3 - <<'PY'
+          from PIL import Image, ImageDraw
+          from math import sin, pi
+          from pathlib import Path
+          S=1024
+          im=Image.new('RGB',(S,S))
+          px=im.load()
+          for y in range(S):
+              for x in range(S):
+                  t=(x+y)/(2*S)
+                  px[x,y]=(int(255-17*t),int(249-17*t),int(242+13*t))
+          d=ImageDraw.Draw(im)
+          # Restrained circular anime film mark with play and a small spark.
+          d.rounded_rectangle((90,90,934,934),radius=205,fill=(252,235,231))
+          d.ellipse((215,215,809,809),fill=(32,36,50))
+          d.ellipse((286,286,738,738),fill=(252,235,231))
+          d.arc((286,286,738,738),start=45,end=298,fill=(32,36,50),width=42)
+          d.rounded_rectangle((355,470,400,600),radius=22,fill=(32,36,50))
+          d.polygon(((438,378),(438,647),(654,512)),fill=(32,36,50))
+          d.ellipse((693,240,743,290),fill=(119,118,201))
+          d.polygon(((718,203),(728,244),(769,254),(728,265),(718,307),(707,265),(667,254),(707,244)),fill=(119,118,201))
+          path=Path('android/assets/otakudub_icon.png')
+          im.save(path)
+          print('Blackheart launcher artwork:', path, path.stat().st_size)
+          PY
+
       - name: Generate launcher icon
         working-directory: android
         run: dart run flutter_launcher_icons
