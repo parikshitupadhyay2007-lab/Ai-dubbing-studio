@@ -158,9 +158,17 @@ class DubbingPipeline {
       project.sourceLanguage =
           transcript['language'] as String? ?? 'unknown';
 
+      final transcribedSegments = _parseSegments(transcript['segments']);
+      if (transcribedSegments.map((s) => s.id).toSet().length !=
+              transcribedSegments.length ||
+          transcribedSegments.any((s) =>
+              !s.start.isFinite || !s.end.isFinite ||
+              s.start < 0 || s.end <= s.start || s.original.trim().isEmpty)) {
+        throw OfflineEngineException('Transcription returned invalid dialogue segments.');
+      }
       project.segments
         ..clear()
-        ..addAll(_parseSegments(transcript['segments']));
+        ..addAll(transcribedSegments);
 
       if (project.segments.isEmpty) {
         throw OfflineEngineException(
@@ -354,13 +362,13 @@ class DubbingPipeline {
       return project;
     } catch (error) {
       project.error = error.toString();
-
-      await _stage(
-        project,
-        ProjectStage.failed,
-        onProgress,
-      );
-
+      project.stage = ProjectStage.failed;
+      try {
+        await repository.save(project);
+      } catch (_) {
+        // Preserve the original processing error when persistence also fails.
+      }
+      onProgress?.call(ProjectStage.failed);
       rethrow;
     }
   }
