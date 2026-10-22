@@ -409,3 +409,5 @@ jobs:
           path: android/build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
           retention-days: 7
+
+# Rebuild: align Engine Library voice indicators with installed Piper registry.
