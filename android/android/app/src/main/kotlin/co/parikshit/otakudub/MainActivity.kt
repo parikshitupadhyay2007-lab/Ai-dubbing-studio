@@ -95,6 +95,38 @@ class MainActivity : FlutterActivity() {
                     }
                 }
 
+                "separateSoundtrack" -> {
+                    executor.execute {
+                        try {
+                            val source = requireNotNull(call.argument<String>("source_path"))
+                            val model = requireNotNull(call.argument<String>("model_path"))
+                            val checksum = requireNotNull(call.argument<String>("checkpoint_sha256"))
+                            val input = requireNotNull(call.argument<String>("input_name"))
+                            val output = requireNotNull(call.argument<String>("output_name"))
+                            val profile = SeparationMdxProfile.instrumentalCandidate()
+                            val shape = profile.inputShape.toList()
+                            val separator = OfflineMdxSeparator(
+                                SeparationModelConfig(model, profile.sampleRate,
+                                    profile.channels, input, listOf(output),
+                                    shape, listOf(shape)),
+                                profile, checksum
+                            )
+                            val stems = separator.separate(SeparationRequest(
+                                source, File(cacheDir, "stems/" + System.nanoTime()), model
+                            ))
+                            runOnUiThread { result.success(mapOf(
+                                "vocals_path" to stems.vocalsPath,
+                                "accompaniment_path" to stems.accompanimentPath,
+                                "sample_rate" to stems.sampleRate,
+                                "channels" to stems.channels
+                            )) }
+                        } catch (error: Exception) {
+                            runOnUiThread { result.error("SEPARATION_ERROR",
+                                error.message ?: "Separation failed.", null) }
+                        }
+                    }
+                }
+
                 "inspectSeparationModel" -> {
                     val modelPath =
                         call.argument<String>("model_path")
