@@ -319,29 +319,30 @@ class MainActivity : FlutterActivity() {
                     }
 
                     executor.execute {
-                        val sourceFile = File(source)
-                        val sourceKey = sourceFile.canonicalPath + ":" +
-                            sourceFile.length() + ":" + sourceFile.lastModified()
-                        val reusable = cachedTranscriptionWav?.takeIf {
-                            cachedTranscriptionSource == sourceKey &&
-                                it.isFile && it.length() > 44
-                        }
-                        val wav = reusable ?: File(
-                            cacheDir,
-                            "speakers_${System.nanoTime()}.wav"
-                        )
-
+                        var wav: File? = null
                         try {
+                            val sourceFile = File(source)
+                            val sourceKey = sourceFile.canonicalPath + ":" +
+                                sourceFile.length() + ":" + sourceFile.lastModified()
+                            val reusable = cachedTranscriptionWav?.takeIf {
+                                cachedTranscriptionSource == sourceKey &&
+                                    it.isFile && it.length() > 44
+                            }
+                            val workingWav = reusable ?: File(
+                                cacheDir,
+                                "speakers_${System.nanoTime()}.wav"
+                            )
+                            wav = workingWav
                             if (reusable == null) {
                                 OfflineAudioUtils.convertToWhisperWav(
                                     source,
-                                    wav.absolutePath
+                                    workingWav.absolutePath
                                 )
                             }
 
                             val identified =
                                 SpeakerDiarizer.identify(
-                                    wav.absolutePath,
+                                    workingWav.absolutePath,
                                     segments
                                 )
 
@@ -363,7 +364,7 @@ class MainActivity : FlutterActivity() {
                                 )
                             }
                         } finally {
-                            wav.delete()
+                            wav?.delete()
                             if (cachedTranscriptionWav == wav) {
                                 cachedTranscriptionWav = null
                                 cachedTranscriptionSource = null
