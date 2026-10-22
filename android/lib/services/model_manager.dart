@@ -193,7 +193,14 @@ class ModelManager {
     }
 
     if (model == AiModel.otakuMind) return _validOtakuMind(destination);
-    if (model == AiModel.whisper) return _validWhisper(destination);
+    if (model == AiModel.whisper) {
+      final valid = await _validWhisper(destination);
+      if (!valid) {
+        final size = await destination.exists() ? await destination.length() : 0;
+        debugPrint('Whisper validation failed: expected 147951465 bytes and ggml header; found $size bytes at ${destination.path}');
+      }
+      return valid;
+    }
     if (!model.isVoice) return true;
 
     final config = await voiceConfigFile(model);
