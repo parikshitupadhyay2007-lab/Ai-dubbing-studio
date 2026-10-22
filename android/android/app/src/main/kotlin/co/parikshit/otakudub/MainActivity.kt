@@ -4,6 +4,7 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
+import java.io.FileOutputStream
 import java.util.concurrent.Executors
 
 class MainActivity : FlutterActivity() {
@@ -52,6 +53,41 @@ class MainActivity : FlutterActivity() {
         ).setMethodCallHandler { call, result ->
 
             when (call.method) {
+
+                "installBundledAsset" -> {
+                    val asset = call.argument<String>("asset")
+                    val destination = call.argument<String>("destination")
+                    if (asset == null || destination == null ||
+                        !Regex("^assets/models/[a-zA-Z0-9_./-]+$").matches(asset) ||
+                        asset.contains("..")) {
+                        result.error("INVALID_ASSET", "Invalid bundled model path.", null)
+                        return@setMethodCallHandler
+                    }
+                    executor.execute {
+                        val target = File(destination)
+                        val temporary = File(destination + ".extracting")
+                        try {
+                            target.parentFile?.mkdirs()
+                            val key = flutterEngine.dartExecutor.getAssetLookupKeyForAsset(asset)
+                            assets.open(key).use { source ->
+                                FileOutputStream(temporary).use { output ->
+                                    source.copyTo(output, 1024 * 1024)
+                                    output.fd.sync()
+                                }
+                            }
+                            if (temporary.length() == 0L) error("Bundled asset is empty.")
+                            if (target.exists() && !target.delete()) error("Cannot replace old model.")
+                            if (!temporary.renameTo(target)) error("Cannot install bundled model.")
+                            runOnUiThread { result.success(target.length()) }
+                        } catch (error: Exception) {
+                            temporary.delete()
+                            runOnUiThread {
+                                result.error("ASSET_INSTALL_FAILED",
+                                    error.message ?: "Bundled model extraction failed.", null)
+                            }
+                        }
+                    }
+                }
 
                 "runtimeReady" -> {
                     result.success(nativeAvailable)
