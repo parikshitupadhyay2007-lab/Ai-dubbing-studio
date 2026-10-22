@@ -50,8 +50,9 @@ class OfflineMdxSeparator(
         }
 
         val inputShape = profile.inputShape.toList()
-        require(config.inputShape == inputShape &&
-            config.outputShapes.single() == inputShape) {
+        val metadataShape = listOf(-1L) + inputShape.drop(1)
+        require(config.inputShape == metadataShape &&
+            config.outputShapes.single() == metadataShape) {
             "This implementation requires a static [1,4,F,T] MDX contract."
         }
 
