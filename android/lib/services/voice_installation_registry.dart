@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:path_provider/path_provider.dart';
-import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter/services.dart';
 
 import 'voice_catalog.dart';
 
@@ -31,16 +31,23 @@ class VoiceInstallationRegistry {
     for (final profileId in ['hi_hero', 'en_hero']) {
       final model = File('${directory.path}/$profileId.onnx');
       final config = File('${directory.path}/$profileId.onnx.json');
-      if (!await model.exists() || !await config.exists()) {
-        final source = 'assets/models/voices/$profileId';
-        final modelBytes = await rootBundle.load('$source.onnx');
-        final configBytes = await rootBundle.load('$source.onnx.json');
-        final pendingModel = File('${model.path}.partial');
-        final pendingConfig = File('${config.path}.partial');
-        await pendingModel.writeAsBytes(modelBytes.buffer.asUint8List(modelBytes.offsetInBytes, modelBytes.lengthInBytes), flush: true);
-        await pendingConfig.writeAsBytes(configBytes.buffer.asUint8List(configBytes.offsetInBytes, configBytes.lengthInBytes), flush: true);
-        await pendingModel.rename(model.path);
-        await pendingConfig.rename(config.path);
+      for (final entry in <(String, File)>[
+        ('assets/models/voices/$profileId.onnx', model),
+        ('assets/models/voices/$profileId.onnx.json', config),
+      ]) {
+        if (!await entry.$2.exists() || await entry.$2.length() == 0) {
+          final copied = await const MethodChannel(
+            'co.parikshit.otakudub/offline_engine',
+          ).invokeMethod<int>('installBundledAsset', {
+            'asset': entry.$1,
+            'destination': entry.$2.path,
+          });
+          if (copied == null || copied <= 0 ||
+              !await entry.$2.exists() ||
+              await entry.$2.length() != copied) {
+            throw StateError('Unable to install bundled voice asset: ${entry.$1}');
+          }
+        }
       }
     }
     final restored = <InstalledVoiceModel>[];
