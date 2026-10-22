@@ -45,6 +45,35 @@ class DubbingPipeline {
     ];
   }
 
+  // Native stages must preserve the original timeline and segment identity.
+  // Otherwise dialogue can silently be dubbed with the wrong character voice.
+  List<DubSegment> _checkedSegments(
+    dynamic response,
+    List<DubSegment> previous,
+    String stage,
+  ) {
+    final next = _parseSegments(response);
+    if (next.length != previous.length) {
+      throw OfflineEngineException(
+        '$stage changed the number of dialogue segments.',
+      );
+    }
+    for (var i = 0; i < next.length; i++) {
+      final before = previous[i];
+      final after = next[i];
+      if (after.id != before.id ||
+          after.speakerId != before.speakerId ||
+          (after.start - before.start).abs() > 0.001 ||
+          (after.end - before.end).abs() > 0.001 ||
+          after.end <= after.start) {
+        throw OfflineEngineException(
+          '$stage changed speaker identity or timing for segment ${before.id}.',
+        );
+      }
+    }
+    return next;
+  }
+
   Future<void> _assignCharacterVoices(
     DubProject project,
   ) async {
@@ -164,11 +193,12 @@ class DubbingPipeline {
         onProgress,
       );
 
+      final beforeTranslation = List<DubSegment>.from(project.segments);
       final translation = await engine.translate(project);
 
       project.segments
         ..clear()
-        ..addAll(_parseSegments(translation['segments']));
+        ..addAll(_checkedSegments(translation['segments'], beforeTranslation, 'Translation'));
 
       // STEP 5: Automatic dialogue refinement
       await _stage(
@@ -177,11 +207,12 @@ class DubbingPipeline {
         onProgress,
       );
 
+      final beforeRefinement = List<DubSegment>.from(project.segments);
       final refined = await engine.refineDialogue(project);
 
       project.segments
         ..clear()
-        ..addAll(_parseSegments(refined['segments']));
+        ..addAll(_checkedSegments(refined['segments'], beforeRefinement, 'Refinement'));
 
       // Restore the persistent speaker-to-voice mapping.
       for (final segment in project.segments) {
