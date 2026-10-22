@@ -881,6 +881,9 @@ class MainActivity : FlutterActivity() {
 
     override fun onDestroy() {
         executor.execute {
+            cachedTranscriptionWav?.delete()
+            cachedTranscriptionWav = null
+            cachedTranscriptionSource = null
             if (nativeAvailable) {
                 nativeRelease()
                 loadedModelPath = null
