@@ -24,6 +24,8 @@ class MainActivity : FlutterActivity() {
     private val executor = Executors.newSingleThreadExecutor()
 
     private var loadedModelPath: String? = null
+    private var cachedTranscriptionSource: String? = null
+    private var cachedTranscriptionWav: File? = null
 
     private external fun nativeLoadModel(path: String): Boolean
 
@@ -266,6 +268,10 @@ class MainActivity : FlutterActivity() {
                                 )
                             }
 
+                            cachedTranscriptionWav?.delete()
+                            cachedTranscriptionWav = wav
+                            cachedTranscriptionSource = File(source).canonicalPath +
+                                ":" + File(source).length() + ":" + File(source).lastModified()
                             runOnUiThread {
                                 result.success(
                                     mapOf(
@@ -285,7 +291,7 @@ class MainActivity : FlutterActivity() {
                                 )
                             }
                         } finally {
-                            wav.delete()
+                            if (cachedTranscriptionWav != wav) wav.delete()
                         }
                     }
                 }
@@ -313,16 +319,25 @@ class MainActivity : FlutterActivity() {
                     }
 
                     executor.execute {
-                        val wav = File(
+                        val sourceFile = File(source)
+                        val sourceKey = sourceFile.canonicalPath + ":" +
+                            sourceFile.length() + ":" + sourceFile.lastModified()
+                        val reusable = cachedTranscriptionWav?.takeIf {
+                            cachedTranscriptionSource == sourceKey &&
+                                it.isFile && it.length() > 44
+                        }
+                        val wav = reusable ?: File(
                             cacheDir,
                             "speakers_${System.nanoTime()}.wav"
                         )
 
                         try {
-                            OfflineAudioUtils.convertToWhisperWav(
-                                source,
-                                wav.absolutePath
-                            )
+                            if (reusable == null) {
+                                OfflineAudioUtils.convertToWhisperWav(
+                                    source,
+                                    wav.absolutePath
+                                )
+                            }
 
                             val identified =
                                 SpeakerDiarizer.identify(
@@ -349,6 +364,10 @@ class MainActivity : FlutterActivity() {
                             }
                         } finally {
                             wav.delete()
+                            if (cachedTranscriptionWav == wav) {
+                                cachedTranscriptionWav = null
+                                cachedTranscriptionSource = null
+                            }
                         }
                     }
                 }
