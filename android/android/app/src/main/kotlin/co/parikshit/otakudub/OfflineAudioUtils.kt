@@ -5,6 +5,8 @@ import android.media.MediaCodec
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import java.io.File
+import java.io.BufferedOutputStream
+import java.io.OutputStream
 import java.io.FileOutputStream
 import java.io.RandomAccessFile
 import java.nio.ByteBuffer
@@ -79,7 +81,7 @@ object OfflineAudioUtils {
             if (temporary.exists()) temporary.delete()
 
             try {
-                FileOutputStream(temporary).use { output ->
+                BufferedOutputStream(FileOutputStream(temporary), 65536).use { output ->
                     output.write(ByteArray(44))
 
                     val resampler = StreamingResampler()
@@ -279,7 +281,7 @@ object OfflineAudioUtils {
         fun process(
             samples: FloatArray,
             sampleRate: Int,
-            output: FileOutputStream
+            output: OutputStream
         ) {
             require(sampleRate > 0)
 
@@ -327,7 +329,7 @@ object OfflineAudioUtils {
             }
         }
 
-        fun finish(output: FileOutputStream) {
+        fun finish(output: OutputStream) {
             if (!hasPrevious) return
 
             val finalPosition = inputPosition.toDouble()
@@ -340,7 +342,7 @@ object OfflineAudioUtils {
         }
 
         private fun writeSample(
-            output: FileOutputStream,
+            output: OutputStream,
             sample: Float
         ) {
             val pcm = (
