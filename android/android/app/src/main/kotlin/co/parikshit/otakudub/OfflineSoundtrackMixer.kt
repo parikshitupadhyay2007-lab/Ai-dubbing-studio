@@ -11,6 +11,7 @@ object OfflineSoundtrackMixer {
             "Dialogue and accompaniment must be separate files."
         }
         require(speech.isFile && music.isFile)
+        require(speech.length() >= 48L && music.length() >= 48L)
         require(File(outputPath).canonicalPath != speech.canonicalPath &&
             File(outputPath).canonicalPath != music.canonicalPath)
         RandomAccessFile(speech, "r").use { voice ->
@@ -30,9 +31,10 @@ object OfflineSoundtrackMixer {
                         val right = FloatArray(count)
                         for (i in 0 until count) {
                             val position = index + i
-                            background.seek(44L + minOf(position, musicFrames - 1L) * 4L)
-                            val ml = background.pcm()
-                            val mr = background.pcm()
+                            val hasMusic = position < musicFrames
+                            if (hasMusic) background.seek(44L + position * 4L)
+                            val ml = if (hasMusic) background.pcm() else 0f
+                            val mr = if (hasMusic) background.pcm() else 0f
                             voice.seek(44L + minOf(position * 24000L / 44100L, speechFrames - 1L) * 2L)
                             val dialogue = voice.pcm()
                             left[i] = (ml * 0.65f + dialogue * 0.85f).coerceIn(-1f, 1f)
