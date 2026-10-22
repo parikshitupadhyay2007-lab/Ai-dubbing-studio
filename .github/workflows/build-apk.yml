@@ -476,6 +476,37 @@ jobs:
               print("All required AI assets physically present in APK.")
           PY
 
+      - name: Verify required AI files are actually inside the APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          apk = Path("android/build/app/outputs/flutter-apk/app-debug.apk")
+          if not apk.is_file():
+              raise SystemExit("APK missing")
+          names = [
+              "whisper.bin", "otakumind.gguf", "separation.onnx", "separation.json",
+              "voices/hi_hero.onnx", "voices/hi_hero.onnx.json",
+              "voices/en_hero.onnx", "voices/en_hero.onnx.json",
+          ]
+          with ZipFile(apk) as archive:
+              for name in names:
+                  entry = "assets/flutter_assets/assets/models/" + name
+                  try:
+                      info = archive.getinfo(entry)
+                  except KeyError:
+                      raise SystemExit("APK IS MISSING REQUIRED ASSET: " + entry)
+                  if info.file_size < (400000000 if name == "otakumind.gguf" else 1):
+                      raise SystemExit("APK ASSET INVALID: " + entry)
+                  print("PACKAGED", entry, info.file_size)
+              with archive.open("assets/flutter_assets/assets/models/otakumind.gguf") as model:
+                  if model.read(4) != b"GGUF":
+                      raise SystemExit("APK OtakuMind GGUF header invalid")
+          print("APK ASSET AUDIT PASSED")
+          PY
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
