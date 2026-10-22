@@ -422,6 +422,17 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
 
   DubProject? current;
   List<DubProject> projects = [];
+  final Map<AiModel, Future<bool>> _modelChecks = {};
+
+  Future<bool> _modelCheck(AiModel model) => _modelChecks.putIfAbsent(model, () {
+    if (model == AiModel.hindiVoice) return const VoiceInstallationRegistry().isInstalled('hi_hero');
+    if (model == AiModel.englishVoice) return const VoiceInstallationRegistry().isInstalled('en_hero');
+    return models.installed(model);
+  });
+
+  void _refreshModelCheck(AiModel model) {
+    setState(() => _modelChecks.remove(model));
+  }
 
   @override
   void initState() {
@@ -742,11 +753,7 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
         const SizedBox(height: 12),
         for (final model in AiModel.values.where((model) => model != AiModel.translator && model != AiModel.speaker))
           FutureBuilder<bool>(
-            future: model == AiModel.hindiVoice
-                ? const VoiceInstallationRegistry().isInstalled('hi_hero')
-                : model == AiModel.englishVoice
-                    ? const VoiceInstallationRegistry().isInstalled('en_hero')
-                    : models.installed(model),
+            future: _modelCheck(model),
             builder: (context, snapshot) {
               final installed = snapshot.data == true;
 
@@ -761,10 +768,14 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
                   title: Text(model.displayName),
                   subtitle: Text(
                     snapshot.connectionState == ConnectionState.waiting
-                        ? 'Checking model...'
-                        : installed
-                            ? 'Model file present'
-                            : 'Model file missing',
+                        ? 'Checking/installing bundled model...'
+                        : snapshot.hasError
+                            ? 'Model check failed: ${snapshot.error}'
+                            : installed
+                                ? 'Model verified'
+                                : model == AiModel.whisper
+                                    ? 'Whisper installation or validation failed; tap icon to retry'
+                                    : 'Model installation or validation failed',
                   ),
                   trailing: IconButton(
                     icon: const Icon(Icons.file_upload_outlined),
@@ -775,7 +786,7 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
                         } else {
                           await models.importModel(model);
                         }
-                        if (mounted) setState(() {});
+                        if (mounted) _refreshModelCheck(model);
                       } catch (e) {
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
