@@ -266,6 +266,7 @@ jobs:
         working-directory: android
         run: flutter pub get
 
+      # Blackheart identity artwork is generated from original geometry, not copied branding.
       - name: Create Blackheart OtakuDub launcher artwork
         shell: bash
         run: |
