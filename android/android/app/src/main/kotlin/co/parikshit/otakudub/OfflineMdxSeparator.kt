@@ -1,6 +1,7 @@
 package co.parikshit.otakudub
 
 import java.io.File
+import java.security.MessageDigest
 
 /**
  * Offline, chunked complex-spectrogram source separation.
@@ -15,13 +16,28 @@ import java.io.File
 class OfflineMdxSeparator(
     private val config: SeparationModelConfig,
     private val profile: SeparationMdxProfile,
-    private val verifiedInstrumentalCheckpoint: Boolean
+    private val expectedCheckpointSha256: String
 ) : BackgroundAudioSeparator {
 
     override fun separate(request: SeparationRequest): SeparationResult {
         request.validate()
-        require(verifiedInstrumentalCheckpoint) {
-            "Instrumental checkpoint identity and preprocessing must be verified."
+        require(expectedCheckpointSha256.matches(Regex("[0-9a-fA-F]{64}"))) {
+            "A trusted SHA-256 for the verified instrumental checkpoint is required."
+        }
+        val digest = MessageDigest.getInstance("SHA-256")
+        File(request.modelPath).inputStream().use { input ->
+            val buffer = ByteArray(65536)
+            while (true) {
+                val read = input.read(buffer)
+                if (read < 0) break
+                digest.update(buffer, 0, read)
+            }
+        }
+        val actualHash = digest.digest().joinToString("") {
+            "%02x".format(it.toInt() and 0xff)
+        }
+        require(actualHash.equals(expectedCheckpointSha256, ignoreCase = true)) {
+            "Separation checkpoint SHA-256 does not match the trusted reference."
         }
         require(File(config.modelPath).canonicalFile ==
             File(request.modelPath).canonicalFile) {
