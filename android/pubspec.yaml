@@ -31,5 +31,5 @@ flutter_launcher_icons:
   android: true
   ios: false
   image_path: assets/otakudub_icon.png
-  adaptive_icon_background: "#FFFAF5"
-  adaptive_icon_foreground: assets/otakudub_icon.png
+  adaptive_icon_background: "#B9A2F4"
+  adaptive_icon_foreground: assets/otakudub_icon_foreground.png
