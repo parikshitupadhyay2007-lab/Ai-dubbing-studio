@@ -69,7 +69,8 @@ class DubbingPipeline {
           after.speakerId != before.speakerId ||
           (after.start - before.start).abs() > 0.001 ||
           (after.end - before.end).abs() > 0.001 ||
-          after.end <= after.start) {
+          !after.start.isFinite || !after.end.isFinite ||
+          after.start < 0 || after.end <= after.start) {
         throw OfflineEngineException(
           '$stage changed speaker identity or timing for segment ${before.id}.',
         );
@@ -197,7 +198,8 @@ class DubbingPipeline {
                 original.original != identified.original ||
                 (original.start - identified.start).abs() > 0.001 ||
                 (original.end - identified.end).abs() > 0.001 ||
-                identified.end <= identified.start;
+                !identified.start.isFinite || !identified.end.isFinite ||
+                identified.start < 0 || identified.end <= identified.start;
           })) {
         throw OfflineEngineException(
           'Speaker identification changed dialogue timing or identity.',
