@@ -286,7 +286,19 @@ jobs:
                         (785,340),(770,295),(725,280),(770,265)], fill='white')
           path = Path('android/assets/otakudub_icon.png')
           im.save(path)
-          print('Lavender launcher icon ready:', path.stat().st_size)
+          # Adaptive icons need a transparent foreground and a separately
+          # configured lavender background; keep artwork in the safe zone.
+          foreground = Image.new('RGBA', (1024, 1024), (0, 0, 0, 0))
+          foreground_draw = ImageDraw.Draw(foreground)
+          for label, top, size in [('Otaku', 360, 125), ('Dub', 495, 155)]:
+              font = ImageFont.truetype(font_file, size)
+              width = foreground_draw.textlength(label, font=font)
+              foreground_draw.text(((1024-width)/2, top), label, font=font, fill='white')
+          foreground_draw.polygon([(700,335),(710,365),(740,375),(710,385),
+                                   (700,415),(690,385),(660,375),(690,365)],fill='white')
+          foreground_path = Path('android/assets/otakudub_icon_foreground.png')
+          foreground.save(foreground_path)
+          print('Lavender launcher icons ready:', path.stat().st_size, foreground_path.stat().st_size)
           PY
 
       - name: Generate launcher icon
