@@ -548,7 +548,7 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
       children: [
         heading(
           'Every story,\na new voice.',
-          'Powered by offline AI • Blue Industries',
+          'Powered by Blackheart',
         ),
         const SizedBox(height: 24),
         Container(
@@ -806,7 +806,7 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
               ),
             ),
             Text(
-              'BLUE INDUSTRIES',
+              'POWERED BY BLACKHEART',
               style: TextStyle(
                 fontSize: 10,
                 color: cyan,
