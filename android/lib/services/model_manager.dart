@@ -94,6 +94,17 @@ class ModelManager {
     return await file.exists() && await file.length() > 0;
   }
 
+  Future<bool> _validOtakuMind(File file) async {
+    if (!await _valid(file) || await file.length() < 400000000) return false;
+    final reader = await file.open();
+    try {
+      final header = await reader.read(4);
+      return header.length == 4 && String.fromCharCodes(header) == 'GGUF';
+    } finally {
+      await reader.close();
+    }
+  }
+
   Future<void> _copyAtomically(
     File source,
     File destination,
@@ -172,7 +183,9 @@ class ModelManager {
   Future<bool> ensureBundledModel(AiModel model) async {
     final destination = await modelFile(model);
 
-    if (!await _valid(destination)) {
+    if (!(model == AiModel.otakuMind
+        ? await _validOtakuMind(destination)
+        : await _valid(destination))) {
       final extracted = await _extractAsset(
         model.assetPath,
         destination,
@@ -181,6 +194,7 @@ class ModelManager {
       if (!extracted) return false;
     }
 
+    if (model == AiModel.otakuMind) return _validOtakuMind(destination);
     if (!model.isVoice) return true;
 
     final config = await voiceConfigFile(model);
