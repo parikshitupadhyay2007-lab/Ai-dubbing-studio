@@ -374,6 +374,7 @@ jobs:
           set -euo pipefail
           grep -q 'lang == "unknown"' android/android/app/src/main/cpp/otakudub_whisper.cpp
           grep -q 'params.no_context = true' android/android/app/src/main/cpp/otakudub_whisper.cpp
+          grep -q 'chunkSamples = 30 \* 16000' android/android/app/src/main/cpp/otakudub_whisper.cpp
 
       - name: Install Flutter dependencies
         working-directory: android
