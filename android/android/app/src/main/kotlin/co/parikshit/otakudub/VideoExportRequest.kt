@@ -98,8 +98,8 @@ data class VideoExportRequest(
 
             val wavInfo = inspectWav(dialogue)
 
-            require(wavInfo.channels == 1) {
-                "The dialogue mixer must produce mono audio."
+            require(wavInfo.channels in 1..2) {
+                "Export audio must be mono or stereo PCM."
             }
 
             require(wavInfo.bitsPerSample == 16) {
