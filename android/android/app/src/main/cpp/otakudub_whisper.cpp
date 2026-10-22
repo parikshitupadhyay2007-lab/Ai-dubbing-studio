@@ -205,25 +205,12 @@ Java_co_parikshit_otakudub_MainActivity_nativeTranscribeWav(
             ? nullptr
             : lang.c_str();
 
-    const int status = whisper_full(
-        context,
-        params,
-        audio.data(),
-        static_cast<int>(audio.size())
-    );
-
-    if (status != 0) {
+    // Bound each inference call to 30 seconds rather than feeding the entire
+    // movie to Whisper at once. Keep the model loaded across chunks.
+    constexpr size_t chunkSamples = 30 * 16000;
+    if (audio.empty()) {
         whisper_free(context);
-
-        jclass errorClass = env->FindClass(
-            "java/lang/IllegalStateException"
-        );
-
-        env->ThrowNew(
-            errorClass,
-            "Offline Whisper transcription failed."
-        );
-
+        env->ThrowNew(env->FindClass("java/lang/IllegalArgumentException"), "Decoded audio is empty.");
         return nullptr;
     }
 
@@ -276,10 +263,19 @@ Java_co_parikshit_otakudub_MainActivity_nativeTranscribeWav(
         "(D)V"
     );
 
-    const int count =
-        whisper_full_n_segments(context);
-
-    for (int i = 0; i < count; ++i) {
+    for (size_t offset = 0; offset < audio.size(); offset += chunkSamples) {
+        const size_t length = std::min(chunkSamples, audio.size() - offset);
+        const int status = whisper_full(context, params, audio.data() + offset,
+                                        static_cast<int>(length));
+        if (status != 0) {
+            whisper_free(context);
+            env->ThrowNew(env->FindClass("java/lang/IllegalStateException"),
+                          "Offline Whisper failed while processing an audio chunk.");
+            return nullptr;
+        }
+        const double timeOffset = static_cast<double>(offset) / 16000.0;
+        const int count = whisper_full_n_segments(context);
+        for (int i = 0; i < count; ++i) {
         jobject segment = env->NewObject(
             mapClass,
             mapConstructor
@@ -300,10 +296,10 @@ Java_co_parikshit_otakudub_MainActivity_nativeTranscribeWav(
         };
 
         const double start =
-            whisper_full_get_segment_t0(context, i) / 100.0;
+            whisper_full_get_segment_t0(context, i) / 100.0 + timeOffset;
 
         const double end =
-            whisper_full_get_segment_t1(context, i) / 100.0;
+            whisper_full_get_segment_t1(context, i) / 100.0 + timeOffset;
 
         const char* text =
             whisper_full_get_segment_text(context, i);
@@ -338,6 +334,7 @@ Java_co_parikshit_otakudub_MainActivity_nativeTranscribeWav(
         );
 
         env->DeleteLocalRef(segment);
+        }
     }
 
     whisper_free(context);
