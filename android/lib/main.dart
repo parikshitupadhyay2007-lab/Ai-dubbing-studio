@@ -16,9 +16,9 @@ const bg = Color(0xFFFFFAF5);
 const panel = Color(0xFFFFFFFF);
 const ink = Color(0xFF202432);
 const mutedInk = Color(0xFF687080);
-const violet = Color(0xFF7776C9);
-const cyan = Color(0xFF515EAC);
-const pink = Color(0xFFDF849D);
+const violet = Color(0xFF9A83D9);
+const cyan = Color(0xFF78A9E7);
+const pink = Color(0xFFE9A4C2);
 const blush = Color(0xFFFFE8E6);
 
 Future<void> main() async {
@@ -558,8 +558,9 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
             borderRadius: BorderRadius.circular(24),
             gradient: const LinearGradient(
               colors: [
-                Color(0xFFFFE0DC),
-                Color(0xFFE2E4FF),
+                Color(0xFFFFDCEB),
+                Color(0xFFDCEEFF),
+                Color(0xFFE9DFFF),
               ],
             ),
             border: Border.all(color: violet.withValues(alpha: 0.2)),
