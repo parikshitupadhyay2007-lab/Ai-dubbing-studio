@@ -440,9 +440,6 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
         'mkv',
         'mov',
         'webm',
-        'mp3',
-        'wav',
-        'm4a',
       ],
     );
 
