@@ -296,6 +296,45 @@ jobs:
               print(profile, "verified:", model.stat().st_size, "bytes")
           PY
 
+      - name: Verify every required AI asset before APK build
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, hashlib
+          root = Path("android/assets/models")
+          required = {
+              "whisper.bin": 147951465,
+              "otakumind.gguf": 400000000,
+              "separation.onnx": 1000000,
+              "separation.json": 10,
+              "voices/hi_hero.onnx": 1000000,
+              "voices/hi_hero.onnx.json": 100,
+              "voices/en_hero.onnx": 1000000,
+              "voices/en_hero.onnx.json": 100,
+          }
+          for name, minimum in required.items():
+              path = root / name
+              if not path.is_file() or path.stat().st_size < minimum:
+                  raise SystemExit(f"REQUIRED ASSET MISSING OR TRUNCATED: {path}")
+              print("PASS", name, path.stat().st_size)
+          with (root / "otakumind.gguf").open("rb") as f:
+              if f.read(4) != b"GGUF":
+                  raise SystemExit("Invalid OtakuMind GGUF header")
+          for name, expected in {
+              "voices/hi_hero.onnx": "169964b0871667f6793416d4b35e97357a68ba1ad01df8580c28048989ee7693",
+              "voices/en_hero.onnx": "5efe09e69902187827af646e1a6e9d269dee769f9877d17b16b1b46eeaaf019f",
+          }.items():
+              if hashlib.sha256((root / name).read_bytes()).hexdigest() != expected:
+                  raise SystemExit("Voice checksum mismatch: " + name)
+          for name, language in [("hi_hero", "hi"), ("en_hero", "en")]:
+              cfg = json.loads((root / "voices" / (name + ".onnx.json")).read_text())
+              if cfg["language"]["code"].split("_")[0] != language:
+                  raise SystemExit("Wrong language: " + name)
+          print("ALL REQUIRED AI ASSETS VERIFIED")
+          PY
+
       - name: Install Flutter dependencies
         working-directory: android
         run: flutter pub get
