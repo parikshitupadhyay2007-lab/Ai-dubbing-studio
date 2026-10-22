@@ -11,11 +11,15 @@ import 'services/offline_engine.dart';
 import 'services/project_repository.dart';
 import 'services/voice_installation_registry.dart';
 
-const bg = Color(0xFF080817);
-const panel = Color(0xFF15152E);
-const violet = Color(0xFF9F51FF);
-const cyan = Color(0xFF45DEFF);
-const pink = Color(0xFFFF58D0);
+// Blackheart visual system: warm paper, ink, lavender and sakura.
+const bg = Color(0xFFFFFAF5);
+const panel = Color(0xFFFFFFFF);
+const ink = Color(0xFF202432);
+const mutedInk = Color(0xFF687080);
+const violet = Color(0xFF7776C9);
+const cyan = Color(0xFF515EAC);
+const pink = Color(0xFFDF849D);
+const blush = Color(0xFFFFE8E6);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -39,11 +43,14 @@ class OtakuDubApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
-        brightness: Brightness.dark,
+        brightness: Brightness.light,
         scaffoldBackgroundColor: bg,
+        fontFamily: 'Roboto',
+        appBarTheme: const AppBarTheme(backgroundColor: bg, foregroundColor: ink, elevation: 0, centerTitle: false),
+        textTheme: const TextTheme(bodyMedium: TextStyle(color: ink), bodyLarge: TextStyle(color: ink)),
         colorScheme: ColorScheme.fromSeed(
           seedColor: violet,
-          brightness: Brightness.dark,
+          brightness: Brightness.light,
         ),
         cardTheme: CardThemeData(
           color: panel,
@@ -51,7 +58,7 @@ class OtakuDubApp extends StatelessWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(22),
             side: BorderSide(
-              color: violet.withValues(alpha: 0.22),
+              color: violet.withValues(alpha: 0.15),
             ),
           ),
         ),
@@ -67,7 +74,7 @@ class OtakuDubApp extends StatelessWidget {
         ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: panel,
+          fillColor: Colors.white,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -97,7 +104,7 @@ class _OtakuDubLaunchState extends State<OtakuDubLaunch>
 
     animation = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 5),
+      duration: const Duration(seconds: 3),
     );
 
     animation.forward().whenComplete(() {
@@ -153,7 +160,7 @@ class _OtakuDubLaunchState extends State<OtakuDubLaunch>
                 center: Alignment(0, -0.3),
                 radius: 1.3,
                 colors: [
-                  Color(0xFF392078),
+                  Color(0xFFFFE1DE),
                   bg,
                 ],
               ),
@@ -169,7 +176,7 @@ class _OtakuDubLaunchState extends State<OtakuDubLaunch>
                       child: FadeTransition(
                         opacity: animation,
                         child: const Text(
-                          'BLUE INDUSTRIES',
+                          'BLACKHEART',
                           style: TextStyle(
                             color: cyan,
                             letterSpacing: 5,
@@ -217,7 +224,7 @@ class _OtakuDubLaunchState extends State<OtakuDubLaunch>
                           ),
                           const SizedBox(height: 15),
                           const Text(
-                            'PRESENTS',
+                            'A BLACKHEART ORIGINAL',
                             style: TextStyle(
                               letterSpacing: 6,
                               fontSize: 13,
@@ -227,14 +234,14 @@ class _OtakuDubLaunchState extends State<OtakuDubLaunch>
                           ShaderMask(
                             shaderCallback: (bounds) {
                               return const LinearGradient(
-                                colors: [cyan, violet, pink],
+                                colors: [ink, cyan, violet],
                               ).createShader(bounds);
                             },
                             child: const Text(
-                              'OTAKU DUB',
+                              'OtakuDub',
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                color: Colors.white,
+                                color: ink,
                                 fontSize: 43,
                                 fontWeight: FontWeight.w900,
                                 letterSpacing: -2,
@@ -243,7 +250,7 @@ class _OtakuDubLaunchState extends State<OtakuDubLaunch>
                           ),
                           const SizedBox(height: 10),
                           const Text(
-                            'AN ANIME DUBBING PLATFORM',
+                            'AI DUBBING STUDIO',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 11,
@@ -253,9 +260,9 @@ class _OtakuDubLaunchState extends State<OtakuDubLaunch>
                           ),
                           const SizedBox(height: 17),
                           const Text(
-                            'Your Anime. Your Language.',
+                            'Same story. A new voice.',
                             style: TextStyle(
-                              color: Colors.white70,
+                              color: mutedInk,
                             ),
                           ),
                         ],
@@ -269,7 +276,7 @@ class _OtakuDubLaunchState extends State<OtakuDubLaunch>
                     child: LinearProgressIndicator(
                       value: animation.value,
                       color: cyan,
-                      backgroundColor: Colors.white12,
+                      backgroundColor: violet.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(20),
                     ),
                   ),
@@ -316,7 +323,7 @@ class AnimeMascot extends StatelessWidget {
                 bottomRight: Radius.circular(size * .15),
               ),
               gradient: LinearGradient(
-                colors: [color, panel, bg],
+                colors: [color.withValues(alpha: 0.35), panel, bg],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -329,7 +336,7 @@ class AnimeMascot extends StatelessWidget {
               width: size * .69,
               height: size * .76,
               decoration: BoxDecoration(
-                color: const Color(0xFFFFD1BF),
+                color: const Color(0xFFFFDDCB),
                 borderRadius: BorderRadius.only(
                   topLeft: Radius.circular(size * .40),
                   topRight: Radius.circular(size * .38),
@@ -528,7 +535,7 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
         const SizedBox(height: 7),
         Text(
           subtitle,
-          style: const TextStyle(color: Colors.white60),
+          style: const TextStyle(color: mutedInk),
         ),
       ],
     );
@@ -540,34 +547,34 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 100),
       children: [
         heading(
-          'Your Anime.\nYour Language.',
+          'Every story,\na new voice.',
           'Powered by offline AI • Blue Industries',
         ),
         const SizedBox(height: 24),
         Container(
-          height: 142,
-          padding: const EdgeInsets.all(20),
+          height: 170,
+          padding: const EdgeInsets.all(22),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(24),
             gradient: const LinearGradient(
               colors: [
-                Color(0xFF472293),
-                Color(0xFF10284E),
+                Color(0xFFFFE0DC),
+                Color(0xFFE2E4FF),
               ],
             ),
-            border: Border.all(color: violet),
+            border: Border.all(color: violet.withValues(alpha: 0.2)),
           ),
           child: const Row(
             children: [
               Icon(
                 Icons.movie_creation_outlined,
-                color: cyan,
+                color: ink,
                 size: 55,
               ),
               SizedBox(width: 17),
               Expanded(
                 child: Text(
-                  'BRING EVERY\nSTORY TO LIFE',
+                  'THE STORY STAYS.\nTHE VOICE EVOLVES.',
                   style: TextStyle(
                     fontSize: 19,
                     fontWeight: FontWeight.w900,
@@ -580,7 +587,7 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
         ),
         const SizedBox(height: 22),
         const Text(
-          'TARGET LANGUAGE',
+          'CHOOSE A LANGUAGE',
           style: TextStyle(
             color: cyan,
             letterSpacing: 2,
@@ -613,7 +620,7 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
         FilledButton.icon(
           onPressed: busy ? null : importMedia,
           icon: const Icon(Icons.video_file_outlined),
-          label: const Text('IMPORT ANIME / MOVIE'),
+          label: const Text('CHOOSE YOUR VIDEO'),
         ),
         if (current != null) ...[
           const SizedBox(height: 18),
@@ -631,7 +638,7 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
           FilledButton.icon(
             onPressed: busy ? null : generate,
             icon: const Icon(Icons.auto_awesome),
-            label: const Text('START OFFLINE DUBBING'),
+            label: const Text('CREATE MY DUB'),
           ),
         ],
         const SizedBox(height: 20),
@@ -645,7 +652,7 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
         const Text(
           'Some dubbing engines are still under development. '
           'The app will show an error if an unfinished stage is reached.',
-          style: TextStyle(color: Colors.white54, fontSize: 12),
+          style: TextStyle(color: mutedInk, fontSize: 12),
         ),
       ],
     );
@@ -657,7 +664,7 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 100),
       children: [
         heading(
-          'Project Library',
+          'Your Projects',
           'Your anime dubbing workspace.',
         ),
         const SizedBox(height: 22),
@@ -712,7 +719,7 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 100),
       children: [
         heading(
-          'AI Engine Vault',
+          'Engine Library',
           'Manage your local dubbing models.',
         ),
         const SizedBox(height: 16),
@@ -899,7 +906,7 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
       ),
       bottomNavigationBar: NavigationBar(
         backgroundColor: panel,
-        indicatorColor: violet.withValues(alpha: 0.28),
+        indicatorColor: violet.withValues(alpha: 0.14),
         selectedIndex: tab,
         onDestinationSelected: changeTab,
         destinations: const [
