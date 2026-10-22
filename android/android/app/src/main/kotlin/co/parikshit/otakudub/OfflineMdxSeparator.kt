@@ -10,8 +10,8 @@ import java.security.MessageDigest
  * checkpoint. Shape compatibility alone cannot establish stem polarity,
  * normalization, or the model's training-time transform.
  *
- * This stage deliberately is not connected to video export until its
- * checkpoint-specific reference parity and Android audio tests pass.
+ * Export integration must remain fail-closed until checkpoint-specific
+ * reference parity and Android audio tests pass.
  */
 class OfflineMdxSeparator(
     private val config: SeparationModelConfig,
