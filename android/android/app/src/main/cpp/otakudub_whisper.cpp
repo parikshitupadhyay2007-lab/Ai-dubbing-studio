@@ -116,17 +116,21 @@ bool loadWav(
     file.clear();
     file.seekg(dataPosition);
 
-    std::vector<int16_t> pcm(dataSize / 2);
-
-    if (!file.read(
-        reinterpret_cast<char*>(pcm.data()),
-        dataSize
-    )) return false;
-
-    samples.resize(pcm.size());
-
-    for (size_t i = 0; i < pcm.size(); ++i) {
-        samples[i] = pcm[i] / 32768.0f;
+    // Decode directly into the inference buffer in small blocks. Avoid a
+    // second full-length PCM16 allocation (roughly 44 MB for 23 minutes).
+    samples.resize(dataSize / 2);
+    unsigned char block[32768];
+    size_t written = 0;
+    while (written < samples.size()) {
+        const size_t count = std::min<size_t>(sizeof(block) / 2,
+                                              samples.size() - written);
+        if (!file.read(reinterpret_cast<char*>(block),
+                       static_cast<std::streamsize>(count * 2))) return false;
+        for (size_t i = 0; i < count; ++i) {
+            samples[written + i] =
+                static_cast<int16_t>(read16(block + i * 2)) / 32768.0f;
+        }
+        written += count;
     }
 
     return true;
