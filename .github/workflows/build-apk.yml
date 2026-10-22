@@ -402,6 +402,41 @@ jobs:
         working-directory: android
         run: flutter build apk --debug
 
+      - name: Verify every required AI asset inside the built APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import zipfile, json
+          apk = Path("android/build/app/outputs/flutter-apk/app-debug.apk")
+          required = {
+              "assets/flutter_assets/assets/models/whisper.bin": 147951465,
+              "assets/flutter_assets/assets/models/otakumind.gguf": 400000000,
+              "assets/flutter_assets/assets/models/separation.onnx": 1000000,
+              "assets/flutter_assets/assets/models/separation.json": 10,
+              "assets/flutter_assets/assets/models/voices/hi_hero.onnx": 1000000,
+              "assets/flutter_assets/assets/models/voices/hi_hero.onnx.json": 100,
+              "assets/flutter_assets/assets/models/voices/en_hero.onnx": 1000000,
+              "assets/flutter_assets/assets/models/voices/en_hero.onnx.json": 100,
+          }
+          with zipfile.ZipFile(apk) as archive:
+              names = set(archive.namelist())
+              for name, minimum in required.items():
+                  if name not in names:
+                      raise SystemExit("REQUIRED APK ASSET MISSING: " + name)
+                  info = archive.getinfo(name)
+                  if info.file_size < minimum:
+                      raise SystemExit(f"REQUIRED APK ASSET TOO SMALL: {name} ({info.file_size})")
+                  with archive.open(name) as stream:
+                      header = stream.read(4)
+                  if name.endswith(".gguf") and header != b"GGUF":
+                      raise SystemExit("Invalid bundled OtakuMind GGUF header")
+                  print("VERIFIED:", name, info.file_size, "bytes")
+              manifest = json.loads(archive.read("assets/flutter_assets/AssetManifest.json")) if "assets/flutter_assets/AssetManifest.json" in names else None
+              print("All required AI assets physically present in APK.")
+          PY
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
