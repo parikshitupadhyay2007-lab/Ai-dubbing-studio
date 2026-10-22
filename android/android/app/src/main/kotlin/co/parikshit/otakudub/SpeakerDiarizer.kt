@@ -191,19 +191,19 @@ object SpeakerDiarizer {
 
             val result = FloatArray((dataSize / 2).toInt())
 
-            for (i in result.indices) {
-                val lo = wav.readUnsignedByte()
-                val hi = wav.readUnsignedByte()
-
-                val value = (hi shl 8) or lo
-
-                val signed = if (value >= 32768) {
-                    value - 65536
-                } else {
-                    value
+            // Read PCM in blocks instead of making two file reads per sample.
+            val block = ByteArray(65536)
+            var written = 0
+            while (written < result.size) {
+                val count = min(block.size / 2, result.size - written)
+                wav.readFully(block, 0, count * 2)
+                for (i in 0 until count) {
+                    val value = (block[i * 2].toInt() and 255) or
+                        ((block[i * 2 + 1].toInt() and 255) shl 8)
+                    val signed = if (value >= 32768) value - 65536 else value
+                    result[written + i] = signed / 32768f
                 }
-
-                result[i] = signed / 32768f
+                written += count
             }
 
             return result
