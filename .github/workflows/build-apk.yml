@@ -569,4 +569,4 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-# Rebuild with corrected Whisper header validation and asset regression check.
+# Rebuild with foreground media-processing service for screen-off dubbing.
