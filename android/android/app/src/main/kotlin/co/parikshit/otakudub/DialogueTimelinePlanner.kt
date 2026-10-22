@@ -98,6 +98,9 @@ object DialogueTimelinePlanner {
                 "Empty speech audio for segment ${clip.segmentId}."
             }
 
+            require(durationMs <= videoDurationMs - startMs) {
+                "Synthesized speech for segment ${clip.segmentId} extends beyond the video."
+            }
             val audioEndMs = startMs + durationMs
 
             require(audioEndMs >= startMs) {
@@ -190,13 +193,14 @@ object DialogueTimelinePlanner {
             var validFormat = false
             var samples = -1L
 
-            while (wav.filePointer + 8L <= wav.length()) {
+            val riffEnd = riffSize + 8L
+            while (wav.filePointer + 8L <= riffEnd) {
                 val chunk = ascii(4)
                 val size = uint32()
                 val start = wav.filePointer
                 val end = start + size
 
-                require(end >= start && end <= wav.length()) {
+                require(end >= start && end <= riffEnd) {
                     "Invalid WAV chunk: ${file.name}"
                 }
 
@@ -231,7 +235,7 @@ object DialogueTimelinePlanner {
 
                 val next = end + (size and 1L)
 
-                if (next > wav.length()) break
+                require(next <= riffEnd) { "Invalid WAV chunk padding." }
 
                 wav.seek(next)
             }
