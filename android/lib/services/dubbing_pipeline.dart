@@ -178,9 +178,10 @@ class DubbingPipeline {
       final casting = await engine.identifySpeakers(project);
 
       final beforeCasting = List<DubSegment>.from(project.segments);
+      final identifiedSegments = _parseSegments(casting['segments']);
       project.segments
         ..clear()
-        ..addAll(_parseSegments(casting['segments']));
+        ..addAll(identifiedSegments);
 
       if (project.segments.map((segment) => segment.id).toSet().length !=
               project.segments.length ||
@@ -218,9 +219,11 @@ class DubbingPipeline {
       final beforeTranslation = List<DubSegment>.from(project.segments);
       final translation = await engine.translate(project);
 
+      final translatedSegments = _checkedSegments(
+        translation['segments'], beforeTranslation, 'Translation');
       project.segments
         ..clear()
-        ..addAll(_checkedSegments(translation['segments'], beforeTranslation, 'Translation'));
+        ..addAll(translatedSegments);
 
       // STEP 5: Automatic dialogue refinement
       await _stage(
@@ -232,9 +235,11 @@ class DubbingPipeline {
       final beforeRefinement = List<DubSegment>.from(project.segments);
       final refined = await engine.refineDialogue(project);
 
+      final refinedSegments = _checkedSegments(
+        refined['segments'], beforeRefinement, 'Refinement');
       project.segments
         ..clear()
-        ..addAll(_checkedSegments(refined['segments'], beforeRefinement, 'Refinement'));
+        ..addAll(refinedSegments);
 
       // Restore the persistent speaker-to-voice mapping.
       for (final segment in project.segments) {
