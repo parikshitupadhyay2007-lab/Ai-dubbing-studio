@@ -77,6 +77,22 @@ object OfflineVideoExporter {
                 "Cannot finalize exported MP4."
             }
 
+            val verify = MediaExtractor()
+            try {
+                verify.setDataSource(output.absolutePath)
+                val formats = (0 until verify.trackCount).map {
+                    verify.getTrackFormat(it).getString(MediaFormat.KEY_MIME) ?: ""
+                }
+                check(formats.any { it.startsWith("video/") } &&
+                    formats.any { it.startsWith("audio/") }) {
+                    "Exported MP4 is missing a video or audio track."
+                }
+            } catch (error: Exception) {
+                output.delete()
+                throw error
+            } finally {
+                verify.release()
+            }
             return output
 
         } finally {
