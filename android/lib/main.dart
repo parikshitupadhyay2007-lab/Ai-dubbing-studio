@@ -504,7 +504,7 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
         project,
         onProgress: (stage) {
           if (mounted) {
-            setState(() { status = 'Processing: ${stage.name}'; dubPercent = stage == ProjectStage.completed ? 100 : stage == ProjectStage.exporting ? 85 : stage == ProjectStage.synthesizing ? 70 : stage == ProjectStage.refining ? 55 : stage == ProjectStage.translating ? 40 : stage == ProjectStage.casting ? 25 : stage == ProjectStage.transcribing ? 10 : dubPercent; });
+            setState(() { status = stage == ProjectStage.transcribing ? 'Transcribing audio locally with Whisper. This stage can take time; 10% is its starting milestone.' : 'Processing: ${stage.name}'; dubPercent = stage == ProjectStage.completed ? 100 : stage == ProjectStage.exporting ? 85 : stage == ProjectStage.synthesizing ? 70 : stage == ProjectStage.refining ? 55 : stage == ProjectStage.translating ? 40 : stage == ProjectStage.casting ? 25 : stage == ProjectStage.transcribing ? 10 : dubPercent; });
           }
         },
       );
