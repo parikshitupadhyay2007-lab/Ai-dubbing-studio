@@ -173,9 +173,24 @@ class DubbingPipeline {
 
       final casting = await engine.identifySpeakers(project);
 
+      final beforeCasting = List<DubSegment>.from(project.segments);
       project.segments
         ..clear()
         ..addAll(_parseSegments(casting['segments']));
+
+      if (project.segments.length != beforeCasting.length ||
+          project.segments.asMap().entries.any((entry) {
+            final original = beforeCasting[entry.key];
+            final identified = entry.value;
+            return original.id != identified.id ||
+                (original.start - identified.start).abs() > 0.001 ||
+                (original.end - identified.end).abs() > 0.001 ||
+                identified.end <= identified.start;
+          })) {
+        throw OfflineEngineException(
+          'Speaker identification changed dialogue timing or identity.',
+        );
+      }
 
       if (project.segments.isEmpty) {
         throw OfflineEngineException(
