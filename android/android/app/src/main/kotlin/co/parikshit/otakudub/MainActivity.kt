@@ -68,7 +68,7 @@ class MainActivity : FlutterActivity() {
                         val temporary = File(destination + ".extracting")
                         try {
                             target.parentFile?.mkdirs()
-                            val key = flutterEngine.dartExecutor.getAssetLookupKeyForAsset(asset)
+                            val key = io.flutter.FlutterInjector.instance().flutterLoader().getLookupKeyForAsset(asset)
                             assets.open(key).use { source ->
                                 FileOutputStream(temporary).use { output ->
                                     source.copyTo(output, 1024 * 1024)
