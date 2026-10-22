@@ -516,6 +516,23 @@ class MainActivity : FlutterActivity() {
                  * Copies the source video stream and replaces
                  * its audio with AAC-encoded dubbed dialogue.
                  */
+                "mixSoundtrack" -> {
+                    executor.execute {
+                        try {
+                            val dialogue = requireNotNull(call.argument<String>("dialogue_wav_path"))
+                            val accompaniment = requireNotNull(call.argument<String>("accompaniment_path"))
+                            val output = File(filesDir, "soundtrack_mix/${System.nanoTime()}/mix.wav")
+                            val path = OfflineSoundtrackMixer.mix(
+                                dialogue, accompaniment, output.absolutePath
+                            )
+                            runOnUiThread { result.success(mapOf("wav_path" to path)) }
+                        } catch (error: Exception) {
+                            runOnUiThread { result.error("SOUNDTRACK_MIX_ERROR",
+                                error.message ?: "Soundtrack mixing failed.", null) }
+                        }
+                    }
+                }
+
                 "exportVideo" -> {
                     executor.execute {
                         try {
