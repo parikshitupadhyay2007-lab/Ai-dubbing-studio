@@ -310,7 +310,15 @@ jobs:
 
       - name: Run Flutter regression tests
         working-directory: android
-        run: flutter test
+        shell: bash
+        run: |
+          set -euo pipefail
+          # flutter create generates a template test for MyApp, but OtakuDub
+          # has its own app root and checked-in regression tests.
+          if test -f test/widget_test.dart && grep -q 'MyApp' test/widget_test.dart; then
+            rm test/widget_test.dart
+          fi
+          flutter test
 
       - name: Build OtakuDub APK
         working-directory: android
