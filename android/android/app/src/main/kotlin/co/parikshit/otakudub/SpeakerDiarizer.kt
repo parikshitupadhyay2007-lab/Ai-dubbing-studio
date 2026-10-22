@@ -36,7 +36,7 @@ object SpeakerDiarizer {
         val samples = readWav(wavPath)
         val profiles = mutableListOf<VoiceProfile>()
 
-        return segments.map { segment ->
+        val identified = segments.map { segment ->
 
             val start = (segment["start"] as? Number)
                 ?.toDouble() ?: 0.0
@@ -131,6 +131,30 @@ object SpeakerDiarizer {
                 put("speaker_id", speakerId)
                 put("speaker_confidence", confidence)
             }.toMap()
+        }
+
+        // Unclusterable short lines receive a low-confidence neighboring
+        // speaker assignment rather than aborting the complete episode.
+        val known = identified.indices.filter {
+            identified[it]["speaker_id"] != "unknown"
+        }
+        if (known.isEmpty()) {
+            return identified.map { segment ->
+                segment.toMutableMap().apply {
+                    put("speaker_id", "speaker_1")
+                    put("speaker_confidence", 0.0)
+                }.toMap()
+            }
+        }
+        return identified.mapIndexed { index, segment ->
+            if (segment["speaker_id"] != "unknown") segment
+            else {
+                val nearest = known.minByOrNull { kotlin.math.abs(it - index) }!!
+                segment.toMutableMap().apply {
+                    put("speaker_id", identified[nearest]["speaker_id"]!!)
+                    put("speaker_confidence", 0.0)
+                }.toMap()
+            }
         }
     }
 
