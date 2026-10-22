@@ -368,6 +368,13 @@ jobs:
           print("ALL REQUIRED AI ASSETS VERIFIED BEFORE COMPILATION")
           PY
 
+      - name: Verify transcription language fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'lang == "unknown"' android/android/app/src/main/cpp/otakudub_whisper.cpp
+          grep -q 'params.no_context = true' android/android/app/src/main/cpp/otakudub_whisper.cpp
+
       - name: Install Flutter dependencies
         working-directory: android
         run: flutter pub get
