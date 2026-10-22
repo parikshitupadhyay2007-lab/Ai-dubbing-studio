@@ -305,6 +305,13 @@ jobs:
         working-directory: android
         run: dart run flutter_launcher_icons
 
+      - name: Verify custom launcher icon resources
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s android/android/app/src/main/res/mipmap-hdpi/ic_launcher.png
+          grep -q 'android:icon="@mipmap/ic_launcher"' android/android/app/src/main/AndroidManifest.xml
+
       - name: Configure Japanese branding
         working-directory: android
         shell: bash
