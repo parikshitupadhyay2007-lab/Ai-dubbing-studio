@@ -58,10 +58,14 @@ class DubbingPipeline {
         '$stage changed the number of dialogue segments.',
       );
     }
+    if (next.map((segment) => segment.id).toSet().length != next.length) {
+      throw OfflineEngineException('$stage returned duplicate segment IDs.');
+    }
     for (var i = 0; i < next.length; i++) {
       final before = previous[i];
       final after = next[i];
       if (after.id != before.id ||
+          after.original != before.original ||
           after.speakerId != before.speakerId ||
           (after.start - before.start).abs() > 0.001 ||
           (after.end - before.end).abs() > 0.001 ||
@@ -178,11 +182,14 @@ class DubbingPipeline {
         ..clear()
         ..addAll(_parseSegments(casting['segments']));
 
-      if (project.segments.length != beforeCasting.length ||
+      if (project.segments.map((segment) => segment.id).toSet().length !=
+              project.segments.length ||
+          project.segments.length != beforeCasting.length ||
           project.segments.asMap().entries.any((entry) {
             final original = beforeCasting[entry.key];
             final identified = entry.value;
             return original.id != identified.id ||
+                original.original != identified.original ||
                 (original.start - identified.start).abs() > 0.001 ||
                 (original.end - identified.end).abs() > 0.001 ||
                 identified.end <= identified.start;
