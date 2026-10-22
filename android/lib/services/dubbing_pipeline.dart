@@ -179,14 +179,10 @@ class DubbingPipeline {
 
       final beforeCasting = List<DubSegment>.from(project.segments);
       final identifiedSegments = _parseSegments(casting['segments']);
-      project.segments
-        ..clear()
-        ..addAll(identifiedSegments);
-
-      if (project.segments.map((segment) => segment.id).toSet().length !=
-              project.segments.length ||
-          project.segments.length != beforeCasting.length ||
-          project.segments.asMap().entries.any((entry) {
+      if (identifiedSegments.map((segment) => segment.id).toSet().length !=
+              identifiedSegments.length ||
+          identifiedSegments.length != beforeCasting.length ||
+          identifiedSegments.asMap().entries.any((entry) {
             final original = beforeCasting[entry.key];
             final identified = entry.value;
             return original.id != identified.id ||
@@ -199,6 +195,10 @@ class DubbingPipeline {
           'Speaker identification changed dialogue timing or identity.',
         );
       }
+
+      project.segments
+        ..clear()
+        ..addAll(identifiedSegments);
 
       if (project.segments.isEmpty) {
         throw OfflineEngineException(
