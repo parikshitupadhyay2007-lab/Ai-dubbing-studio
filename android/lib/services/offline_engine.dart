@@ -370,6 +370,27 @@ class OfflineEngine {
     return result;
   }
 
+  Future<String> mixSoundtrack({
+    required String dialogueWavPath,
+    required String accompanimentPath,
+  }) async {
+    for (final path in [dialogueWavPath, accompanimentPath]) {
+      if (!await File(path).exists()) {
+        throw OfflineEngineException('Required soundtrack WAV is missing: $path');
+      }
+    }
+    final result = await _invoke('mixSoundtrack', {
+      'dialogue_wav_path': dialogueWavPath,
+      'accompaniment_path': accompanimentPath,
+    });
+    final path = result['wav_path'];
+    if (path is! String || !await File(path).exists() ||
+        await File(path).length() <= 44) {
+      throw OfflineEngineException('Soundtrack recombination produced no audio.');
+    }
+    return path;
+  }
+
   /// Exports a dubbed MP4 using the original video stream
   /// and synchronized dialogue WAV.
   ///
