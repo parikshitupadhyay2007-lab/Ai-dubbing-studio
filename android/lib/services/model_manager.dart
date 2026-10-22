@@ -94,6 +94,19 @@ class ModelManager {
     return await file.exists() && await file.length() > 0;
   }
 
+  Future<bool> _validWhisper(File file) async {
+    if (!await _valid(file) || await file.length() != 147951465) return false;
+    final reader = await file.open();
+    try {
+      final header = await reader.read(4);
+      return header.length == 4 &&
+          header[0] == 0x67 && header[1] == 0x67 &&
+          header[2] == 0x6d && header[3] == 0x6c;
+    } finally {
+      await reader.close();
+    }
+  }
+
   Future<bool> _validOtakuMind(File file) async {
     if (!await _valid(file) || await file.length() < 400000000) return false;
     final reader = await file.open();
@@ -166,9 +179,12 @@ class ModelManager {
   Future<bool> ensureBundledModel(AiModel model) async {
     final destination = await modelFile(model);
 
-    if (!(model == AiModel.otakuMind
+    final validBefore = model == AiModel.otakuMind
         ? await _validOtakuMind(destination)
-        : await _valid(destination))) {
+        : model == AiModel.whisper
+            ? await _validWhisper(destination)
+            : await _valid(destination);
+    if (!validBefore) {
       final extracted = await _extractAsset(
         model.assetPath,
         destination,
@@ -178,6 +194,7 @@ class ModelManager {
     }
 
     if (model == AiModel.otakuMind) return _validOtakuMind(destination);
+    if (model == AiModel.whisper) return _validWhisper(destination);
     if (!model.isVoice) return true;
 
     final config = await voiceConfigFile(model);
