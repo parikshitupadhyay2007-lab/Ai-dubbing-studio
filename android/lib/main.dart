@@ -418,6 +418,7 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
   String language = 'hi';
   String status = 'Ready to import media.';
   bool busy = false;
+  double? dubPercent;
 
   DubProject? current;
   List<DubProject> projects = [];
@@ -495,6 +496,7 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
     setState(() {
       busy = true;
       status = 'Checking offline AI runtime...';
+      dubPercent = 0;
     });
 
     try {
@@ -502,7 +504,7 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
         project,
         onProgress: (stage) {
           if (mounted) {
-            setState(() => status = 'Processing: ${stage.name}');
+            setState(() { status = 'Processing: ${stage.name}'; dubPercent = stage == ProjectStage.completed ? 100 : stage == ProjectStage.exporting ? 85 : stage == ProjectStage.synthesizing ? 70 : stage == ProjectStage.refining ? 55 : stage == ProjectStage.translating ? 40 : stage == ProjectStage.casting ? 25 : stage == ProjectStage.transcribing ? 10 : dubPercent; });
           }
         },
       );
@@ -643,7 +645,11 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
           ),
         ],
         const SizedBox(height: 20),
-        if (busy) const LinearProgressIndicator(),
+        if (dubPercent != null) ...[
+          Text('Progress: ${dubPercent!.round()}%'),
+          LinearProgressIndicator(value: dubPercent! / 100),
+          const Text('Stage-based estimate, not elapsed-time progress.'),
+        ],
         const SizedBox(height: 12),
         Text(
           status,
