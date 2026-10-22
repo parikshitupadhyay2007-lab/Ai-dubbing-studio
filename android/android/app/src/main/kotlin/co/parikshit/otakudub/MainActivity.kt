@@ -4,6 +4,8 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
+import android.content.Intent
+import androidx.core.content.ContextCompat
 import java.io.FileOutputStream
 import java.util.concurrent.Executors
 
@@ -55,6 +57,21 @@ class MainActivity : FlutterActivity() {
         ).setMethodCallHandler { call, result ->
 
             when (call.method) {
+
+                "startBackgroundDubbing" -> {
+                    try {
+                        ContextCompat.startForegroundService(this,
+                            Intent(this, DubbingForegroundService::class.java))
+                        result.success(true)
+                    } catch (error: Exception) {
+                        result.error("BACKGROUND_START_FAILED", error.message, null)
+                    }
+                }
+
+                "stopBackgroundDubbing" -> {
+                    stopService(Intent(this, DubbingForegroundService::class.java))
+                    result.success(true)
+                }
 
                 "installBundledAsset" -> {
                     val asset = call.argument<String>("asset")
