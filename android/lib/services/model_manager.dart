@@ -142,41 +142,24 @@ class ModelManager {
     String assetPath,
     File destination,
   ) async {
-    ByteData data;
-
+    // Android AssetManager streams large bundled models without allocating
+    // the entire GGUF or Whisper model in the Dart heap.
     try {
-      data = await rootBundle.load(assetPath);
-    } on FlutterError {
+      final length = await const MethodChannel(
+        'co.parikshit.otakudub/offline_engine',
+      ).invokeMethod<int>('installBundledAsset', {
+        'asset': assetPath,
+        'destination': destination.path,
+      });
+      return length != null && length > 0 &&
+          await destination.exists() &&
+          await destination.length() == length;
+    } on PlatformException catch (error) {
+      debugPrint('Bundled model installation failed ($assetPath): $error');
       return false;
-    }
-
-    if (data.lengthInBytes == 0) return false;
-
-    final bytes = Uint8List.sublistView(data);
-    final temporary = File('${destination.path}.extracting');
-
-    try {
-      if (await temporary.exists()) {
-        await temporary.delete();
-      }
-
-      await temporary.writeAsBytes(bytes, flush: true);
-
-      if (await temporary.length() != bytes.length) {
-        throw StateError('Incomplete bundled asset: $assetPath');
-      }
-
-      if (await destination.exists()) {
-        await destination.delete();
-      }
-
-      await temporary.rename(destination.path);
-
-      return true;
-    } finally {
-      if (await temporary.exists()) {
-        await temporary.delete();
-      }
+    } on MissingPluginException {
+      debugPrint('Native bundled asset installer is unavailable.');
+      return false;
     }
   }
 
