@@ -5,9 +5,9 @@ import 'package:path_provider/path_provider.dart';
 
 import 'offline_engine.dart';
 
-/// A reviewed checkpoint must be installed with its matching local manifest.
-/// SHA-256 is validated by the native separator; metadata alone is not proof
-/// that a model predicts the instrumental rather than vocal stem.
+/// Loads the local checkpoint and its declared metadata. A self-supplied
+/// manifest is NOT an independently trusted release pin or proof of stem
+/// polarity. Production release must pin a reviewed digest in app code.
 class SeparationInstallation {
   final String modelPath;
   final String sha256;
