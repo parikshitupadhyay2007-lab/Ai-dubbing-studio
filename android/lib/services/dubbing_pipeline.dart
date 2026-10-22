@@ -3,6 +3,7 @@ import '../models/dub_project.dart';
 import 'character_voice_caster.dart';
 import 'offline_engine.dart';
 import 'project_repository.dart';
+import 'separation_installation.dart';
 import 'voice_catalog.dart';
 import 'voice_installation_registry.dart';
 
@@ -146,6 +147,9 @@ class DubbingPipeline {
       project.outputPath = null;
 
       await engine.verifyRuntime();
+
+      // Fail before expensive inference if soundtrack preservation is unavailable.
+      final separation = await SeparationInstallation.load();
 
       // STEP 1: Automatic transcription
       await _stage(
@@ -339,9 +343,25 @@ class DubbingPipeline {
         );
       }
 
+      final stems = await engine.separateSoundtrack(
+        sourcePath: project.sourcePath,
+        modelPath: separation.modelPath,
+        checkpointSha256: separation.sha256,
+        inputName: separation.inputName,
+        outputName: separation.outputName,
+      );
+      final accompaniment = stems['accompaniment_path'];
+      if (accompaniment is! String || accompaniment.trim().isEmpty) {
+        throw OfflineEngineException('Instrumental separation produced no accompaniment.');
+      }
+      final finalMix = await engine.mixSoundtrack(
+        dialogueWavPath: wavPath,
+        accompanimentPath: accompaniment,
+      );
+
       final exported = await engine.exportVideo(
         project,
-        wavPath,
+        finalMix,
       );
 
       final output = exported['output_path'];
