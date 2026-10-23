@@ -619,3 +619,5 @@ jobs:
 # Rebuild with duration-aware synthesis and end-boundary audio fade.
 
 # Validate generated dialogue before speech synthesis.
+
+# Re-run corrected dialogue quality regression test.
