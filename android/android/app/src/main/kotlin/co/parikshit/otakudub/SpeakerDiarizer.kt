@@ -164,50 +164,11 @@ object SpeakerDiarizer {
             }.toMap()
         }
 
-        // Do not manufacture speaker identity from silence or unusable audio.
-        // A zero-confidence guess can cause a different character's voice
-        // to be assigned to a line, which is worse than reporting uncertainty.
-        val known = identified.filter { it["speaker_id"] != "unknown" }
-        if (known.isEmpty()) return restoreOrder(ordered, identified)
-
-        // Even in a single-speaker recording, an unrelated distant or
-        // overlapping line must not inherit that speaker by default.
-        if (known.map { it["speaker_id"] }.toSet().size != 1) {
-            return restoreOrder(ordered, identified)
-        }
-        val soleSpeaker = known.first()["speaker_id"]!!
-        val resolved = identified.map { segment ->
-            if (segment["speaker_id"] != "unknown") {
-                segment
-            } else {
-                val start = (segment["start"] as? Number)?.toDouble() ?: 0.0
-                val end = (segment["end"] as? Number)?.toDouble() ?: start
-                // Overlapping dialogue must never inherit a nearby identity:
-                // even a zero-confidence assignment would be used for casting.
-                val overlapsAnother = identified.any { other ->
-                    other !== segment &&
-                        ((other["start"] as? Number)?.toDouble() ?: Double.POSITIVE_INFINITY) < end - 0.05 &&
-                        ((other["end"] as? Number)?.toDouble() ?: Double.NEGATIVE_INFINITY) > start + 0.05
-                }
-                val nearby = !overlapsAnother && known.any { reference ->
-                    val refStart = (reference["start"] as? Number)?.toDouble() ?: 0.0
-                    val refEnd = (reference["end"] as? Number)?.toDouble() ?: refStart
-                    // Only non-overlapping utterances within one second.
-                    val gap = when {
-                        end <= refStart -> refStart - end
-                        start >= refEnd -> start - refEnd
-                        else -> Double.POSITIVE_INFINITY
-                    }
-                    gap <= 1.0
-                }
-                if (!nearby) segment
-                else segment.toMutableMap().apply {
-                    put("speaker_id", soleSpeaker)
-                    put("speaker_confidence", 0.0)
-                }.toMap()
-            }
-        }
-        return restoreOrder(ordered, resolved)
+        // Never convert an unresolved segment into an asserted speaker identity.
+        // Proximity alone is not speaker evidence, even for a recording in which
+        // only one voice has been recognized so far. In particular, assigning a
+        // speaker_id with zero confidence can still trigger incorrect voice casting.
+        return restoreOrder(ordered, identified)
     }
 
     private fun restoreOrder(
