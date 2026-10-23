@@ -60,6 +60,7 @@ object SpeakerDiarizer {
             }.thenBy { it.index }
         )
         val profiles = mutableListOf<VoiceProfile>()
+        var embeddingDimensions: Int? = null
 
         // Sweep both directions instead of checking every pair of segments.
         // Preserve the original 50 ms tolerance for boundary-level overlap.
@@ -130,6 +131,17 @@ object SpeakerDiarizer {
 
             var speakerId = "unknown"
             var confidence = 0.0
+
+            if (features != null && embeddingExtractor != null) {
+                val expected = embeddingDimensions
+                if (expected == null) {
+                    embeddingDimensions = features.size
+                } else {
+                    require(features.size == expected) {
+                        "Speaker embedding dimension changed between segments."
+                    }
+                }
+            }
 
             if (features != null) {
 
