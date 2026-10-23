@@ -512,6 +512,9 @@ jobs:
           fi
           flutter test
 
+      - name: Verify speaker candidate is not production-enabled
+        run: python3 -m unittest discover -s tools -p 'test_speaker_model_candidate.py'
+
       - name: Test speaker embedding calibration
         run: python3 -m unittest discover -s tools -p 'test_calibrate_speaker_embeddings.py'
 
