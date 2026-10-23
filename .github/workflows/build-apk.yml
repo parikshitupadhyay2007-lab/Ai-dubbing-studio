@@ -645,3 +645,5 @@ jobs:
 # Validate translation refinement recovery and dialogue degeneration tests.
 
 # Validate fail-closed untranslated dialogue safeguard.
+
+# Validate overlap-aware speaker profile training.
