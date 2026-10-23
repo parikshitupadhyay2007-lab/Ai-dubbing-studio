@@ -4,7 +4,7 @@ class DialogueQualityGate {
   static final RegExp _japanese = RegExp('[\u3040-\u30FF\u3400-\u9FFF]');
   static final RegExp _latin = RegExp('[A-Za-z]');
 
-  static final RegExp _repeatedToken = RegExp(r'(.{4,40}?)\\1{3,}', caseSensitive: false);
+  static final RegExp _repeatedToken = RegExp(r'(.{4,40}?)\1{3,}', caseSensitive: false);
 
   static bool acceptable(String value, String targetLanguage) {
     final text = value.trim();
