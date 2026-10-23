@@ -166,6 +166,7 @@ dependencies {
     implementation(
         "com.microsoft.onnxruntime:onnxruntime-android:1.20.0"
     )
+    testImplementation("junit:junit:4.13.2")
 }
 
 /*
