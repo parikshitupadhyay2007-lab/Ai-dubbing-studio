@@ -791,27 +791,40 @@ class MainActivity : FlutterActivity() {
                             )
                         }
 
-                        val response = nativeGenerate(
-                            prompt,
-                            if (refine) 256 else 384
+                        // Retry only malformed/unfinished model output. Each
+                        // attempt starts with cleared native context; never
+                        // publish partial reasoning as dubbed dialogue.
+                        var accepted: String? = null
+                        var lastFailure: Exception? = null
+                        for (attempt in 0 until 2) {
+                            val request = if (attempt == 0) prompt else
+                                "/no_think\nReturn ONLY one spoken $targetLanguage " +
+                                "dialogue line. No reasoning or labels.\n" +
+                                "Input: $input"
+                            val response = nativeGenerate(
+                                request,
+                                if (attempt == 0) {
+                                    if (refine) 256 else 384
+                                } else 512
+                            )
+                            try {
+                                if (response.isBlank() ||
+                                    response.startsWith("ERROR:")) {
+                                    throw IllegalStateException(
+                                        "OtakuMind generation failed on segment ${segment["id"]}: $response"
+                                    )
+                                }
+                                accepted = cleanDialogue(response)
+                                break
+                            } catch (error: IllegalStateException) {
+                                lastFailure = error
+                            }
+                        }
+                        accepted ?: throw IllegalStateException(
+                            "OtakuMind could not produce spoken dialogue for " +
+                            "segment ${segment["id"]} after two attempts: " +
+                            (lastFailure?.message ?: "invalid output")
                         )
-
-                        if (
-                            response.isBlank() ||
-                            response.startsWith("ERROR:")
-                        ) {
-                            throw IllegalStateException(
-                                "OtakuMind failed on segment " +
-                                    "${segment["id"]}: $response"
-                            )
-                        }
-
-                        cleanDialogue(response).ifBlank {
-                            throw IllegalStateException(
-                                "Empty generated dialogue for " +
-                                    "segment ${segment["id"]}."
-                            )
-                        }
                     }
 
                     segment.toMutableMap().apply {
