@@ -629,3 +629,5 @@ jobs:
 # Verify translation batch recovery and refinement checkpoint invalidation.
 
 # Verify dubbing character voice role ambiguity guard.
+
+# Validate corrected bundled Lessac voice role metadata.
