@@ -16,7 +16,8 @@ class SpeakerEmbeddingModelConfigTest {
                 .digest(model.readBytes()).joinToString("") { "%02x".format(it) }
             val config = SpeakerEmbeddingModelConfig(
                 model.absolutePath, digest, 16000, "audio", "embedding",
-                192, 0.22, 0.38, license.absolutePath
+                192, 0.22, 0.38, license.absolutePath,
+                inputSamples = 16000, preprocessing = "raw_pcm16k_mono_float32"
             )
             config.validate()
             try {
