@@ -615,3 +615,5 @@ jobs:
 # Rebuild with bounded synthesized dialogue placement at the video end.
 
 # Rebuild with writable app-owned MP4 export destination.
+
+# Rebuild with duration-aware synthesis and end-boundary audio fade.
