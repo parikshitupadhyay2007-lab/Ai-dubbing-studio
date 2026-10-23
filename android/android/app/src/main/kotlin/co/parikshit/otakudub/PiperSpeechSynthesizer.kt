@@ -133,13 +133,33 @@ class PiperSpeechSynthesizer(
                     null
                 }
 
-            val samples = engine.synthesize(
+            // Fit the generated utterance to its source dialogue window when
+            // possible. Piper lengthScale controls speaking duration (smaller
+            // means faster); one bounded retry avoids unbounded inference and
+            // avoids extreme speed-ups that destroy intelligibility.
+            var samples = engine.synthesize(
                 phonemeIds = phonemeIds,
                 speakerId = speakerId,
                 noiseScale = config.noiseScale,
                 lengthScale = config.lengthScale,
                 noiseW = config.noiseW
             )
+            val windowSeconds = segment.end - segment.start
+            val actualSeconds = samples.size.toDouble() / config.sampleRate
+            if (windowSeconds >= 0.5 && actualSeconds > windowSeconds * 1.12) {
+                val adjustedScale = (config.lengthScale *
+                    (windowSeconds / actualSeconds).toFloat() * 0.98f)
+                    .coerceIn(config.lengthScale * 0.78f, config.lengthScale)
+                if (adjustedScale < config.lengthScale * 0.99f) {
+                    samples = engine.synthesize(
+                        phonemeIds = phonemeIds,
+                        speakerId = speakerId,
+                        noiseScale = config.noiseScale,
+                        lengthScale = adjustedScale,
+                        noiseW = config.noiseW
+                    )
+                }
+            }
 
             val wav = VoiceWavWriter.write(
                 destination = File(
