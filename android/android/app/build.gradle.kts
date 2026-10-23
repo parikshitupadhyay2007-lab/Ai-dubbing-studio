@@ -146,6 +146,11 @@ android {
 
     buildTypes {
         release {
+            // ONNX Runtime JNI looks up tensor wrapper classes by name.
+            // Keep shrinking disabled while diagnosing the release-only JNI abort.
+            isMinifyEnabled = false
+            isShrinkResources = false
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.getByName("otakudubRelease")
         }
     }
