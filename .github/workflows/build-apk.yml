@@ -572,6 +572,10 @@ jobs:
               "assets/flutter_assets/assets/models/voices/hi_hero.onnx.json": 100,
               "assets/flutter_assets/assets/models/voices/en_hero.onnx": 1000000,
               "assets/flutter_assets/assets/models/voices/en_hero.onnx.json": 100,
+              "assets/flutter_assets/assets/models/voices/hi_heroine.onnx": 1000000,
+              "assets/flutter_assets/assets/models/voices/hi_heroine.onnx.json": 100,
+              "assets/flutter_assets/assets/models/voices/en_young_male.onnx": 1000000,
+              "assets/flutter_assets/assets/models/voices/en_young_male.onnx.json": 100,
           }
           with zipfile.ZipFile(apk) as archive:
               names = set(archive.namelist())
@@ -604,6 +608,8 @@ jobs:
               "whisper.bin", "otakumind.gguf", "separation.onnx", "separation.json",
               "voices/hi_hero.onnx", "voices/hi_hero.onnx.json",
               "voices/en_hero.onnx", "voices/en_hero.onnx.json",
+              "voices/hi_heroine.onnx", "voices/hi_heroine.onnx.json",
+              "voices/en_young_male.onnx", "voices/en_young_male.onnx.json",
           ]
           with ZipFile(apk) as archive:
               for name in names:
