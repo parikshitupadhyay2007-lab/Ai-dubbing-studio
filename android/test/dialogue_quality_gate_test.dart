@@ -2,6 +2,21 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ai_dubbing_studio/services/dialogue_quality_gate.dart';
 
 void main() {
+  test('reports actionable translation failure without exposing generated text', () {
+    expect(DialogueQualityGate.rejectionReason(
+      'Hello there', 'こんにちは', 'ja', 'hi',
+    ), contains('Devanagari'));
+    expect(DialogueQualityGate.rejectionReason(
+      '<think>private model output', 'こんにちは', 'ja', 'en',
+    ), contains('control tokens'));
+    expect(DialogueQualityGate.rejectionReason(
+      'We should go home.', 'We should go home.', 'en', 'hi',
+    ), contains('unchanged source'));
+    expect(DialogueQualityGate.rejectionReason(
+      '', 'こんにちは', 'ja', 'hi',
+    ), contains('empty dialogue'));
+  });
+
   test('accepts valid Hindi and English speech', () {
     expect(DialogueQualityGate.acceptable('मुझे घर जाना है।', 'hi'), isTrue);
     expect(DialogueQualityGate.acceptable('We should go home.', 'en'), isTrue);
