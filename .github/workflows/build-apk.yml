@@ -641,3 +641,5 @@ jobs:
 # Verify uncertainty band before creating new speaker identities.
 
 # Validate chronological speaker clustering and stable segment order.
+
+# Validate translation refinement recovery and dialogue degeneration tests.
