@@ -232,7 +232,7 @@ Java_co_parikshit_otakudub_MainActivity_nativeGenerate(
 
     llama_sampler_chain_add(
         sampler,
-        llama_sampler_init_temp(0.7f)
+        llama_sampler_init_temp(0.2f)
     );
 
     llama_sampler_chain_add(
