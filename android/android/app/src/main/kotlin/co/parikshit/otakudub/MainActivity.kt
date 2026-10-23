@@ -926,24 +926,33 @@ class MainActivity : FlutterActivity() {
         """.trimIndent()
     }
 
-    private fun cleanDialogue(
-        response: String
-    ): String {
-
-        val line = response
-            .substringBefore("\n\n")
-            .lineSequence()
+    private fun cleanDialogue(response: String): String {
+        // Qwen reasoning must never be read aloud as character dialogue.
+        var cleaned = response.trim()
+        if (cleaned.contains("<think>")) {
+            val closing = cleaned.lastIndexOf("</think>")
+            if (closing < 0) {
+                throw IllegalStateException("OtakuMind returned unfinished reasoning instead of dialogue.")
+            }
+            cleaned = cleaned.substring(closing + "</think>".length).trim()
+        }
+        if (cleaned.contains("<|") || cleaned.contains("</think>") ||
+            cleaned.contains("<think>") || cleaned.contains("```")) {
+            throw IllegalStateException("OtakuMind returned model-control text instead of dialogue.")
+        }
+        val line = cleaned.lineSequence()
             .firstOrNull { it.isNotBlank() }
             ?.trim()
             .orEmpty()
-
-        return line
-            .removePrefix("Translation:")
-            .removePrefix("Refined dialogue:")
-            .removePrefix("Assistant:")
+            .replace(Regex("^(Translation|Refined dialogue|Assistant):\\s*", RegexOption.IGNORE_CASE), "")
             .trim()
             .trim('"', '“', '”')
             .trim()
+        if (line.isBlank() || line.startsWith("ERROR:") ||
+            line.startsWith("Dialogue:", ignoreCase = true)) {
+            throw IllegalStateException("OtakuMind did not return usable spoken dialogue.")
+        }
+        return line
     }
 
     private fun ensureMindLoaded(
