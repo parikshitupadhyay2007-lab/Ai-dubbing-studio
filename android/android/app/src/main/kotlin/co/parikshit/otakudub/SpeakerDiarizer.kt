@@ -139,19 +139,35 @@ object SpeakerDiarizer {
         val known = identified.filter { it["speaker_id"] != "unknown" }
         if (known.isEmpty()) return identified
 
-        // Only one independently observed speaker: short lines can inherit
-        // that identity, but remain explicitly marked as low confidence.
-        // With multiple speakers, proximity in time is NOT identity evidence.
+        // Even in a single-speaker recording, an unrelated distant or
+        // overlapping line must not inherit that speaker by default.
         if (known.map { it["speaker_id"] }.toSet().size != 1) {
             return identified
         }
         val soleSpeaker = known.first()["speaker_id"]!!
         return identified.map { segment ->
-            if (segment["speaker_id"] != "unknown") segment
-            else segment.toMutableMap().apply {
-                put("speaker_id", soleSpeaker)
-                put("speaker_confidence", 0.0)
-            }.toMap()
+            if (segment["speaker_id"] != "unknown") {
+                segment
+            } else {
+                val start = (segment["start"] as? Number)?.toDouble() ?: 0.0
+                val end = (segment["end"] as? Number)?.toDouble() ?: start
+                val nearby = known.any { reference ->
+                    val refStart = (reference["start"] as? Number)?.toDouble() ?: 0.0
+                    val refEnd = (reference["end"] as? Number)?.toDouble() ?: refStart
+                    // Only non-overlapping utterances within one second.
+                    val gap = when {
+                        end <= refStart -> refStart - end
+                        start >= refEnd -> start - refEnd
+                        else -> Double.POSITIVE_INFINITY
+                    }
+                    gap <= 1.0
+                }
+                if (!nearby) segment
+                else segment.toMutableMap().apply {
+                    put("speaker_id", soleSpeaker)
+                    put("speaker_confidence", 0.0)
+                }.toMap()
+            }
         }
     }
 
