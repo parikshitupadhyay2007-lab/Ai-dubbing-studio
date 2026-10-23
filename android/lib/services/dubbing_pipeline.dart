@@ -252,7 +252,9 @@ class DubbingPipeline {
       // Refinement is optional for recovery safety: preserve the translated
       // dialogue until a complete validated refinement batch is available.
       for (var offset = 0; offset < project.segments.length; offset += batchSize) {
-        final pending = project.segments.skip(offset).take(batchSize).toList();
+        final pending = project.segments.skip(offset).take(batchSize)
+            .where((segment) => !project.refinedSegmentIds.contains(segment.id)).toList();
+        if (pending.isEmpty) continue;
         final batch = DubProject(
           id: project.id, title: project.title, sourcePath: project.sourcePath,
           targetLanguage: project.targetLanguage, sourceLanguage: project.sourceLanguage,
@@ -265,6 +267,7 @@ class DubbingPipeline {
         }
         for (var i = 0; i < pending.length; i++) {
           pending[i].translation = next[i].translation;
+          project.refinedSegmentIds.add(pending[i].id);
         }
         await repository.save(project);
       }
