@@ -621,3 +621,5 @@ jobs:
 # Validate generated dialogue before speech synthesis.
 
 # Re-run corrected dialogue quality regression test.
+
+# Rebuild focused dubbing pipeline checkpoint and syntax fixes.
