@@ -95,6 +95,50 @@ class SpeakerDiarizerEmbeddingTest {
         } finally { file.delete() }
     }
 
+    @Test fun invalidEmbeddingRemainsUnknownWithoutCreatingAProfile() {
+        val file = wav()
+        var calls = 0
+        try {
+            val result = SpeakerDiarizer.identify(
+                file.path, listOf(line(1, 0.0, 0.7), line(2, 1.0, 1.7)),
+                SpeakerFeatureExtractor {
+                    calls++
+                    if (calls == 1) doubleArrayOf(Double.NaN, 0.0)
+                    else doubleArrayOf(1.0, 0.0)
+                },
+                0.22, 0.38
+            )
+            assertEquals("unknown", result[0]["speaker_id"])
+            assertEquals(0.0, result[0]["speaker_confidence"] as Double, 0.0)
+            assertEquals("speaker_1", result[1]["speaker_id"])
+        } finally { file.delete() }
+    }
+
+    @Test fun ambiguousSpeakerDoesNotCreateInventedThirdIdentity() {
+        val file = wav()
+        var calls = 0
+        try {
+            val result = SpeakerDiarizer.identify(
+                file.path, listOf(
+                    line(1, 0.0, 0.6), line(2, 0.8, 1.4),
+                    line(3, 1.6, 2.2)
+                ),
+                SpeakerFeatureExtractor {
+                    calls++
+                    when (calls) {
+                        1 -> doubleArrayOf(1.0, 0.0)
+                        2 -> doubleArrayOf(0.0, 1.0)
+                        else -> doubleArrayOf(0.70710678118, 0.70710678118)
+                    }
+                },
+                0.22, 0.38
+            )
+            assertEquals("speaker_1", result[0]["speaker_id"])
+            assertEquals("speaker_2", result[1]["speaker_id"])
+            assertEquals("unknown", result[2]["speaker_id"])
+        } finally { file.delete() }
+    }
+
     @Test fun changingEmbeddingDimensionsFailsClosed() {
         val file = wav()
         var calls = 0
