@@ -133,38 +133,25 @@ object SpeakerDiarizer {
             }.toMap()
         }
 
-        // Unclusterable short lines receive a low-confidence neighboring
-        // speaker assignment rather than aborting the complete episode.
-        val known = identified.indices.filter {
-            identified[it]["speaker_id"] != "unknown"
+        // Do not manufacture speaker identity from silence or unusable audio.
+        // A zero-confidence guess can cause a different character's voice
+        // to be assigned to a line, which is worse than reporting uncertainty.
+        val known = identified.filter { it["speaker_id"] != "unknown" }
+        if (known.isEmpty()) return identified
+
+        // Only one independently observed speaker: short lines can inherit
+        // that identity, but remain explicitly marked as low confidence.
+        // With multiple speakers, proximity in time is NOT identity evidence.
+        if (known.map { it["speaker_id"] }.toSet().size != 1) {
+            return identified
         }
-        if (known.isEmpty()) {
-            return identified.map { segment ->
-                segment.toMutableMap().apply {
-                    put("speaker_id", "speaker_1")
-                    put("speaker_confidence", 0.0)
-                }.toMap()
-            }
-        }
-        return identified.mapIndexed { index, segment ->
+        val soleSpeaker = known.first()["speaker_id"]!!
+        return identified.map { segment ->
             if (segment["speaker_id"] != "unknown") segment
-            else {
-                // Choose the closest known utterance in actual audio time, not
-                // list position (segments can have very different durations).
-                fun midpoint(item: Map<String, Any?>): Double {
-                    val start = (item["start"] as? Number)?.toDouble() ?: 0.0
-                    val end = (item["end"] as? Number)?.toDouble() ?: start
-                    return (start + end) / 2.0
-                }
-                val targetTime = midpoint(segment)
-                val nearest = known.minByOrNull {
-                    kotlin.math.abs(midpoint(identified[it]) - targetTime)
-                }!!
-                segment.toMutableMap().apply {
-                    put("speaker_id", identified[nearest]["speaker_id"]!!)
-                    put("speaker_confidence", 0.0)
-                }.toMap()
-            }
+            else segment.toMutableMap().apply {
+                put("speaker_id", soleSpeaker)
+                put("speaker_confidence", 0.0)
+            }.toMap()
         }
     }
 
