@@ -6,6 +6,8 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/build-apk.yml'
+      - 'android/**'
+      - 'tools/**'
 
 jobs:
   build:
@@ -15,6 +17,10 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Test bilingual translation evaluation
+        shell: bash
+        run: python3 -m unittest discover -s tools -p 'test_evaluate_translation.py' -v
 
       - name: Verify project files
         shell: bash
