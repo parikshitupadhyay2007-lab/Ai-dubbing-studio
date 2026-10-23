@@ -33,7 +33,8 @@ object SpeakerDiarizer {
 
     fun identify(
         wavPath: String,
-        segments: List<Map<String, Any?>>
+        segments: List<Map<String, Any?>>,
+        embeddingExtractor: SpeakerFeatureExtractor? = null
     ): List<Map<String, Any?>> {
 
         val samples = readWav(wavPath)
@@ -103,7 +104,13 @@ object SpeakerDiarizer {
                 clip.size >=
                     (MIN_SPEECH_SECONDS * SAMPLE_RATE).toInt()
             ) {
-                extractFeatures(clip)
+                if (embeddingExtractor == null) {
+                    extractFeatures(clip)
+                } else {
+                    SpeakerFeatureValidation.normalizedOrNull(
+                        embeddingExtractor.extract(clip)
+                    )
+                }
             } else {
                 null
             }
@@ -118,10 +125,11 @@ object SpeakerDiarizer {
                 var secondDistance = Double.MAX_VALUE
 
                 profiles.forEachIndexed { index, profile ->
-                    val distance = distance(
-                        features,
-                        profile.features
-                    )
+                    val distance = if (embeddingExtractor == null) {
+                        distance(features, profile.features)
+                    } else {
+                        SpeakerFeatureValidation.cosineDistance(features, profile.features)
+                    }
 
                     if (distance < bestDistance) {
                         secondDistance = bestDistance
@@ -132,9 +140,11 @@ object SpeakerDiarizer {
                     }
                 }
 
+                val matchThreshold = if (embeddingExtractor == null) MATCH_THRESHOLD else 0.22
+                val newSpeakerThreshold = if (embeddingExtractor == null) MIN_NEW_SPEAKER_DISTANCE else 0.38
                 if (
                     bestIndex >= 0 &&
-                    bestDistance < MATCH_THRESHOLD &&
+                    bestDistance < matchThreshold &&
                     secondDistance - bestDistance >= MIN_MATCH_MARGIN
                 ) {
                     val profile = profiles[bestIndex]
@@ -153,7 +163,7 @@ object SpeakerDiarizer {
                     speakerId = "speaker_${bestIndex + 1}"
 
                     confidence = (
-                        1.0 - bestDistance / MATCH_THRESHOLD
+                        1.0 - bestDistance / matchThreshold
                     ).coerceIn(0.0, 0.85)
 
                 } else if (
@@ -162,7 +172,7 @@ object SpeakerDiarizer {
                     // The gap between a failed match and a genuinely new
                     // identity is uncertain: do not create a new speaker
                     // until the nearest existing profile is clearly distant.
-                    bestDistance >= MIN_NEW_SPEAKER_DISTANCE &&
+                    bestDistance >= newSpeakerThreshold &&
                     profiles.size < MAX_SPEAKERS
                 ) {
                     profiles.add(
