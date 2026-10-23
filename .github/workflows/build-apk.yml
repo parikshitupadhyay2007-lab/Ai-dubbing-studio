@@ -491,9 +491,44 @@ jobs:
           fi
           flutter test
 
-      - name: Build OtakuDub APK
+      - name: Prepare persistent release signing
+        shell: bash
+        env:
+          OTAKUDUB_KEYSTORE_BASE64: ${{ secrets.OTAKUDUB_KEYSTORE_BASE64 }}
+          OTAKUDUB_STORE_PASSWORD: ${{ secrets.OTAKUDUB_STORE_PASSWORD }}
+          OTAKUDUB_KEY_ALIAS: ${{ secrets.OTAKUDUB_KEY_ALIAS }}
+          OTAKUDUB_KEY_PASSWORD: ${{ secrets.OTAKUDUB_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for variable in OTAKUDUB_KEYSTORE_BASE64 OTAKUDUB_STORE_PASSWORD OTAKUDUB_KEY_ALIAS OTAKUDUB_KEY_PASSWORD; do
+            if test -z "${!variable}"; then
+              echo "::error::Missing $variable GitHub Actions secret. Release signing is required; refusing an incompatible debug APK."
+              exit 1
+            fi
+          done
+          umask 077
+          printf '%s' "$OTAKUDUB_KEYSTORE_BASE64" | base64 --decode > android/android/otakudub-release.jks
+          keytool -list -keystore android/android/otakudub-release.jks -storepass "$OTAKUDUB_STORE_PASSWORD" -alias "$OTAKUDUB_KEY_ALIAS" >/dev/null
+          {
+            printf 'storeFile=otakudub-release.jks\n'
+            printf 'storePassword=%s\n' "$OTAKUDUB_STORE_PASSWORD"
+            printf 'keyAlias=%s\n' "$OTAKUDUB_KEY_ALIAS"
+            printf 'keyPassword=%s\n' "$OTAKUDUB_KEY_PASSWORD"
+          } > android/android/signing.properties
+          echo "Persistent release keystore validated."
+
+      - name: Build OtakuDub signed release APK
         working-directory: android
-        run: flutter build apk --debug
+        run: flutter build apk --release
+
+      - name: Verify release APK signing
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=android/build/app/outputs/flutter-apk/app-release.apk
+          test -s "$APK"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$APK" | grep 'Signer #1 certificate SHA-256 digest:'
 
       - name: Verify every required AI asset inside the built APK
         shell: bash
@@ -502,7 +537,7 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import zipfile, json
-          apk = Path("android/build/app/outputs/flutter-apk/app-debug.apk")
+          apk = Path("android/build/app/outputs/flutter-apk/app-release.apk")
           required = {
               "assets/flutter_assets/assets/models/whisper.bin": 147951465,
               "assets/flutter_assets/assets/models/otakumind.gguf": 400000000,
@@ -537,7 +572,7 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           from zipfile import ZipFile
-          apk = Path("android/build/app/outputs/flutter-apk/app-debug.apk")
+          apk = Path("android/build/app/outputs/flutter-apk/app-release.apk")
           if not apk.is_file():
               raise SystemExit("APK missing")
           names = [
@@ -564,8 +599,8 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: OtakuDub-Offline-APK
-          path: android/build/app/outputs/flutter-apk/app-debug.apk
+          name: OtakuDub-Signed-Release-APK
+          path: android/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 7
 
