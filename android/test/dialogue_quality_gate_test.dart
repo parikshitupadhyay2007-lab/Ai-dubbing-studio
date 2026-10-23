@@ -15,6 +15,6 @@ void main() {
   });
   test('rejects multiline or empty generated output', () {
     expect(DialogueQualityGate.acceptable('', 'en'), isFalse);
-    expect(DialogueQualityGate.acceptable('One line\\nAnother line', 'en'), isFalse);
+    expect(DialogueQualityGate.acceptable('One line\nAnother line', 'en'), isFalse);
   });
 }
