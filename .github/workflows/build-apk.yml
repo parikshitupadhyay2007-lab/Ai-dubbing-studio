@@ -647,3 +647,5 @@ jobs:
 # Validate fail-closed untranslated dialogue safeguard.
 
 # Validate overlap-aware speaker profile training.
+
+# Verify overlapping segments never inherit single-speaker identities.
