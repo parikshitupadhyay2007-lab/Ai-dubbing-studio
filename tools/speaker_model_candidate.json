@@ -1,0 +1,14 @@
+{
+  "candidate": "speechbrain/spkrec-ecapa-voxceleb",
+  "upstream": "https://huggingface.co/speechbrain/spkrec-ecapa-voxceleb",
+  "reported_license": "Apache-2.0",
+  "checkpoint_format": "SpeechBrain PyTorch checkpoint, not ONNX",
+  "sample_rate_hz": 16000,
+  "embedding_dimensions": 192,
+  "preprocessing": "80-dimensional log-Mel filterbank features with model-specific normalization; NOT raw PCM ONNX input",
+  "android_compatible": false,
+  "redistribution_approved": false,
+  "conversion_verified": false,
+  "held_out_calibration_verified": false,
+  "notes": "Candidate only. Do not bundle or activate until a reproducible end-to-end ONNX export including preprocessing, provenance, independent evaluation and device tests is verified."
+}
