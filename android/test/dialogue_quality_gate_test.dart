@@ -27,6 +27,11 @@ void main() {
     expect(DialogueQualityGate.acceptableTranslation(
       'We should go home.', 'We should go home.', 'en-US', 'hi-IN'), isFalse);
   });
+  test('regional language codes obey the same script rules', () {
+    expect(DialogueQualityGate.acceptable('Plain English output', 'hi-IN'), isFalse);
+    expect(DialogueQualityGate.acceptable('मुझे घर जाना है।', 'hi_IN'), isTrue);
+    expect(DialogueQualityGate.acceptable('こんにちは', 'en-US'), isFalse);
+  });
   test('rejects multiline or empty generated output', () {
     expect(DialogueQualityGate.acceptable('', 'en'), isFalse);
     expect(DialogueQualityGate.acceptable('One line\nAnother line', 'en'), isFalse);
