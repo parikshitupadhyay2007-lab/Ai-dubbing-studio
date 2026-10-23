@@ -797,10 +797,14 @@ class MainActivity : FlutterActivity() {
                         var accepted: String? = null
                         var lastFailure: Exception? = null
                         for (attempt in 0 until 2) {
+                            // Retain the full translation/refinement contract on
+                            // retry. Reducing this to "Input: ..." previously
+                            // dropped source language, original dialogue and
+                            // the meaning-preservation instructions.
                             val request = if (attempt == 0) prompt else
-                                "/no_think\nReturn ONLY one spoken $targetLanguage " +
-                                "dialogue line. No reasoning or labels.\n" +
-                                "Input: $input"
+                                prompt + "\nIMPORTANT: The previous response was invalid. " +
+                                "Return only the requested final spoken dialogue; " +
+                                "no reasoning, control tokens, labels or commentary."
                             val response = nativeGenerate(
                                 request,
                                 if (attempt == 0) {
