@@ -611,3 +611,5 @@ jobs:
 # Signed side-by-side release: preserve existing debug installation and its private data.
 
 # Rebuild with ONNX Runtime JNI preservation for Android 16 crash diagnosis.
+
+# Rebuild with bounded synthesized dialogue placement at the video end.
