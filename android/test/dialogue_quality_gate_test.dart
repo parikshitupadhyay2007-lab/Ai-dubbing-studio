@@ -17,6 +17,16 @@ void main() {
     expect(DialogueQualityGate.acceptable('<think>reasoning</think> Hello', 'en'), isFalse);
     expect(DialogueQualityGate.acceptable('hello hello hello hello hello ', 'en'), isFalse);
   });
+  test('rejects unchanged translations including restored checkpoints', () {
+    expect(DialogueQualityGate.acceptableTranslation(
+      'We should go home.', 'We should go home.', 'en', 'hi'), isFalse);
+    expect(DialogueQualityGate.acceptableTranslation(
+      'मुझे घर जाना है।', 'We should go home.', 'en', 'hi'), isTrue);
+    expect(DialogueQualityGate.acceptableTranslation(
+      'We should go home.', 'We should go home.', 'en', 'en'), isTrue);
+    expect(DialogueQualityGate.acceptableTranslation(
+      'We should go home.', 'We should go home.', 'en-US', 'hi-IN'), isFalse);
+  });
   test('rejects multiline or empty generated output', () {
     expect(DialogueQualityGate.acceptable('', 'en'), isFalse);
     expect(DialogueQualityGate.acceptable('One line\nAnother line', 'en'), isFalse);
