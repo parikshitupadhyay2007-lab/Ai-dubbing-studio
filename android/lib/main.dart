@@ -501,6 +501,76 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
     }
   }
 
+  Future<void> resolveCharacterVoices(DubProject project) async {
+    final speakers = project.segments.map((s) => s.speakerId)
+        .where((id) => id.trim().isNotEmpty && id != 'unknown')
+        .toSet().toList()..sort();
+    if (speakers.isEmpty) {
+      setState(() => status = 'No reliable speaker identity is available yet.');
+      return;
+    }
+    await const VoiceInstallationRegistry().restore();
+    final voices = VoiceCatalog.available(project.targetLanguage);
+    if (voices.isEmpty) {
+      setState(() => status = 'No installed voices for this language.');
+      return;
+    }
+    final choices = <String, String?>{
+      for (final speaker in speakers)
+        speaker: voices.any((v) => v.id == project.characterVoices[speaker])
+            ? project.characterVoices[speaker] : null,
+    };
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, update) => AlertDialog(
+          title: const Text('Assign character voices'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Choose a voice for each detected speaker. '
+                    'Voice identity cannot be inferred reliably from acoustic clustering.'),
+                for (final speaker in speakers)
+                  DropdownButtonFormField<String>(
+                    key: ValueKey('cast_$speaker'),
+                    initialValue: choices[speaker],
+                    decoration: InputDecoration(labelText: speaker),
+                    items: [
+                      for (final voice in voices)
+                        DropdownMenuItem(
+                          value: voice.id,
+                          child: Text('${voice.description} (${voice.role.name})'),
+                        ),
+                    ],
+                    onChanged: (value) => update(() => choices[speaker] = value),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('Cancel')),
+            FilledButton(
+              onPressed: choices.values.every((value) => value != null)
+                  ? () => Navigator.pop(dialogContext, true) : null,
+              child: const Text('Save casting'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirmed != true) return;
+    project.characterVoices
+      ..clear()
+      ..addAll({for (final entry in choices.entries) entry.key: entry.value!});
+    for (final segment in project.segments) {
+      segment.voiceId = project.characterVoices[segment.speakerId] ?? '';
+    }
+    await repository.save(project);
+    if (mounted) setState(() => status = 'Casting saved. Tap RESUME MY DUB.');
+  }
+
   Future<void> generate() async {
     final project = current;
     if (project == null || busy) return;
@@ -661,6 +731,15 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
               onTap: () => OpenFilex.open(current!.sourcePath),
             ),
           ),
+          if (current!.segments.any((s) =>
+              s.speakerId.isNotEmpty && s.speakerId != 'unknown')) ...[
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: busy ? null : () => resolveCharacterVoices(current!),
+              icon: const Icon(Icons.record_voice_over_outlined),
+              label: const Text('ASSIGN CHARACTER VOICES'),
+            ),
+          ],
           const SizedBox(height: 12),
           FilledButton.icon(
             onPressed: busy ? null : generate,
