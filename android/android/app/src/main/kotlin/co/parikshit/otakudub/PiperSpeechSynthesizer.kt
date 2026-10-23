@@ -151,13 +151,21 @@ class PiperSpeechSynthesizer(
                     (windowSeconds / actualSeconds).toFloat() * 0.98f)
                     .coerceIn(config.lengthScale * 0.78f, config.lengthScale)
                 if (adjustedScale < config.lengthScale * 0.99f) {
-                    samples = engine.synthesize(
+                    val candidate = engine.synthesize(
                         phonemeIds = phonemeIds,
                         speakerId = speakerId,
                         noiseScale = config.noiseScale,
                         lengthScale = adjustedScale,
                         noiseW = config.noiseW
                     )
+                    // Synthesis duration is not guaranteed to be monotonic.
+                    // Never replace the original with an empty or worse fit.
+                    if (candidate.isNotEmpty() &&
+                        kotlin.math.abs(candidate.size.toDouble() / config.sampleRate - windowSeconds) <
+                        kotlin.math.abs(samples.size.toDouble() / config.sampleRate - windowSeconds)
+                    ) {
+                        samples = candidate
+                    }
                 }
             }
 
