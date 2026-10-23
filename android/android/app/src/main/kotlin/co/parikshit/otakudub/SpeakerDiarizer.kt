@@ -37,9 +37,17 @@ object SpeakerDiarizer {
     ): List<Map<String, Any?>> {
 
         val samples = readWav(wavPath)
+        // Process in chronological order: speaker profiles should be learned
+        // from earlier audio, not from arbitrary incoming list order.
+        // Restore the original order before returning results to Flutter.
+        val ordered = segments.withIndex().sortedWith(
+            compareBy<IndexedValue<Map<String, Any?>>> {
+                (it.value["start"] as? Number)?.toDouble() ?: Double.POSITIVE_INFINITY
+            }.thenBy { it.index }
+        )
         val profiles = mutableListOf<VoiceProfile>()
 
-        val identified = segments.map { segment ->
+        val identified = ordered.map { (_, segment) ->
 
             val start = (segment["start"] as? Number)
                 ?.toDouble() ?: 0.0
@@ -151,15 +159,15 @@ object SpeakerDiarizer {
         // A zero-confidence guess can cause a different character's voice
         // to be assigned to a line, which is worse than reporting uncertainty.
         val known = identified.filter { it["speaker_id"] != "unknown" }
-        if (known.isEmpty()) return identified
+        if (known.isEmpty()) return restoreOrder(ordered, identified)
 
         // Even in a single-speaker recording, an unrelated distant or
         // overlapping line must not inherit that speaker by default.
         if (known.map { it["speaker_id"] }.toSet().size != 1) {
-            return identified
+            return restoreOrder(ordered, identified)
         }
         val soleSpeaker = known.first()["speaker_id"]!!
-        return identified.map { segment ->
+        val resolved = identified.map { segment ->
             if (segment["speaker_id"] != "unknown") {
                 segment
             } else {
@@ -183,6 +191,18 @@ object SpeakerDiarizer {
                 }.toMap()
             }
         }
+        return restoreOrder(ordered, resolved)
+    }
+
+    private fun restoreOrder(
+        ordered: List<IndexedValue<Map<String, Any?>>>,
+        results: List<Map<String, Any?>>
+    ): List<Map<String, Any?>> {
+        val restored = arrayOfNulls<Map<String, Any?>>(results.size)
+        ordered.forEachIndexed { index, entry ->
+            restored[entry.index] = results[index]
+        }
+        return restored.map { requireNotNull(it) }
     }
 
     private fun readWav(path: String): FloatArray {
