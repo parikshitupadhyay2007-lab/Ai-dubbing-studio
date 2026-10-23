@@ -176,7 +176,7 @@ Java_co_parikshit_otakudub_MainActivity_nativeGenerate(
     if (formattedSize <= 0 || formattedSize > 32768) {
         return error(env, "ERROR: Unsupported or oversized model chat template.");
     }
-    std::vector<char> formatted(static_cast<size_t>(formattedSize) + 1, '\\0');
+    std::vector<char> formatted(static_cast<size_t>(formattedSize) + 1, '\0');
     const int32_t actualSize = llama_chat_apply_template(
         chatTemplate, messages, 2, true,
         formatted.data(), static_cast<int32_t>(formatted.size())
