@@ -24,6 +24,7 @@ object SpeakerDiarizer {
     private const val MAX_SPEAKERS = 12
     private const val MATCH_THRESHOLD = 0.22
     private const val MIN_MATCH_MARGIN = 0.035
+    private const val MIN_NEW_SPEAKER_DISTANCE = 0.30
 
     private data class VoiceProfile(
         val features: DoubleArray,
@@ -122,7 +123,10 @@ object SpeakerDiarizer {
                 } else if (
                     // An ambiguous match to two existing speakers must not
                     // create a fictitious third character identity.
-                    bestDistance >= MATCH_THRESHOLD &&
+                    // The gap between a failed match and a genuinely new
+                    // identity is uncertain: do not create a new speaker
+                    // until the nearest existing profile is clearly distant.
+                    bestDistance >= MIN_NEW_SPEAKER_DISTANCE &&
                     profiles.size < MAX_SPEAKERS
                 ) {
                     profiles.add(
