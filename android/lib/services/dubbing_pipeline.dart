@@ -230,7 +230,8 @@ class DubbingPipeline {
       for (var offset = 0; offset < project.segments.length; offset += batchSize) {
         final pending = project.segments
             .skip(offset).take(batchSize)
-            .where((s) => s.translation.trim().isEmpty).toList();
+            .where((s) => !DialogueQualityGate.acceptable(
+              s.translation, project.targetLanguage)).toList();
         if (pending.isEmpty) continue;
         final batch = DubProject(
           id: project.id, title: project.title, sourcePath: project.sourcePath,
