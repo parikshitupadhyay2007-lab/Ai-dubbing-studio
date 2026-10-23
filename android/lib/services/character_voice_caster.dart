@@ -20,7 +20,13 @@ class CharacterVoiceCaster {
               installedModelIds.contains(modelId));
     }).toList();
 
-    if (available.isEmpty) {
+    // Different catalog profiles backed by the same ONNX model are not
+    // independent character voices. Collapse duplicates before casting.
+    final uniqueModels = <String>{};
+    final distinct = available.where((profile) =>
+        uniqueModels.add(profile.modelId!)).toList();
+
+    if (distinct.isEmpty) {
       throw StateError(
         'No installed character voices are available for '
         '${project.targetLanguage}.',
@@ -46,7 +52,7 @@ class CharacterVoiceCaster {
       }
     }
 
-    final validIds = available.map((voice) => voice.id).toSet();
+    final validIds = distinct.map((voice) => voice.id).toSet();
 
     project.characterVoices.removeWhere(
       (speaker, voice) =>
@@ -69,7 +75,7 @@ class CharacterVoiceCaster {
       // Never silently infer a role from catalog ordering when different
       // voice roles are installed. An explicit role or saved casting is needed.
       if (preferredRole == null &&
-          available.map((voice) => voice.role).toSet().length > 1) {
+          distinct.map((voice) => voice.role).toSet().length > 1) {
         throw StateError(
           'Speaker $speaker has no verified voice role. '
           'Select a character voice before dubbing; automatic speaker '
@@ -77,7 +83,7 @@ class CharacterVoiceCaster {
         );
       }
 
-      final candidates = available.where((voice) {
+      final candidates = distinct.where((voice) {
         return preferredRole == null ||
             voice.role == preferredRole;
       }).toList();
