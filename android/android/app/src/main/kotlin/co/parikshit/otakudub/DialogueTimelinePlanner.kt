@@ -98,10 +98,13 @@ object DialogueTimelinePlanner {
                 "Empty speech audio for segment ${clip.segmentId}."
             }
 
-            require(durationMs <= videoDurationMs - startMs) {
-                "Synthesized speech for segment ${clip.segmentId} extends beyond the video."
+            // Keep the generated WAV intact, but never place speech beyond
+            // the source video's boundary. The mixer reads only this interval.
+            val placementDurationMs = minOf(durationMs, videoDurationMs - startMs)
+            require(placementDurationMs > 0L) {
+                "No video time remains for segment ${clip.segmentId}."
             }
-            val audioEndMs = startMs + durationMs
+            val audioEndMs = startMs + placementDurationMs
 
             require(audioEndMs >= startMs) {
                 "Dialogue timeline overflow."
@@ -115,7 +118,7 @@ object DialogueTimelinePlanner {
                 sampleRate = wav.sampleRate,
                 startMs = startMs,
                 originalEndMs = originalEndMs,
-                audioDurationMs = durationMs,
+                audioDurationMs = placementDurationMs,
                 audioEndMs = audioEndMs,
                 overlapsNext = false
             )
