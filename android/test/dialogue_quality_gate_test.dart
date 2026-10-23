@@ -13,6 +13,10 @@ void main() {
     expect(DialogueQualityGate.acceptable('assistant: hello', 'en'), isFalse);
     expect(DialogueQualityGate.acceptable('<|im_start|> hello', 'en'), isFalse);
   });
+  test('rejects reasoning leakage and repeated generated fragments', () {
+    expect(DialogueQualityGate.acceptable('<think>reasoning</think> Hello', 'en'), isFalse);
+    expect(DialogueQualityGate.acceptable('hello hello hello hello hello ', 'en'), isFalse);
+  });
   test('rejects multiline or empty generated output', () {
     expect(DialogueQualityGate.acceptable('', 'en'), isFalse);
     expect(DialogueQualityGate.acceptable('One line\nAnother line', 'en'), isFalse);
