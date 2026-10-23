@@ -9,11 +9,17 @@ void main() {
       final voices = VoiceCatalog.forLanguage(language);
       expect(voices.length, 12);
       expect(voices.every((voice) => voice.language == language), isTrue);
-      expect(voices.where((voice) => voice.role == VoiceRole.male).length, 6);
-      expect(voices.where((voice) => voice.role == VoiceRole.female).length, 4);
+      expect(voices.where((voice) => voice.role == VoiceRole.male).length,
+          language == 'en' ? 5 : 6);
+      expect(voices.where((voice) => voice.role == VoiceRole.female).length,
+          language == 'en' ? 5 : 4);
       expect(voices.where((voice) => voice.role == VoiceRole.youthful).length, 2);
       expect(voices.every((voice) => voice.id.startsWith('${language}_')), isTrue);
     }
+  });
+
+  test('bundled Lessac is not misidentified as a male character voice', () {
+    expect(VoiceCatalog.byId('en_hero').role, VoiceRole.female);
   });
 
   test('unknown voice ID is rejected rather than silently substituted', () {
