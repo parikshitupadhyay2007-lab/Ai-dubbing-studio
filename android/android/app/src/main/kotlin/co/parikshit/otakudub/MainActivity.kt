@@ -5,6 +5,10 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
 import android.content.Intent
+import android.content.ContentValues
+import android.content.ContentUris
+import android.provider.MediaStore
+import android.os.Build
 import androidx.core.content.ContextCompat
 import java.io.FileOutputStream
 import java.util.concurrent.Executors
@@ -57,6 +61,71 @@ class MainActivity : FlutterActivity() {
         ).setMethodCallHandler { call, result ->
 
             when (call.method) {
+
+                "saveCompletedVideo" -> {
+                    val path = call.argument<String>("path")
+                    val projectId = call.argument<String>("projectId")
+                    if (path.isNullOrBlank() || projectId == null ||
+                        !Regex("^[0-9]+$").matches(projectId)) {
+                        result.error("INVALID_VIDEO", "Invalid completed video.", null)
+                        return@setMethodCallHandler
+                    }
+                    executor.execute {
+                        var uri: android.net.Uri? = null
+                        try {
+                            if (Build.VERSION.SDK_INT < 29) {
+                                error("Gallery auto-save requires Android 10 or newer.")
+                            }
+                            val source = File(path)
+                            if (!source.isFile || source.length() == 0L ||
+                                source.name != "OtakuDub-$projectId.mp4" ||
+                                !source.canonicalPath.startsWith(filesDir.parentFile!!.canonicalPath + File.separator)) {
+                                error("Completed project MP4 is missing or outside app storage.")
+                            }
+                            val resolver = contentResolver
+                            val collection = MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+                            val name = "OtakuDub-$projectId.mp4"
+                            val projection = arrayOf(MediaStore.Video.Media._ID)
+                            val selection = "${MediaStore.Video.Media.DISPLAY_NAME}=? AND ${MediaStore.Video.Media.RELATIVE_PATH}=?"
+                            resolver.query(collection, projection, selection,
+                                arrayOf(name, "Movies/OtakuDub/"), null)?.use { cursor ->
+                                if (cursor.moveToFirst()) {
+                                    uri = ContentUris.withAppendedId(collection, cursor.getLong(0))
+                                }
+                            }
+                            if (uri == null) {
+                                val values = ContentValues().apply {
+                                    put(MediaStore.Video.Media.DISPLAY_NAME, name)
+                                    put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
+                                    put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/OtakuDub/")
+                                    put(MediaStore.Video.Media.IS_PENDING, 1)
+                                }
+                                uri = resolver.insert(collection, values) ?: error("Cannot create gallery video.")
+                            } else {
+                                resolver.update(uri!!, ContentValues().apply {
+                                    put(MediaStore.Video.Media.IS_PENDING, 1)
+                                }, null, null)
+                            }
+                            resolver.openOutputStream(uri!!, "wt")!!.use { output ->
+                                source.inputStream().use { input -> input.copyTo(output, 1024 * 1024) }
+                            }
+                            resolver.update(uri!!, ContentValues().apply {
+                                put(MediaStore.Video.Media.IS_PENDING, 0)
+                            }, null, null)
+                            runOnUiThread { result.success(uri.toString()) }
+                        } catch (error: Exception) {
+                            uri?.let {
+                                try {
+                                    contentResolver.update(it, ContentValues().apply {
+                                        put(MediaStore.Video.Media.IS_PENDING, 0)
+                                    }, null, null)
+                                } catch (_: Exception) {}
+                            }
+                            runOnUiThread { result.error("VIDEO_SAVE_FAILED",
+                                error.message ?: "Could not save video to Movies.", null) }
+                        }
+                    }
+                }
 
                 "startBackgroundDubbing" -> {
                     try {
