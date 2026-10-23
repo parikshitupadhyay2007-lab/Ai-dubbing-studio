@@ -512,7 +512,7 @@ jobs:
           fi
           flutter test
 
-      - name: Test native speaker feature validation
+      - name: Test speaker embedding calibration\n        run: python3 -m unittest discover -s tools -p 'test_calibrate_speaker_embeddings.py'\n\n      - name: Test native speaker feature validation
         working-directory: android/android
         run: ./gradlew :app:testDebugUnitTest --no-daemon
 
