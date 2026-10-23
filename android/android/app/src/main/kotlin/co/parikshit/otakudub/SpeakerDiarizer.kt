@@ -182,7 +182,14 @@ object SpeakerDiarizer {
             } else {
                 val start = (segment["start"] as? Number)?.toDouble() ?: 0.0
                 val end = (segment["end"] as? Number)?.toDouble() ?: start
-                val nearby = known.any { reference ->
+                // Overlapping dialogue must never inherit a nearby identity:
+                // even a zero-confidence assignment would be used for casting.
+                val overlapsAnother = identified.any { other ->
+                    other !== segment &&
+                        ((other["start"] as? Number)?.toDouble() ?: Double.POSITIVE_INFINITY) < end - 0.05 &&
+                        ((other["end"] as? Number)?.toDouble() ?: Double.NEGATIVE_INFINITY) > start + 0.05
+                }
+                val nearby = !overlapsAnother && known.any { reference ->
                     val refStart = (reference["start"] as? Number)?.toDouble() ?: 0.0
                     val refEnd = (reference["end"] as? Number)?.toDouble() ?: refStart
                     // Only non-overlapping utterances within one second.
