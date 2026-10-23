@@ -200,6 +200,13 @@ class DubbingPipeline {
 
       if (!hasCasting) {
         await _stage(project, ProjectStage.casting, onProgress);
+        // A failed casting attempt already persisted diarization. Reuse it
+        // when the user supplies voice assignments; do not re-run clustering
+        // and invalidate the selected speaker IDs on resume.
+        final hasIdentifiedSpeakers = hasTranscript &&
+            project.segments.every((s) =>
+                s.speakerId.trim().isNotEmpty && s.speakerId != 'unknown');
+        if (!hasIdentifiedSpeakers) {
         final casting = await engine.identifySpeakers(project);
       final beforeCasting = List<DubSegment>.from(project.segments);
       final identifiedSegments = _parseSegments(casting['segments']);
@@ -231,6 +238,8 @@ class DubbingPipeline {
         );
       }
 
+        await repository.save(project); // diarization checkpoint
+        }
         await _assignCharacterVoices(project); // casting checkpoint
       }
 
