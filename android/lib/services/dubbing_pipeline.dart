@@ -466,9 +466,16 @@ class DubbingPipeline {
         inputName: separation.inputName,
         outputName: separation.outputName,
       );
+      if (!await File(wavPath).exists() || await File(wavPath).length() <= 44) {
+        throw OfflineEngineException('Dialogue mixer returned a missing or empty WAV file.');
+      }
       final accompaniment = stems['accompaniment_path'];
       if (accompaniment is! String || accompaniment.trim().isEmpty) {
         throw OfflineEngineException('Instrumental separation produced no accompaniment.');
+      }
+      if (!await File(accompaniment).exists() ||
+          await File(accompaniment).length() <= 44) {
+        throw OfflineEngineException('Separation returned a missing or empty accompaniment WAV.');
       }
       final finalMix = await engine.mixSoundtrack(
         dialogueWavPath: wavPath,
@@ -488,6 +495,12 @@ class DubbingPipeline {
         );
       }
 
+      final exportedFile = File(output);
+      if (!await exportedFile.exists() || await exportedFile.length() == 0) {
+        throw OfflineEngineException(
+          'Export reported success but the output MP4 is missing or empty.',
+        );
+      }
       project.outputPath = output;
       // Preserve the private completed MP4 even if publishing to the gallery fails.
       await repository.save(project);
