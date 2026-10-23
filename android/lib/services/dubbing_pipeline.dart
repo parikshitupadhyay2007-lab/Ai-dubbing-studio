@@ -2,6 +2,7 @@ import '../models/dub_project.dart';
 import 'package:flutter/services.dart';
 
 import 'character_voice_caster.dart';
+import 'dialogue_quality_gate.dart';
 import 'offline_engine.dart';
 import 'project_repository.dart';
 import 'separation_installation.dart';
@@ -238,8 +239,8 @@ class DubbingPipeline {
         );
         final translation = await engine.translate(batch);
         final translated = _checkedSegments(translation['segments'], pending, 'Translation');
-        if (translated.any((s) => s.translation.trim().isEmpty)) {
-          throw OfflineEngineException('Translation returned empty dialogue.');
+        if (translated.any((s) => !DialogueQualityGate.acceptable(s.translation, project.targetLanguage))) {
+          throw OfflineEngineException('Translation produced empty, wrong-script or invalid dialogue.');
         }
         for (var i = 0; i < pending.length; i++) {
           pending[i].translation = translated[i].translation;
@@ -262,11 +263,16 @@ class DubbingPipeline {
         );
         final refined = await engine.refineDialogue(batch);
         final next = _checkedSegments(refined['segments'], pending, 'Refinement');
-        if (next.any((s) => s.translation.trim().isEmpty)) {
-          throw OfflineEngineException('Refinement returned empty dialogue.');
-        }
+        // Reject model-control text, wrong-script output, and dramatic
+        // expansion. Keep the already validated translation instead.
         for (var i = 0; i < pending.length; i++) {
-          pending[i].translation = next[i].translation;
+          final candidate = next[i].translation.trim();
+          final previous = pending[i].translation.trim();
+          final safe = DialogueQualityGate.acceptable(
+                candidate, project.targetLanguage,
+              ) &&
+              candidate.length <= previous.length * 2 + 24;
+          if (safe) pending[i].translation = candidate;
           project.refinedSegmentIds.add(pending[i].id);
         }
         await repository.save(project);
@@ -288,9 +294,9 @@ class DubbingPipeline {
 
         segment.voiceId = assigned;
 
-        if (segment.translation.trim().isEmpty) {
+        if (!DialogueQualityGate.acceptable(segment.translation, project.targetLanguage)) {
           throw OfflineEngineException(
-            'Translated dialogue is missing for '
+            'Translated dialogue is missing or invalid for 
             'segment ${segment.id}.',
           );
         }
