@@ -22,7 +22,8 @@ def normalize(vector):
     return [x / norm for x in vector]
 
 
-def calibrate(rows):
+def pair_distances(rows):
+    """Validate labeled embeddings and return same/different pair distances."""
     if not isinstance(rows, list) or len(rows) < 4:
         raise ValueError("At least four labeled embeddings are required")
     vectors = []
@@ -43,6 +44,29 @@ def calibrate(rows):
             (same if speaker == other else different).append(distance)
     if not same or not different:
         raise ValueError("Need both same-speaker and different-speaker pairs")
+    return dims, same, different
+
+
+def evaluate(rows, threshold):
+    if not isinstance(threshold, (float, int)) or not math.isfinite(threshold) or not 0 < threshold < 2:
+        raise ValueError("Evaluation threshold must be between zero and two")
+    dims, same, different = pair_distances(rows)
+    false_accepts = sum(d < threshold for d in different)
+    false_rejects = sum(d >= threshold for d in same)
+    return {
+        "embedding_dimension": dims,
+        "same_speaker_pairs": len(same),
+        "different_speaker_pairs": len(different),
+        "false_accept_pairs": false_accepts,
+        "false_reject_pairs": false_rejects,
+        "false_accept_rate": round(false_accepts / len(different), 6),
+        "false_reject_rate": round(false_rejects / len(same), 6),
+        "warning": "Pairwise estimates are correlated; use held-out speakers, recordings and conditions."
+    }
+
+
+def calibrate(rows):
+    dims, same, different = pair_distances(rows)
     # Minimize false matches first; unknown is safer than a wrong character voice.
     candidates = sorted(set([0.0, 2.0] + same + different))
     best = None
@@ -73,8 +97,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("labeled_embeddings", type=Path)
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--evaluate-threshold", type=float,
+                        help="Evaluate a previously calibrated threshold on held-out data")
     args = parser.parse_args()
-    result = calibrate(json.loads(args.labeled_embeddings.read_text(encoding="utf-8")))
+    rows = json.loads(args.labeled_embeddings.read_text(encoding="utf-8"))
+    result = (evaluate(rows, args.evaluate_threshold)
+              if args.evaluate_threshold is not None else calibrate(rows))
     output = json.dumps(result, indent=2) + "\n"
     if args.output:
         args.output.write_text(output, encoding="utf-8")
