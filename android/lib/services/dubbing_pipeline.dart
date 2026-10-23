@@ -238,13 +238,46 @@ class DubbingPipeline {
           targetLanguage: project.targetLanguage, sourceLanguage: project.sourceLanguage,
           segments: pending, characterVoices: project.characterVoices,
         );
-        final translation = await engine.translate(batch);
-        final translated = _checkedSegments(translation['segments'], pending, 'Translation');
-        if (translated.any((s) => !DialogueQualityGate.acceptable(s.translation, project.targetLanguage))) {
-          throw OfflineEngineException('Translation produced empty, wrong-script or invalid dialogue.');
+        // Retry transient or malformed model output once. A failed batch is
+        // retried per segment so one bad line cannot discard valid dialogue.
+        Future<List<DubSegment>> translateChecked(DubProject request) async {
+          final response = await engine.translate(request);
+          final checked = _checkedSegments(
+            response['segments'], request.segments, 'Translation',
+          );
+          if (checked.any((s) => !DialogueQualityGate.acceptable(
+                s.translation, project.targetLanguage,
+              ))) {
+            throw OfflineEngineException(
+              'Translation returned invalid spoken dialogue.',
+            );
+          }
+          return checked;
+        }
+
+        List<DubSegment>? translated;
+        try {
+          translated = await translateChecked(batch);
+        } catch (_) {
+          // Retry each line independently; do not persist a partial batch.
+          final recovered = <DubSegment>[];
+          for (final segment in pending) {
+            final single = DubProject(
+              id: project.id, title: project.title,
+              sourcePath: project.sourcePath,
+              targetLanguage: project.targetLanguage,
+              sourceLanguage: project.sourceLanguage,
+              segments: [segment],
+              characterVoices: project.characterVoices,
+            );
+            recovered.add((await translateChecked(single)).single);
+          }
+          translated = recovered;
         }
         for (var i = 0; i < pending.length; i++) {
-          pending[i].translation = translated[i].translation;
+          pending[i].translation = translated[i].translation.trim();
+          // Re-translation invalidates any earlier refinement checkpoint.
+          project.refinedSegmentIds.remove(pending[i].id);
         }
         await repository.save(project);
       }
