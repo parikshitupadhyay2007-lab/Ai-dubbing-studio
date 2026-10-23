@@ -50,6 +50,11 @@ class DialogueQualityGate {
         lower.startsWith('refined dialogue:') || lower.startsWith('response:')) {
       return 'model returned a response label instead of dialogue';
     }
+    if (source.isNotEmpty && source != 'auto' && source != 'unknown' &&
+        source != target && original.trim().length > 3 &&
+        text.toLowerCase() == original.trim().toLowerCase()) {
+      return 'model returned the unchanged source instead of a translation';
+    }
     if (target == 'hi' && _japanese.hasMatch(text) ||
         target == 'en' && _japanese.hasMatch(text)) {
       return 'Japanese script remains in target-language dialogue';
@@ -57,11 +62,6 @@ class DialogueQualityGate {
     if (target == 'hi' && !_devanagari.hasMatch(text) &&
         _latin.allMatches(text).length > 3) {
       return 'Hindi dialogue contains no Devanagari speech';
-    }
-    if (source.isNotEmpty && source != 'auto' && source != 'unknown' &&
-        source != target && original.trim().length > 3 &&
-        text.toLowerCase() == original.trim().toLowerCase()) {
-      return 'model returned the unchanged source instead of a translation';
     }
     return 'dialogue did not pass target-language validation';
   }
