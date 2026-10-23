@@ -17,7 +17,9 @@ data class SpeakerEmbeddingModelConfig(
     val embeddingDimension: Int,
     val matchThreshold: Double,
     val newSpeakerThreshold: Double,
-    val licenseRecord: String
+    val licenseRecord: String,
+    val inputSamples: Int = 0,
+    val preprocessing: String = ""
 ) {
     fun validate() {
         val file = File(modelPath)
@@ -29,6 +31,10 @@ data class SpeakerEmbeddingModelConfig(
         require(matchThreshold.isFinite() && newSpeakerThreshold.isFinite() &&
             matchThreshold > 0 && newSpeakerThreshold > matchThreshold &&
             newSpeakerThreshold <= 2.0) { "Uncalibrated speaker thresholds." }
+        require(inputSamples in 8000..160000) { "Verified fixed input sample count is required." }
+        require(preprocessing == "raw_pcm16k_mono_float32") {
+            "Only explicitly verified raw-waveform models are supported."
+        }
         require(licenseRecord.isNotBlank() && File(licenseRecord).isFile) {
             "Speaker checkpoint license record is missing."
         }
