@@ -627,3 +627,5 @@ jobs:
 # Verify native dialogue cleaning rejects unfinished model reasoning.
 
 # Verify translation batch recovery and refinement checkpoint invalidation.
+
+# Verify dubbing character voice role ambiguity guard.
