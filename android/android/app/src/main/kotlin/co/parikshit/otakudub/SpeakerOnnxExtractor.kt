@@ -55,9 +55,10 @@ class SpeakerOnnxExtractor(
     @Synchronized
     override fun extract(pcm16kMono: FloatArray): DoubleArray? {
         check(!closed) { "Speaker extractor is closed." }
-        if (pcm16kMono.size != config.inputSamples || pcm16kMono.any { !it.isFinite() }) return null
+        val window = SpeakerWaveformWindow.prepare(pcm16kMono, config.inputSamples)
+            ?: return null
         OnnxTensor.createTensor(
-            environment, FloatBuffer.wrap(pcm16kMono),
+            environment, FloatBuffer.wrap(window),
             longArrayOf(1, config.inputSamples.toLong())
         ).use { input ->
             session.run(mapOf(config.inputName to input), setOf(config.outputName)).use { result ->
