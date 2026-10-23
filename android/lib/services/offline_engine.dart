@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../models/dub_project.dart';
 import 'model_manager.dart';
@@ -415,10 +416,16 @@ class OfflineEngine {
       );
     }
 
-    final outputDirectory = source.parent;
+    // The imported source may live in a read-only picker/cache directory.
+    // Export into OtakuDub's writable, persistent project storage instead.
+    final docs = await getApplicationDocumentsDirectory();
+    final outputDirectory = Directory(
+      '${docs.path}/otakudub/projects/${project.id}',
+    );
+    await outputDirectory.create(recursive: true);
 
     final outputPath =
-        '$outputDirectory/OtakuDub-${project.id}.mp4';
+        '${outputDirectory.path}/OtakuDub-${project.id}.mp4';
 
     final response = await _invoke('exportVideo', {
       'source_path': project.sourcePath,
