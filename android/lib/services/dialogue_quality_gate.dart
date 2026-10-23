@@ -6,6 +6,25 @@ class DialogueQualityGate {
 
   static final RegExp _repeatedToken = RegExp(r'(.{4,40}?)\1{3,}', caseSensitive: false);
 
+  /// Check both content and source-language provenance, including restored
+  /// checkpoints. A prior untranslated line must never bypass validation.
+  static bool acceptableTranslation(
+    String value,
+    String original,
+    String sourceLanguage,
+    String targetLanguage,
+  ) {
+    if (!acceptable(value, targetLanguage)) return false;
+    final source = sourceLanguage.toLowerCase().split('-').first;
+    final target = targetLanguage.toLowerCase().split('-').first;
+    if (source.isNotEmpty && source != 'auto' && source != 'unknown' &&
+        source != target && original.trim().length > 3 &&
+        value.trim().toLowerCase() == original.trim().toLowerCase()) {
+      return false;
+    }
+    return true;
+  }
+
   static bool acceptable(String value, String targetLanguage) {
     final text = value.trim();
     final lower = text.toLowerCase();
