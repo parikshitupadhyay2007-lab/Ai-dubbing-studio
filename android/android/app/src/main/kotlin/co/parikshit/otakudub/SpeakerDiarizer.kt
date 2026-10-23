@@ -47,7 +47,8 @@ object SpeakerDiarizer {
         )
         val profiles = mutableListOf<VoiceProfile>()
 
-        val identified = ordered.map { (_, segment) ->
+        val identified = ordered.map { entry ->
+            val segment = entry.value
 
             val start = (segment["start"] as? Number)
                 ?.toDouble() ?: 0.0
@@ -70,8 +71,16 @@ object SpeakerDiarizer {
                 FloatArray(0)
             }
 
+            // Overlapping speech contaminates acoustic identity features.
+            // Keep the segment unresolved rather than training a profile on
+            // two characters speaking simultaneously.
+            val overlaps = ordered.any { other ->
+                other.index != entry.index &&
+                    ((other.value["start"] as? Number)?.toDouble() ?: Double.POSITIVE_INFINITY) < end - 0.05 &&
+                    ((other.value["end"] as? Number)?.toDouble() ?: Double.NEGATIVE_INFINITY) > start + 0.05
+            }
             val features = if (
-                text.isNotEmpty() &&
+                !overlaps && text.isNotEmpty() &&
                 clip.size >=
                     (MIN_SPEECH_SECONDS * SAMPLE_RATE).toInt()
             ) {
