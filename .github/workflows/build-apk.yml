@@ -637,3 +637,5 @@ jobs:
 # Verify conservative temporal bounds on uncertain speaker inheritance.
 
 # Verify ambiguity margin in offline speaker clustering.
+
+# Verify uncertainty band before creating new speaker identities.
