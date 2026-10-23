@@ -61,8 +61,12 @@ class VoiceCatalog {
         VoiceProfile(
           id: '${language}_$name',
           language: language,
-          role: VoiceRole.male,
-          description: name.replaceAll('_', ' '),
+          role: language == 'en' && name == 'hero'
+              ? VoiceRole.female
+              : VoiceRole.male,
+          description: language == 'en' && name == 'hero'
+              ? 'Lessac female voice (legacy en_hero model ID)'
+              : name.replaceAll('_', ' '),
         ),
       for (final name in [
         'heroine',
