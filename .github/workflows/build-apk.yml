@@ -625,3 +625,5 @@ jobs:
 # Rebuild focused dubbing pipeline checkpoint and syntax fixes.
 
 # Verify native dialogue cleaning rejects unfinished model reasoning.
+
+# Verify translation batch recovery and refinement checkpoint invalidation.
