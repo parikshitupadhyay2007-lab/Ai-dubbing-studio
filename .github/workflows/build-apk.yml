@@ -623,3 +623,5 @@ jobs:
 # Re-run corrected dialogue quality regression test.
 
 # Rebuild focused dubbing pipeline checkpoint and syntax fixes.
+
+# Verify native dialogue cleaning rejects unfinished model reasoning.
