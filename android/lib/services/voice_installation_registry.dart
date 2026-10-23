@@ -28,7 +28,7 @@ class VoiceInstallationRegistry {
 
     final directory = await _directory;
     // Install verified voice/config pairs packaged with the APK on first launch.
-    for (final profileId in ['hi_hero', 'en_hero']) {
+    for (final profileId in ['hi_hero', 'hi_heroine', 'en_hero', 'en_young_male']) {
       final model = File('${directory.path}/$profileId.onnx');
       final config = File('${directory.path}/$profileId.onnx.json');
       for (final entry in <(String, File)>[
