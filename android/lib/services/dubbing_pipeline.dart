@@ -152,18 +152,19 @@ class DubbingPipeline {
       // Fail before expensive inference if soundtrack preservation is unavailable.
       final separation = await SeparationInstallation.load();
 
-      // STEP 1: Automatic transcription
-      await _stage(
-        project,
-        ProjectStage.transcribing,
-        onProgress,
-      );
-
-      final transcript = await engine.transcribe(project);
-
-      project.sourceLanguage =
-          transcript['language'] as String? ?? 'unknown';
-
+      // Existing v5 projects may have reached translation before Android killed
+      // the process. Reuse only checkpoints whose data validates.
+      final hasTranscript = project.segments.isNotEmpty &&
+          project.segments.every((s) => s.original.trim().isNotEmpty &&
+              s.start.isFinite && s.end.isFinite && s.end > s.start);
+      final hasCasting = hasTranscript && project.characterVoices.isNotEmpty &&
+          project.segments.every((s) => s.speakerId.isNotEmpty &&
+              s.speakerId != 'unknown' && s.voiceId.isNotEmpty &&
+              project.characterVoices[s.speakerId] == s.voiceId);
+      if (!hasTranscript) {
+        await _stage(project, ProjectStage.transcribing, onProgress);
+        final transcript = await engine.transcribe(project);
+        project.sourceLanguage = transcript['language'] as String? ?? 'unknown';
       final transcribedSegments = _parseSegments(transcript['segments']);
       if (transcribedSegments.map((s) => s.id).toSet().length !=
               transcribedSegments.length ||
@@ -182,15 +183,12 @@ class DubbingPipeline {
         );
       }
 
-      // STEP 2: Identify character speakers
-      await _stage(
-        project,
-        ProjectStage.casting,
-        onProgress,
-      );
+        await repository.save(project); // transcription checkpoint
+      }
 
-      final casting = await engine.identifySpeakers(project);
-
+      if (!hasCasting) {
+        await _stage(project, ProjectStage.casting, onProgress);
+        final casting = await engine.identifySpeakers(project);
       final beforeCasting = List<DubSegment>.from(project.segments);
       final identifiedSegments = _parseSegments(casting['segments']);
       if (identifiedSegments.map((segment) => segment.id).toSet().length !=
@@ -221,40 +219,55 @@ class DubbingPipeline {
         );
       }
 
-      // STEP 3: Assign installed character voices
-      await _assignCharacterVoices(project);
+        await _assignCharacterVoices(project); // casting checkpoint
+      }
 
-      // STEP 4: Automatic translation
-      await _stage(
-        project,
-        ProjectStage.translating,
-        onProgress,
-      );
+      // Translate small batches, persist each completed batch, and skip
+      // already translated segments when reopening an interrupted project.
+      await _stage(project, ProjectStage.translating, onProgress);
+      const batchSize = 4;
+      for (var offset = 0; offset < project.segments.length; offset += batchSize) {
+        final pending = project.segments
+            .skip(offset).take(batchSize)
+            .where((s) => s.translation.trim().isEmpty).toList();
+        if (pending.isEmpty) continue;
+        final batch = DubProject(
+          id: project.id, title: project.title, sourcePath: project.sourcePath,
+          targetLanguage: project.targetLanguage, sourceLanguage: project.sourceLanguage,
+          segments: pending, characterVoices: project.characterVoices,
+        );
+        final translation = await engine.translate(batch);
+        final translated = _checkedSegments(translation['segments'], pending, 'Translation');
+        if (translated.any((s) => s.translation.trim().isEmpty)) {
+          throw OfflineEngineException('Translation returned empty dialogue.');
+        }
+        for (var i = 0; i < pending.length; i++) {
+          pending[i].translation = translated[i].translation;
+        }
+        await repository.save(project);
+      }
 
-      final beforeTranslation = List<DubSegment>.from(project.segments);
-      final translation = await engine.translate(project);
-
-      final translatedSegments = _checkedSegments(
-        translation['segments'], beforeTranslation, 'Translation');
-      project.segments
-        ..clear()
-        ..addAll(translatedSegments);
-
-      // STEP 5: Automatic dialogue refinement
-      await _stage(
-        project,
-        ProjectStage.refining,
-        onProgress,
-      );
-
-      final beforeRefinement = List<DubSegment>.from(project.segments);
-      final refined = await engine.refineDialogue(project);
-
-      final refinedSegments = _checkedSegments(
-        refined['segments'], beforeRefinement, 'Refinement');
-      project.segments
-        ..clear()
-        ..addAll(refinedSegments);
+      // A completed translation checkpoint is persisted before refinement.
+      await _stage(project, ProjectStage.refining, onProgress);
+      // Refinement is optional for recovery safety: preserve the translated
+      // dialogue until a complete validated refinement batch is available.
+      for (var offset = 0; offset < project.segments.length; offset += batchSize) {
+        final pending = project.segments.skip(offset).take(batchSize).toList();
+        final batch = DubProject(
+          id: project.id, title: project.title, sourcePath: project.sourcePath,
+          targetLanguage: project.targetLanguage, sourceLanguage: project.sourceLanguage,
+          segments: pending, characterVoices: project.characterVoices,
+        );
+        final refined = await engine.refineDialogue(batch);
+        final next = _checkedSegments(refined['segments'], pending, 'Refinement');
+        if (next.any((s) => s.translation.trim().isEmpty)) {
+          throw OfflineEngineException('Refinement returned empty dialogue.');
+        }
+        for (var i = 0; i < pending.length; i++) {
+          pending[i].translation = next[i].translation;
+        }
+        await repository.save(project);
+      }
 
       // Restore the persistent speaker-to-voice mapping.
       for (final segment in project.segments) {
