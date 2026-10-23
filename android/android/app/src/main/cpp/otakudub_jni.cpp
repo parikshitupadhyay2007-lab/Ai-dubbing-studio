@@ -154,11 +154,37 @@ Java_co_parikshit_otakudub_MainActivity_nativeGenerate(
         return error(env, "ERROR: OtakuMind model is not loaded.");
     }
 
-    const std::string prompt = fromJava(env, promptText);
+    const std::string userPrompt = fromJava(env, promptText);
 
-    if (prompt.empty()) {
+    if (userPrompt.empty()) {
         return env->NewStringUTF("");
     }
+
+    // Use the model's own GGUF chat template, not an improvised raw
+    // completion. An absent or unsupported template must fail closed.
+    const char* chatTemplate = llama_model_chat_template(model, nullptr);
+    if (!chatTemplate || !*chatTemplate) {
+        return error(env, "ERROR: Model has no chat template.");
+    }
+    const llama_chat_message messages[] = {
+        {"system", "You are OtakuMind, an accurate offline dialogue translator. Follow the user's output format. Never output internal reasoning."},
+        {"user", userPrompt.c_str()}
+    };
+    const int32_t formattedSize = llama_chat_apply_template(
+        chatTemplate, messages, 2, true, nullptr, 0
+    );
+    if (formattedSize <= 0 || formattedSize > 32768) {
+        return error(env, "ERROR: Unsupported or oversized model chat template.");
+    }
+    std::vector<char> formatted(static_cast<size_t>(formattedSize) + 1, '\\0');
+    const int32_t actualSize = llama_chat_apply_template(
+        chatTemplate, messages, 2, true,
+        formatted.data(), static_cast<int32_t>(formatted.size())
+    );
+    if (actualSize != formattedSize) {
+        return error(env, "ERROR: Could not apply model chat template.");
+    }
+    const std::string prompt(formatted.data(), static_cast<size_t>(actualSize));
 
     const llama_vocab* vocab =
         llama_model_get_vocab(model);
