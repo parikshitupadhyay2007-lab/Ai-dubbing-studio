@@ -663,3 +663,5 @@ jobs:
 # Verify low-variance native translation generation.
 
 # Validate pinned llama.cpp model-template prompting.
+
+# Validate corrected native chat-template NUL termination.
