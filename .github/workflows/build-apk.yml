@@ -643,3 +643,5 @@ jobs:
 # Validate chronological speaker clustering and stable segment order.
 
 # Validate translation refinement recovery and dialogue degeneration tests.
+
+# Validate fail-closed untranslated dialogue safeguard.
