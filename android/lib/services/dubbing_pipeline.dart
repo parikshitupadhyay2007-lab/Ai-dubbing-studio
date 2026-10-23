@@ -338,8 +338,9 @@ class DubbingPipeline {
         for (var i = 0; i < pending.length; i++) {
           final candidate = next[i].translation.trim();
           final previous = pending[i].translation.trim();
-          final safe = DialogueQualityGate.acceptable(
-                candidate, project.targetLanguage,
+          final safe = DialogueQualityGate.acceptableTranslation(
+                candidate, pending[i].original, project.sourceLanguage,
+                project.targetLanguage,
               ) &&
               candidate.length <= previous.length * 2 + 24;
           if (safe) {
