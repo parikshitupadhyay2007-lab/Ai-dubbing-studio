@@ -613,3 +613,5 @@ jobs:
 # Rebuild with ONNX Runtime JNI preservation for Android 16 crash diagnosis.
 
 # Rebuild with bounded synthesized dialogue placement at the video end.
+
+# Rebuild with writable app-owned MP4 export destination.
