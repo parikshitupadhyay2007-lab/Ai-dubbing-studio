@@ -635,3 +635,5 @@ jobs:
 # Validate conservative multi-character speaker identification.
 
 # Verify conservative temporal bounds on uncertain speaker inheritance.
+
+# Verify ambiguity margin in offline speaker clustering.
