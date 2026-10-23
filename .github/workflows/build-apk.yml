@@ -633,3 +633,5 @@ jobs:
 # Validate corrected bundled Lessac voice role metadata.
 
 # Validate conservative multi-character speaker identification.
+
+# Verify conservative temporal bounds on uncertain speaker inheritance.
