@@ -631,3 +631,5 @@ jobs:
 # Verify dubbing character voice role ambiguity guard.
 
 # Validate corrected bundled Lessac voice role metadata.
+
+# Validate conservative multi-character speaker identification.
