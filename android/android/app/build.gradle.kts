@@ -95,7 +95,7 @@ android {
     ndkVersion = "28.2.13676358"
 
     defaultConfig {
-        applicationId = "co.parikshit.otakudub"
+        applicationId = "co.parikshit.otakudub.release"
 
         minSdk = 26
 
