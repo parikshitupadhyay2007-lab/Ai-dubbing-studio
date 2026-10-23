@@ -73,6 +73,7 @@ class DubProject {
 
   final List<DubSegment> segments;
   final Map<String, String> characterVoices;
+  final Set<int> refinedSegmentIds;
 
   DubProject({
     required this.id,
@@ -85,8 +86,10 @@ class DubProject {
     this.stage = ProjectStage.imported,
     List<DubSegment>? segments,
     Map<String, String>? characterVoices,
+    Set<int>? refinedSegmentIds,
   })  : segments = segments ?? [],
-        characterVoices = characterVoices ?? {};
+        characterVoices = characterVoices ?? {},
+        refinedSegmentIds = refinedSegmentIds ?? <int>{};
 
   Map<String, dynamic> toJson() => {
         'schema': 'otakudub.offline.v5',
@@ -100,6 +103,7 @@ class DubProject {
         'stage': stage.name,
         'segments': segments.map((s) => s.toJson()).toList(),
         'character_voices': characterVoices,
+        'refined_segment_ids': refinedSegmentIds.toList()..sort(),
       };
 
   factory DubProject.fromJson(Map<String, dynamic> json) {
@@ -122,6 +126,8 @@ class DubProject {
       characterVoices: Map<String, String>.from(
         json['character_voices'] as Map? ?? {},
       ),
+      refinedSegmentIds: (json['refined_segment_ids'] as List? ?? [])
+          .map((value) => (value as num).toInt()).toSet(),
     );
   }
 
