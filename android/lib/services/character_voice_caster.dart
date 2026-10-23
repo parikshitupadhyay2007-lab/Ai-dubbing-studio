@@ -69,21 +69,12 @@ class CharacterVoiceCaster {
 
       final preferredRole = preferredRoles[speaker] ?? existingRoles[speaker];
 
-      // Acoustic speaker clustering identifies identities, not gender or age.
-      // Never silently infer a role from catalog ordering when different
-      // voice roles are installed. An explicit role or saved casting is needed.
-      if (preferredRole == null &&
-          distinct.map((voice) => voice.role).toSet().length > 1) {
-        throw StateError(
-          'Speaker $speaker has no verified voice role. '
-          'Select a character voice before dubbing; automatic speaker '
-          'clustering cannot determine gender or age reliably.',
-        );
-      }
-
+      // Automatic provisional casting: use independent installed voice models
+      // in stable order when no role has been confirmed. Acoustic clustering
+      // alone does not establish gender/age, so this is an editable voice
+      // choice, never a claim that the character's role was identified.
       final candidates = distinct.where((voice) {
-        return preferredRole == null ||
-            voice.role == preferredRole;
+        return preferredRole == null || voice.role == preferredRole;
       }).toList();
 
       if (candidates.isEmpty) {
