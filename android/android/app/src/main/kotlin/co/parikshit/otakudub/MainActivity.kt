@@ -793,7 +793,7 @@ class MainActivity : FlutterActivity() {
 
                         val response = nativeGenerate(
                             prompt,
-                            if (refine) 128 else 160
+                            if (refine) 256 else 384
                         )
 
                         if (
@@ -863,6 +863,7 @@ class MainActivity : FlutterActivity() {
         }
 
         return """
+            /no_think
             Translate this anime dialogue from $source to $target.
 
             Preserve meaning, names and emotional intent.
@@ -903,6 +904,7 @@ class MainActivity : FlutterActivity() {
             (end - start).coerceAtLeast(0.0)
 
         return """
+            /no_think
             You are OtakuMind, an anime dubbing dialogue editor.
 
             Improve the following $target translation for spoken dubbing.
