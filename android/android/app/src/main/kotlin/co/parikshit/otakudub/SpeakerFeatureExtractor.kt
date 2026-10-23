@@ -5,7 +5,7 @@ package co.parikshit.otakudub
  * must supply its own verified preprocessing, tensor shape and model asset.
  * Do not interpret the current acoustic baseline as a trained embedding.
  */
-internal fun interface SpeakerFeatureExtractor {
+fun interface SpeakerFeatureExtractor {
     fun extract(pcm16kMono: FloatArray): DoubleArray?
 }
 
