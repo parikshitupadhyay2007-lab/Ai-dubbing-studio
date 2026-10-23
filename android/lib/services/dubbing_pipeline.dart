@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import '../models/dub_project.dart';
 import 'package:flutter/services.dart';
 
@@ -148,6 +150,14 @@ class DubbingPipeline {
       project.error = null;
       project.outputPath = null;
 
+      // Validate source before loading large models or resuming checkpoints.
+      // A picker cache file may disappear after Android reclaims storage.
+      final source = File(project.sourcePath);
+      if (!await source.exists() || await source.length() == 0) {
+        throw OfflineEngineException(
+          'Source media is missing or empty. Re-import the video before resuming.',
+        );
+      }
       await engine.verifyRuntime();
 
       // Fail before expensive inference if soundtrack preservation is unavailable.
@@ -373,15 +383,20 @@ class DubbingPipeline {
 
       final expectedIds = project.segments.map((segment) => segment.id).toSet();
       final returnedIds = <int>{};
+      // Index once: long videos can contain thousands of dialogue segments.
+      final segmentsById = {for (final s in project.segments) s.id: s};
+      if (segmentsById.length != project.segments.length) {
+        throw OfflineEngineException('Project contains duplicate segment IDs.');
+      }
       for (final item in clips) {
         if (item is! Map || item['segment_id'] is! int ||
             !returnedIds.add(item['segment_id'] as int)) {
           throw OfflineEngineException('Synthesis returned invalid or duplicate clip IDs.');
         }
-        final segment = project.segments.firstWhere(
-          (s) => s.id == item['segment_id'],
-          orElse: () => throw OfflineEngineException('Synthesis returned an unknown segment.'),
-        );
+        final segment = segmentsById[item['segment_id'] as int];
+        if (segment == null) {
+          throw OfflineEngineException('Synthesis returned an unknown segment.');
+        }
         if (item['speaker_id'] != segment.speakerId ||
             item['voice_id'] != segment.voiceId ||
             item['start'] is! num || item['end'] is! num ||
