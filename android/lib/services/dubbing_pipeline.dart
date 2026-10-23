@@ -1,4 +1,5 @@
 import '../models/dub_project.dart';
+import 'package:flutter/services.dart';
 
 import 'character_voice_caster.dart';
 import 'offline_engine.dart';
@@ -373,6 +374,18 @@ class DubbingPipeline {
       }
 
       project.outputPath = output;
+      // Preserve the private completed MP4 even if publishing to the gallery fails.
+      await repository.save(project);
+      try {
+        await const MethodChannel('co.parikshit.otakudub/offline_engine')
+            .invokeMethod<String>('saveCompletedVideo', {
+          'path': output,
+          'projectId': project.id,
+        });
+      } catch (error) {
+        // A gallery error must not turn an already exported MP4 into a failed dub.
+        project.error = 'Video exported in Projects, but Movies auto-save failed: $error';
+      }
 
       // STEP 8: Save completed project
       await _stage(
