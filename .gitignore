@@ -1,0 +1,5 @@
+# Private Android release signing materials
+**/signing.properties
+**/*.jks
+**/*.keystore
+**/key.properties
