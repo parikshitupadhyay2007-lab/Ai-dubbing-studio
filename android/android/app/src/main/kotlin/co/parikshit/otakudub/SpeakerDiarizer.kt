@@ -34,8 +34,21 @@ object SpeakerDiarizer {
     fun identify(
         wavPath: String,
         segments: List<Map<String, Any?>>,
-        embeddingExtractor: SpeakerFeatureExtractor? = null
+        embeddingExtractor: SpeakerFeatureExtractor? = null,
+        embeddingMatchThreshold: Double? = null,
+        embeddingNewSpeakerThreshold: Double? = null
     ): List<Map<String, Any?>> {
+        if (embeddingExtractor != null) {
+            require(embeddingMatchThreshold != null &&
+                embeddingNewSpeakerThreshold != null &&
+                embeddingMatchThreshold.isFinite() &&
+                embeddingNewSpeakerThreshold.isFinite() &&
+                embeddingMatchThreshold > 0.0 &&
+                embeddingNewSpeakerThreshold > embeddingMatchThreshold &&
+                embeddingNewSpeakerThreshold <= 2.0) {
+                "Trained speaker embeddings require calibrated match/new-speaker thresholds."
+            }
+        }
 
         val samples = readWav(wavPath)
         // Process in chronological order: speaker profiles should be learned
@@ -140,8 +153,8 @@ object SpeakerDiarizer {
                     }
                 }
 
-                val matchThreshold = if (embeddingExtractor == null) MATCH_THRESHOLD else 0.22
-                val newSpeakerThreshold = if (embeddingExtractor == null) MIN_NEW_SPEAKER_DISTANCE else 0.38
+                val matchThreshold = if (embeddingExtractor == null) MATCH_THRESHOLD else embeddingMatchThreshold!!
+                val newSpeakerThreshold = if (embeddingExtractor == null) MIN_NEW_SPEAKER_DISTANCE else embeddingNewSpeakerThreshold!!
                 if (
                     bestIndex >= 0 &&
                     bestDistance < matchThreshold &&
