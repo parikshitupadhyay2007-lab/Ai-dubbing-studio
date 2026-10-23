@@ -11,6 +11,7 @@ import 'services/model_manager.dart';
 import 'services/offline_engine.dart';
 import 'services/project_repository.dart';
 import 'services/voice_installation_registry.dart';
+import 'services/voice_catalog.dart';
 
 // Blackheart visual system: warm paper, ink, lavender and sakura.
 const bg = Color(0xFFFFFAF5);
