@@ -295,8 +295,18 @@ class DubbingPipeline {
           targetLanguage: project.targetLanguage, sourceLanguage: project.sourceLanguage,
           segments: pending, characterVoices: project.characterVoices,
         );
-        final refined = await engine.refineDialogue(batch);
-        final next = _checkedSegments(refined['segments'], pending, 'Refinement');
+        // Refinement is optional: a model failure must not discard already
+        // validated translations or force an entire project to restart.
+        List<DubSegment> next;
+        try {
+          final refined = await engine.refineDialogue(batch);
+          next = _checkedSegments(refined['segments'], pending, 'Refinement');
+        } catch (_) {
+          // Leave these IDs pending so a resumed run can retry refinement.
+          // Continue to synthesis using the previously validated dialogue.
+          await repository.save(project);
+          continue;
+        }
         // Reject model-control text, wrong-script output, and dramatic
         // expansion. Keep the already validated translation instead.
         for (var i = 0; i < pending.length; i++) {
