@@ -1,6 +1,6 @@
 import unittest
 
-from calibrate_speaker_embeddings import calibrate
+from calibrate_speaker_embeddings import calibrate, evaluate
 
 
 class CalibrationTests(unittest.TestCase):
@@ -16,6 +16,23 @@ class CalibrationTests(unittest.TestCase):
         self.assertEqual(result["false_accept_pairs"], 0)
         self.assertEqual(result["false_reject_pairs"], 0)
         self.assertLess(result["candidate_match_threshold"], result["candidate_new_speaker_threshold"])
+
+    def test_held_out_evaluation_counts_errors(self):
+        rows = [
+            {"speaker_id": "a", "embedding": [1, 0]},
+            {"speaker_id": "a", "embedding": [1, 0]},
+            {"speaker_id": "b", "embedding": [0, 1]},
+            {"speaker_id": "b", "embedding": [0, 1]},
+        ]
+        result = evaluate(rows, 0.5)
+        self.assertEqual(result["false_accept_pairs"], 0)
+        self.assertEqual(result["false_reject_pairs"], 0)
+        self.assertEqual(result["same_speaker_pairs"], 2)
+        self.assertEqual(result["different_speaker_pairs"], 4)
+
+    def test_rejects_invalid_evaluation_threshold(self):
+        with self.assertRaisesRegex(ValueError, "threshold"):
+            evaluate([], float("nan"))
 
     def test_rejects_mismatched_dimensions(self):
         with self.assertRaisesRegex(ValueError, "dimensions"):
