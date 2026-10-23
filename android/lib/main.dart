@@ -526,7 +526,7 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
       );
 
       if (mounted) {
-        setState(() => status = 'Dubbed media created successfully!');
+        setState(() => status = project.error ?? 'Dubbed video saved automatically to Movies/OtakuDub and Projects!');
       }
 
       await refreshProjects();
