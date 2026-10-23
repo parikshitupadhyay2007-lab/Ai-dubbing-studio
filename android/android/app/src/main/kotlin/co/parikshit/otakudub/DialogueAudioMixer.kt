@@ -180,9 +180,22 @@ object DialogueAudioMixer {
                             val sourcePosition =
                                 relativeMs * clip.sampleRate / 1000.0
 
+                            // Only a clip shortened at the video boundary gets
+                            // a short fade, avoiding an audible hard cut.
+                            val sourceDurationMs =
+                                source.sampleCount.toDouble() * 1000.0 /
+                                    clip.sampleRate
+                            val truncated = sourceDurationMs >
+                                clip.audioDurationMs + 1.0
+                            val remainingMs = clip.audioDurationMs - relativeMs
+                            val fade = if (truncated) {
+                                (remainingMs / 40.0).coerceIn(0.0, 1.0).toFloat()
+                            } else {
+                                1f
+                            }
                             mixed[i] += source.interpolated(
                                 sourcePosition
-                            )
+                            ) * fade
                         }
                     }
 
