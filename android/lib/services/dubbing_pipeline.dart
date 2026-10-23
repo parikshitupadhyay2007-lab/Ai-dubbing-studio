@@ -8,6 +8,7 @@ import 'dialogue_quality_gate.dart';
 import 'offline_engine.dart';
 import 'project_repository.dart';
 import 'separation_installation.dart';
+import 'segment_quality_control.dart';
 import 'voice_catalog.dart';
 import 'voice_installation_registry.dart';
 
@@ -361,6 +362,25 @@ class DubbingPipeline {
         }
       }
 
+      // Apply deterministic pre-synthesis quality triage to the actual pipeline.
+      // Do not generate an MP4 with unresolved identities, malformed dialogue,
+      // invalid timing or missing voice assignments.
+      final failures = project.segments
+          .map((segment) => SegmentQualityControl.inspect(
+                segment: segment,
+                sourceLanguage: project.sourceLanguage,
+                targetLanguage: project.targetLanguage,
+              ))
+          .where((report) => !report.passed)
+          .toList();
+      if (failures.isNotEmpty) {
+        final preview = failures.take(5).map((report) =>
+            '${report.segmentId}: ${report.issues.map((i) => i.name).join(", ")}').join('; ');
+        throw OfflineEngineException(
+          'Pre-synthesis quality control rejected ${failures.length} '
+          'dialogue segment(s). ${preview}',
+        );
+      }
       await repository.save(project);
 
       // STEP 6: Generate individual character voices
