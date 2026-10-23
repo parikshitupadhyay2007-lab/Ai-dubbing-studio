@@ -133,7 +133,9 @@ jobs:
             llama_model_get_vocab \
             llama_tokenize \
             llama_decode \
-            llama_sampler_sample \\\n            llama_model_chat_template \\\n            llama_chat_apply_template
+            llama_sampler_sample \
+            llama_model_chat_template \
+            llama_chat_apply_template
           do
             grep -q "$symbol" "$CPP/llama.cpp/include/llama.h" || {
               echo "::error::Missing llama API: $symbol"
