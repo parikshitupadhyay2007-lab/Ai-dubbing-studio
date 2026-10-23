@@ -296,7 +296,7 @@ class DubbingPipeline {
 
         if (!DialogueQualityGate.acceptable(segment.translation, project.targetLanguage)) {
           throw OfflineEngineException(
-            'Translated dialogue is missing or invalid for 
+            'Translated dialogue is missing or invalid for '
             'segment ${segment.id}.',
           );
         }
