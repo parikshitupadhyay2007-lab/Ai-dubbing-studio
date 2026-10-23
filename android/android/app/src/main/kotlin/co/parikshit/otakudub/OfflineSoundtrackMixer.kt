@@ -37,8 +37,8 @@ object OfflineSoundtrackMixer {
                             val mr = if (hasMusic) background.pcm() else 0f
                             voice.seek(44L + minOf(position * 24000L / 44100L, speechFrames - 1L) * 2L)
                             val dialogue = voice.pcm()
-                            left[i] = (ml * 0.65f + dialogue * 0.85f).coerceIn(-1f, 1f)
-                            right[i] = (mr * 0.65f + dialogue * 0.85f).coerceIn(-1f, 1f)
+                            left[i] = ml * 0.48f + dialogue * 0.50f
+                            right[i] = mr * 0.48f + dialogue * 0.50f
                         }
                         writer.append(left, right)
                         index += count
