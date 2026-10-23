@@ -15,8 +15,8 @@ class DialogueQualityGate {
     String targetLanguage,
   ) {
     if (!acceptable(value, targetLanguage)) return false;
-    final source = sourceLanguage.toLowerCase().split('-').first;
-    final target = targetLanguage.toLowerCase().split('-').first;
+    final source = sourceLanguage.toLowerCase().split(RegExp('[-_]')).first;
+    final target = targetLanguage.toLowerCase().split(RegExp('[-_]')).first;
     if (source.isNotEmpty && source != 'auto' && source != 'unknown' &&
         source != target && original.trim().length > 3 &&
         value.trim().toLowerCase() == original.trim().toLowerCase()) {
@@ -38,11 +38,12 @@ class DialogueQualityGate {
         lower.startsWith('refined dialogue:') || lower.startsWith('response:')) {
       return false;
     }
-    if (targetLanguage == 'hi') {
+    final target = targetLanguage.toLowerCase().split('-').first.split('_').first;
+    if (target == 'hi') {
       if (_japanese.hasMatch(text)) return false;
       if (!_devanagari.hasMatch(text) &&
           _latin.allMatches(text).length > 3) return false;
-    } else if (targetLanguage == 'en' && _japanese.hasMatch(text)) {
+    } else if (target == 'en' && _japanese.hasMatch(text)) {
       return false;
     }
     return true;
