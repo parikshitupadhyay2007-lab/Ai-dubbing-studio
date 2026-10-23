@@ -47,6 +47,29 @@ object SpeakerDiarizer {
         )
         val profiles = mutableListOf<VoiceProfile>()
 
+        // Sweep both directions instead of checking every pair of segments.
+        // Preserve the original 50 ms tolerance for boundary-level overlap.
+        // This keeps overlap detection linear after chronological sorting.
+        val overlapsByIndex = BooleanArray(segments.size)
+        var latestPriorEnd = Double.NEGATIVE_INFINITY
+        for (entry in ordered) {
+            val start = (entry.value["start"] as? Number)?.toDouble()
+                ?: Double.POSITIVE_INFINITY
+            val end = (entry.value["end"] as? Number)?.toDouble()
+                ?: Double.NEGATIVE_INFINITY
+            if (latestPriorEnd > start + 0.05) overlapsByIndex[entry.index] = true
+            if (end > latestPriorEnd) latestPriorEnd = end
+        }
+        var earliestNextStart = Double.POSITIVE_INFINITY
+        for (entry in ordered.asReversed()) {
+            val start = (entry.value["start"] as? Number)?.toDouble()
+                ?: Double.POSITIVE_INFINITY
+            val end = (entry.value["end"] as? Number)?.toDouble()
+                ?: Double.NEGATIVE_INFINITY
+            if (earliestNextStart < end - 0.05) overlapsByIndex[entry.index] = true
+            if (start < earliestNextStart) earliestNextStart = start
+        }
+
         val identified = ordered.map { entry ->
             val segment = entry.value
 
@@ -74,11 +97,7 @@ object SpeakerDiarizer {
             // Overlapping speech contaminates acoustic identity features.
             // Keep the segment unresolved rather than training a profile on
             // two characters speaking simultaneously.
-            val overlaps = ordered.any { other ->
-                other.index != entry.index &&
-                    ((other.value["start"] as? Number)?.toDouble() ?: Double.POSITIVE_INFINITY) < end - 0.05 &&
-                    ((other.value["end"] as? Number)?.toDouble() ?: Double.NEGATIVE_INFINITY) > start + 0.05
-            }
+            val overlaps = overlapsByIndex[entry.index]
             val features = if (
                 !overlaps && text.isNotEmpty() &&
                 clip.size >=
