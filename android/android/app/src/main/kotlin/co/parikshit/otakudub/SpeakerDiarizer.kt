@@ -183,6 +183,16 @@ object SpeakerDiarizer {
                             features[i] * weight
                     }
 
+                    // Cosine centroids must stay unit-normalized after each
+                    // update; otherwise repeated matches change the metric.
+                    if (embeddingExtractor != null) {
+                        val normalized = SpeakerFeatureValidation.normalizedOrNull(
+                            profile.features
+                        ) ?: throw IllegalStateException(
+                            "Updated speaker centroid is invalid."
+                        )
+                        normalized.copyInto(profile.features)
+                    }
                     profile.observations++
 
                     speakerId = "speaker_${bestIndex + 1}"
