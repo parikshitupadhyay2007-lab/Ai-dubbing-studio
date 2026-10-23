@@ -230,8 +230,9 @@ class DubbingPipeline {
       for (var offset = 0; offset < project.segments.length; offset += batchSize) {
         final pending = project.segments
             .skip(offset).take(batchSize)
-            .where((s) => !DialogueQualityGate.acceptable(
-              s.translation, project.targetLanguage)).toList();
+            .where((s) => !DialogueQualityGate.acceptableTranslation(
+              s.translation, s.original, project.sourceLanguage,
+              project.targetLanguage)).toList();
         if (pending.isEmpty) continue;
         final batch = DubProject(
           id: project.id, title: project.title, sourcePath: project.sourcePath,
@@ -245,18 +246,9 @@ class DubbingPipeline {
           final checked = _checkedSegments(
             response['segments'], request.segments, 'Translation',
           );
-          if (checked.any((s) =>
-              !DialogueQualityGate.acceptable(
-                s.translation, project.targetLanguage,
-              ) ||
-              // Never pass through an unchanged source-language line as a
-              // successful translation when the source and target differ.
-              (project.sourceLanguage != 'unknown' &&
-                  project.sourceLanguage != 'auto' &&
-                  project.sourceLanguage != project.targetLanguage &&
-                  s.original.trim().toLowerCase() ==
-                      s.translation.trim().toLowerCase() &&
-                  s.original.trim().length > 3))) {
+          if (checked.any((s) => !DialogueQualityGate.acceptableTranslation(
+                s.translation, s.original, project.sourceLanguage,
+                project.targetLanguage))) {
             throw OfflineEngineException(
               'Translation returned invalid spoken dialogue.',
             );
@@ -325,8 +317,10 @@ class DubbingPipeline {
                 candidate, project.targetLanguage,
               ) &&
               candidate.length <= previous.length * 2 + 24;
-          if (safe) pending[i].translation = candidate;
-          project.refinedSegmentIds.add(pending[i].id);
+          if (safe) {
+            pending[i].translation = candidate;
+            project.refinedSegmentIds.add(pending[i].id);
+          }
         }
         await repository.save(project);
       }
@@ -347,7 +341,9 @@ class DubbingPipeline {
 
         segment.voiceId = assigned;
 
-        if (!DialogueQualityGate.acceptable(segment.translation, project.targetLanguage)) {
+        if (!DialogueQualityGate.acceptableTranslation(
+          segment.translation, segment.original, project.sourceLanguage,
+          project.targetLanguage)) {
           throw OfflineEngineException(
             'Translated dialogue is missing or invalid for '
             'segment ${segment.id}.',
