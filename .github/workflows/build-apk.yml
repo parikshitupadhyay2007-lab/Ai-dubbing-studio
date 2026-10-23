@@ -133,7 +133,7 @@ jobs:
             llama_model_get_vocab \
             llama_tokenize \
             llama_decode \
-            llama_sampler_sample
+            llama_sampler_sample \\\n            llama_model_chat_template \\\n            llama_chat_apply_template
           do
             grep -q "$symbol" "$CPP/llama.cpp/include/llama.h" || {
               echo "::error::Missing llama API: $symbol"
@@ -659,3 +659,5 @@ jobs:
 # Audit fixes: validate resumed translations and reserve soundtrack headroom.
 
 # Verify low-variance native translation generation.
+
+# Validate pinned llama.cpp model-template prompting.
