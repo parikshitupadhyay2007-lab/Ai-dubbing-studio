@@ -22,6 +22,8 @@ object SpeakerDiarizer {
     private const val SAMPLE_RATE = 16000
     private const val MIN_SPEECH_SECONDS = 0.45
     private const val MAX_SPEAKERS = 12
+    private const val MATCH_THRESHOLD = 0.22
+    private const val MIN_MATCH_MARGIN = 0.035
 
     private data class VoiceProfile(
         val features: DoubleArray,
@@ -76,6 +78,7 @@ object SpeakerDiarizer {
 
                 var bestIndex = -1
                 var bestDistance = Double.MAX_VALUE
+                var secondDistance = Double.MAX_VALUE
 
                 profiles.forEachIndexed { index, profile ->
                     val distance = distance(
@@ -84,14 +87,18 @@ object SpeakerDiarizer {
                     )
 
                     if (distance < bestDistance) {
+                        secondDistance = bestDistance
                         bestDistance = distance
                         bestIndex = index
+                    } else if (distance < secondDistance) {
+                        secondDistance = distance
                     }
                 }
 
                 if (
                     bestIndex >= 0 &&
-                    bestDistance < 0.22
+                    bestDistance < MATCH_THRESHOLD &&
+                    secondDistance - bestDistance >= MIN_MATCH_MARGIN
                 ) {
                     val profile = profiles[bestIndex]
 
@@ -109,10 +116,13 @@ object SpeakerDiarizer {
                     speakerId = "speaker_${bestIndex + 1}"
 
                     confidence = (
-                        1.0 - bestDistance / 0.22
+                        1.0 - bestDistance / MATCH_THRESHOLD
                     ).coerceIn(0.0, 0.85)
 
                 } else if (
+                    // An ambiguous match to two existing speakers must not
+                    // create a fictitious third character identity.
+                    bestDistance >= MATCH_THRESHOLD &&
                     profiles.size < MAX_SPEAKERS
                 ) {
                     profiles.add(
