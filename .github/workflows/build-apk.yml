@@ -296,6 +296,10 @@ jobs:
              "169964b0871667f6793416d4b35e97357a68ba1ad01df8580c28048989ee7693", "hi"),
             ("en_hero", "en/en_US/lessac/medium/en_US-lessac-medium",
              "5efe09e69902187827af646e1a6e9d269dee769f9877d17b16b1b46eeaaf019f", "en"),
+            ("hi_heroine", "hi/hi_IN/priyamvada/medium/hi_IN-priyamvada-medium",
+             "7d5e20c2d1e72de8ed772f222e679626", "hi"),
+            ("en_young_male", "en/en_US/hfc_male/medium/en_US-hfc_male-medium",
+             "cd2fda1933f0653d3ddc85e5f30ebdd2", "en"),
           ]
           target = Path("android/assets/models/voices")
           for profile, remote, digest, language in voices:
@@ -305,7 +309,8 @@ jobs:
                   if not path.is_file() or not path.stat().st_size:
                       raise SystemExit("Missing voice asset: " + str(path))
               model = target / (profile + ".onnx")
-              actual = hashlib.sha256(model.read_bytes()).hexdigest()
+              actual = (hashlib.sha256(model.read_bytes()).hexdigest()
+                        if len(digest) == 64 else hashlib.md5(model.read_bytes()).hexdigest())
               if actual != digest:
                   raise SystemExit(f"Checksum mismatch for {profile}: {actual}")
               config = json.loads((target / (profile + ".onnx.json")).read_text())
@@ -333,6 +338,10 @@ jobs:
               "voices/hi_hero.onnx.json": 100,
               "voices/en_hero.onnx": 1000000,
               "voices/en_hero.onnx.json": 100,
+              "voices/hi_heroine.onnx": 1000000,
+              "voices/hi_heroine.onnx.json": 100,
+              "voices/en_young_male.onnx": 1000000,
+              "voices/en_young_male.onnx.json": 100,
           }
           for name, minimum in required.items():
               path = root / name
@@ -372,6 +381,10 @@ jobs:
               "voices/hi_hero.onnx.json": 100,
               "voices/en_hero.onnx": 1000000,
               "voices/en_hero.onnx.json": 100,
+              "voices/hi_heroine.onnx": 1000000,
+              "voices/hi_heroine.onnx.json": 100,
+              "voices/en_young_male.onnx": 1000000,
+              "voices/en_young_male.onnx.json": 100,
           }
           for name, minimum in required.items():
               path = root / name
