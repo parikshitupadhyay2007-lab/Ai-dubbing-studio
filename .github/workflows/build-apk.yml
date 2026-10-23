@@ -569,4 +569,4 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-# Rebuild with automatic completed MP4 publishing to Movies/OtakuDub.
+# Rebuild with persistent per-batch dubbing checkpoints and recovery.
