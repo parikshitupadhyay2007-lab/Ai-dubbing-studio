@@ -3,6 +3,7 @@
 #include <android/log.h>
 
 #include <algorithm>
+#include <chrono>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -256,14 +257,27 @@ Java_co_parikshit_otakudub_MainActivity_nativeGenerate(
         return error(env, "ERROR: Sampler initialization failed.");
     }
 
+    // Penalize recent repetition before temperature sampling. Previously
+    // the fixed-seed sampler had no repetition control, so retrying a
+    // looping translation reproduced the same invalid text.
     llama_sampler_chain_add(
         sampler,
-        llama_sampler_init_temp(0.2f)
+        llama_sampler_init_penalties(64, 1.15f, 0.0f, 0.0f)
     );
-
     llama_sampler_chain_add(
         sampler,
-        llama_sampler_init_dist(1234)
+        llama_sampler_init_top_p(0.9f, 1)
+    );
+    llama_sampler_chain_add(
+        sampler,
+        llama_sampler_init_temp(0.45f)
+    );
+    const auto seed = static_cast<uint32_t>(
+        std::chrono::steady_clock::now().time_since_epoch().count()
+    );
+    llama_sampler_chain_add(
+        sampler,
+        llama_sampler_init_dist(seed)
     );
 
     std::string output;
