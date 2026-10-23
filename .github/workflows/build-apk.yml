@@ -657,3 +657,5 @@ jobs:
 # Validate speaker embedding interface compilation.
 
 # Audit fixes: validate resumed translations and reserve soundtrack headroom.
+
+# Verify low-variance native translation generation.
