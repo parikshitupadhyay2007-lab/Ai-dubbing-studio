@@ -639,3 +639,5 @@ jobs:
 # Verify ambiguity margin in offline speaker clustering.
 
 # Verify uncertainty band before creating new speaker identities.
+
+# Validate chronological speaker clustering and stable segment order.
