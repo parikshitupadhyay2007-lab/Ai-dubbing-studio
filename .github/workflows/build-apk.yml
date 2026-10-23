@@ -570,3 +570,5 @@ jobs:
           retention-days: 7
 
 # Rebuild with persistent per-batch dubbing checkpoints and recovery.
+
+# Include resume action label in recovery APK.
