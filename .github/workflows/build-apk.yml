@@ -649,3 +649,5 @@ jobs:
 # Validate overlap-aware speaker profile training.
 
 # Verify overlapping segments never inherit single-speaker identities.
+
+# Validate speaker embedding interface compilation.
