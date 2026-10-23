@@ -255,7 +255,7 @@ class DubbingPipeline {
           return checked;
         }
 
-        List<DubSegment>? translated;
+        late final List<DubSegment> translated;
         try {
           translated = await translateChecked(batch);
         } catch (_) {
