@@ -33,6 +33,18 @@ class SpeakerEmbeddingModelConfigTest {
                 assertTrue(expected.message!!.contains("threshold"))
             }
             try {
+                config.copy(preprocessing = "unknown_features").validate()
+                fail("Expected unsupported preprocessing rejection")
+            } catch (expected: IllegalArgumentException) {
+                assertTrue(expected.message!!.contains("raw-waveform"))
+            }
+            try {
+                config.copy(inputSamples = 0).validate()
+                fail("Expected missing waveform dimensions rejection")
+            } catch (expected: IllegalArgumentException) {
+                assertTrue(expected.message!!.contains("sample count"))
+            }
+            try {
                 config.copy(licenseRecord = "/missing-license-record").validate()
                 fail("Expected license record rejection")
             } catch (expected: IllegalArgumentException) {
