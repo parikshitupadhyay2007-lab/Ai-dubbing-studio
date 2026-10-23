@@ -149,7 +149,17 @@ object SpeakerDiarizer {
         return identified.mapIndexed { index, segment ->
             if (segment["speaker_id"] != "unknown") segment
             else {
-                val nearest = known.minByOrNull { kotlin.math.abs(it - index) }!!
+                // Choose the closest known utterance in actual audio time, not
+                // list position (segments can have very different durations).
+                fun midpoint(item: Map<String, Any?>): Double {
+                    val start = (item["start"] as? Number)?.toDouble() ?: 0.0
+                    val end = (item["end"] as? Number)?.toDouble() ?: start
+                    return (start + end) / 2.0
+                }
+                val targetTime = midpoint(segment)
+                val nearest = known.minByOrNull {
+                    kotlin.math.abs(midpoint(identified[it]) - targetTime)
+                }!!
                 segment.toMutableMap().apply {
                     put("speaker_id", identified[nearest]["speaker_id"]!!)
                     put("speaker_confidence", 0.0)
