@@ -169,6 +169,33 @@ class PiperSpeechSynthesizer(
                 }
             }
 
+            // Inspect the generated waveform before it can enter the mix.
+            // A successful ONNX invocation alone does not imply audible audio.
+            require(samples.isNotEmpty()) {
+                "Voice synthesis returned no samples for segment ${segment.id}."
+            }
+            var squared = 0.0
+            var peak = 0.0
+            for (sample in samples) {
+                require(sample.isFinite()) {
+                    "Non-finite synthesized audio for segment ${segment.id}."
+                }
+                val magnitude = kotlin.math.abs(sample.toDouble())
+                peak = kotlin.math.max(peak, magnitude)
+                squared += magnitude * magnitude
+            }
+            val rms = kotlin.math.sqrt(squared / samples.size)
+            require(rms >= 0.0001 && peak >= 0.001) {
+                "Synthesized dialogue is silent for segment ${segment.id}."
+            }
+            require(peak < 0.9999695) {
+                "Synthesized dialogue is clipping for segment ${segment.id}."
+            }
+            require(samples.size.toDouble() / config.sampleRate <=
+                windowSeconds * 1.12) {
+                "Synthesized dialogue exceeds its timing window for segment ${segment.id}."
+            }
+
             val wav = VoiceWavWriter.write(
                 destination = File(
                     outputDirectory,
