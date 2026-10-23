@@ -665,7 +665,14 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
           FilledButton.icon(
             onPressed: busy ? null : generate,
             icon: const Icon(Icons.auto_awesome),
-            label: const Text('CREATE MY DUB'),
+            label: Text(current!.stage == ProjectStage.translating ||
+                current!.stage == ProjectStage.refining ||
+                current!.stage == ProjectStage.casting ||
+                current!.stage == ProjectStage.synthesizing ||
+                current!.stage == ProjectStage.exporting ||
+                (current!.stage == ProjectStage.failed && current!.segments.isNotEmpty)
+                    ? 'RESUME MY DUB'
+                    : 'CREATE MY DUB'),
           ),
         ],
         const SizedBox(height: 20),
