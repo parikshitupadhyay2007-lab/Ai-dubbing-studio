@@ -569,7 +569,11 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
       segment.voiceId = project.characterVoices[segment.speakerId] ?? '';
     }
     await repository.save(project);
-    if (mounted) setState(() => status = 'Casting saved. Tap RESUME MY DUB.');
+    if (mounted) setState(() {
+      current = project;
+      status = 'Character voices saved for ${speakers.length} speaker(s). '
+          'Tap RESUME MY DUB to continue.';
+    });
   }
 
   Future<void> generate() async {
@@ -603,7 +607,11 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
       await refreshProjects();
     } catch (e) {
       if (mounted) {
-        setState(() => status = 'Processing stopped: $e');
+        final needsCasting = e.toString().contains('no verified voice role');
+        setState(() => status = needsCasting
+            ? 'Speaker voices need confirmation. Tap ASSIGN CHARACTER VOICES, '
+              'choose each voice, save, then resume. Your transcription is preserved.'
+            : 'Processing stopped: $e');
       }
     } finally {
       if (backgroundStarted) {
