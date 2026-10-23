@@ -266,12 +266,17 @@ class DubbingPipeline {
           final checked = _checkedSegments(
             response['segments'], request.segments, 'Translation',
           );
-          if (checked.any((s) => !DialogueQualityGate.acceptableTranslation(
-                s.translation, s.original, project.sourceLanguage,
-                project.targetLanguage))) {
-            throw OfflineEngineException(
-              'Translation returned invalid spoken dialogue.',
-            );
+          for (final s in checked) {
+            if (!DialogueQualityGate.acceptableTranslation(
+              s.translation, s.original, project.sourceLanguage,
+              project.targetLanguage)) {
+              throw OfflineEngineException(
+                'Translation failed validation for segment ${s.id} '
+                '(${project.sourceLanguage} → ${project.targetLanguage}): '
+                '${DialogueQualityGate.rejectionReason(s.translation, s.original, project.sourceLanguage, project.targetLanguage)}. '
+                'The generated text was rejected rather than dubbed.',
+              );
+            }
           }
           return checked;
         }
