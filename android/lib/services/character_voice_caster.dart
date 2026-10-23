@@ -33,7 +33,7 @@ class CharacterVoiceCaster {
       );
     }
 
-    final speakers = <String>[];
+    final speakers = <String>{};
     final existingRoles = <String, VoiceRole>{};
     for (final entry in project.characterVoices.entries) {
       final profile = VoiceCatalog.profiles.where((p) => p.id == entry.value);
@@ -47,9 +47,7 @@ class CharacterVoiceCaster {
         continue;
       }
 
-      if (!speakers.contains(speaker)) {
-        speakers.add(speaker);
-      }
+      speakers.add(speaker);
     }
 
     final validIds = distinct.map((voice) => voice.id).toSet();
