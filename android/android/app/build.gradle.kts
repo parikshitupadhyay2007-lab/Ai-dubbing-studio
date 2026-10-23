@@ -1,3 +1,4 @@
+import java.util.Properties
 
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
@@ -80,6 +81,12 @@ val prepareEspeakData = tasks.register<Exec>(
     )
 }
 
+val releaseSigning = Properties()
+val releaseSigningFile = rootProject.file("signing.properties")
+if (releaseSigningFile.isFile) {
+    releaseSigningFile.inputStream().use { releaseSigning.load(it) }
+}
+
 android {
     namespace = "co.parikshit.otakudub"
 
@@ -126,9 +133,20 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    signingConfigs {
+        create("otakudubRelease") {
+            if (releaseSigningFile.isFile) {
+                storeFile = rootProject.file(releaseSigning.getProperty("storeFile"))
+                storePassword = releaseSigning.getProperty("storePassword")
+                keyAlias = releaseSigning.getProperty("keyAlias")
+                keyPassword = releaseSigning.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("otakudubRelease")
         }
     }
 }
