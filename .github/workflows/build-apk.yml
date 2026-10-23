@@ -491,6 +491,10 @@ jobs:
           fi
           flutter test
 
+      - name: Test native speaker feature validation
+        working-directory: android/android
+        run: ./gradlew :app:testDebugUnitTest --no-daemon
+
       - name: Prepare persistent release signing
         shell: bash
         env:
