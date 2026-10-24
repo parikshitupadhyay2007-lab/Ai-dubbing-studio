@@ -275,267 +275,10 @@ class OfflineEngine {
     final root = Directory('${(await getApplicationSupportDirectory()).path}/supertonic3');
     for (final entry in entries.entries) {
       final name = entry.key;
-      if (name.contains('..') || name.startsWith('/') ||
-          !RegExp(r'^[A-Za-z0-9_./-]+
-    DubProject project,
-  ) async {
-    if (project.targetLanguage != 'hi' &&
-        project.targetLanguage != 'en') {
-      throw OfflineEngineException(
-        'Voice synthesis currently supports Hindi and English.',
-      );
-    }
-
-    if (project.segments.isEmpty) {
-      throw OfflineEngineException(
-        'No dialogue is available for voice synthesis.',
-      );
-    }
-
-    final voiceModels = <String, Map<String, dynamic>>{};
-
-    for (final segment in project.segments) {
-      if (segment.translation.trim().isEmpty) {
-        throw OfflineEngineException(
-          'Translated dialogue is missing for segment ${segment.id}.',
-        );
-      }
-
-      if (segment.end <= segment.start) {
-        throw OfflineEngineException(
-          'Invalid dialogue timing for segment ${segment.id}.',
-        );
-      }
-
-      final speakerId = segment.speakerId.trim();
-      final voiceId = segment.voiceId.trim();
-
-      if (speakerId.isEmpty || speakerId == 'unknown') {
-        throw OfflineEngineException(
-          'Speaker identification is incomplete for segment ${segment.id}.',
-        );
-      }
-
-      if (voiceId.isEmpty) {
-        throw OfflineEngineException(
-          'No voice assigned to segment ${segment.id}.',
-        );
-      }
-
-      if (project.characterVoices[speakerId] != voiceId) {
-        throw OfflineEngineException(
-          'Character voice assignment mismatch for segment ${segment.id}.',
-        );
-      }
-
-      final profile = VoiceCatalog.byId(voiceId);
-
-      if (profile.language != project.targetLanguage) {
-        throw OfflineEngineException(
-          'Voice $voiceId does not support the target language.',
-        );
-      }
-
-      final style = VoiceCatalog.supertonicStyle(voiceId);
-      if (style == null) {
-        throw OfflineEngineException('Supertonic style missing for $voiceId');
-      }
-      voiceModels[voiceId] = {
-        'model_id': 'supertonic-3',
-        'profile_id': voiceId,
-        'model_path': 'bundled-supertonic-3',
-        'config_path': 'bundled-supertonic-3',
-        'architecture': 'supertonic3',
-        'language': project.targetLanguage,
-        'sample_rate': 24000,
-        'num_speakers': 1,
-        'speaker_id_map': <String, int>{},
-      };
-    }
-
-    if (voiceModels.isEmpty) {
-      throw OfflineEngineException(
-        'No usable character voice models were assigned.',
-      );
-    }
-
-    await _installSupertonic();
-    return _invoke('synthesize', {
-      'target_language': project.targetLanguage,
-      'segments': project.segments
-          .map((segment) => segment.toJson())
-          .toList(),
-      'character_voices':
-          Map<String, String>.from(project.characterVoices),
-      'voice_models': voiceModels,
-    });
-  }
-
-  /// Places synthesized WAV clips onto the source video's
-  /// dialogue timeline.
-  Future<Map<String, dynamic>> mixDialogue(
-    DubProject project,
-    List<dynamic> audioClips,
-  ) async {
-    if (audioClips.isEmpty) {
-      throw OfflineEngineException(
-        'Cannot mix an empty dialogue clip list.',
-      );
-    }
-
-    final clips = <Map<String, dynamic>>[];
-
-    for (final item in audioClips) {
-      if (item is! Map) {
-        throw OfflineEngineException(
-          'Invalid synthesized dialogue clip.',
-        );
-      }
-
-      clips.add(Map<String, dynamic>.from(item));
-    }
-
-    final result = await _invoke('mixDialogue', {
-      'source_path': project.sourcePath,
-      'clips': clips,
-    });
-
-    final wavPath = result['wav_path'];
-
-    if (wavPath is! String || wavPath.isEmpty) {
-      throw OfflineEngineException(
-        'Dialogue mixing returned no WAV path.',
-      );
-    }
-
-    if (!await File(wavPath).exists()) {
-      throw OfflineEngineException(
-        'The synchronized dialogue WAV was not created.',
-      );
-    }
-
-    return result;
-  }
-
-  Future<String> mixSoundtrack({
-    required String dialogueWavPath,
-    required String accompanimentPath,
-  }) async {
-    for (final path in [dialogueWavPath, accompanimentPath]) {
-      if (!await File(path).exists()) {
-        throw OfflineEngineException('Required soundtrack WAV is missing: $path');
-      }
-    }
-    final result = await _invoke('mixSoundtrack', {
-      'dialogue_wav_path': dialogueWavPath,
-      'accompaniment_path': accompanimentPath,
-    });
-    final path = result['wav_path'];
-    if (path is! String || !await File(path).exists() ||
-        await File(path).length() <= 44) {
-      throw OfflineEngineException('Soundtrack recombination produced no audio.');
-    }
-    return path;
-  }
-
-  /// Exports a dubbed MP4 using the original video stream
-  /// and synchronized dialogue WAV.
-  ///
-  /// The original soundtrack is replaced, not mixed.
-  Future<Map<String, dynamic>> exportVideo(
-    DubProject project,
-    String dialogueWavPath,
-  ) async {
-    final dialogue = File(dialogueWavPath);
-
-    if (!await dialogue.exists()) {
-      throw OfflineEngineException(
-        'Synchronized dialogue WAV is missing.',
-      );
-    }
-
-    final source = File(project.sourcePath);
-
-    if (!await source.exists()) {
-      throw OfflineEngineException(
-        'Original source video is missing.',
-      );
-    }
-
-    // The imported source may live in a read-only picker/cache directory.
-    // Export into OtakuDub's writable, persistent project storage instead.
-    final docs = await getApplicationDocumentsDirectory();
-    final outputDirectory = Directory(
-      '${docs.path}/otakudub/projects/${project.id}',
-    );
-    await outputDirectory.create(recursive: true);
-
-    final outputPath =
-        '${outputDirectory.path}/OtakuDub-${project.id}.mp4';
-
-    final response = await _invoke('exportVideo', {
-      'source_path': project.sourcePath,
-      'dialogue_wav_path': dialogueWavPath,
-      'output_path': outputPath,
-    });
-
-    final exportedPath = response['output_path'];
-
-    if (exportedPath is! String || exportedPath.isEmpty) {
-      throw OfflineEngineException(
-        'Video export returned no output path.',
-      );
-    }
-
-    final exportedFile = File(exportedPath);
-
-    if (!await exportedFile.exists() ||
-        await exportedFile.length() == 0) {
-      throw OfflineEngineException(
-        'The exported MP4 is missing or empty.',
-      );
-    }
-
-    return response;
-  }
-
-  // Internal OtakuMind access.
-  // The public chatbot interface remains removed.
-
-  Future<String> chat({
-    required String message,
-    required String personality,
-    required String language,
-    required List<Map<String, String>> history,
-  }) async {
-    final model = await models.path(AiModel.otakuMind);
-
-    if (model == null) {
-      throw OfflineEngineException(
-        'OtakuMind GGUF model is missing.',
-      );
-    }
-
-    final response = await _invoke('chat', {
-      'model_path': model,
-      'message': message,
-      'personality': personality,
-      'language': language,
-      'history': history,
-    });
-
-    final reply = response['reply'];
-
-    if (reply is! String || reply.trim().isEmpty) {
-      throw OfflineEngineException(
-        'OtakuMind returned an invalid response.',
-      );
-    }
-
-    return reply;
-  }
-}
-).hasMatch(name)) {
+      final parts = name.split('/');
+      if (name.isEmpty || name.startsWith('/') ||
+          parts.any((part) => part.isEmpty || part == '.' || part == '..') ||
+          !RegExp(r'^[a-zA-Z0-9_./-]+$').hasMatch(name)) {
         throw OfflineEngineException('Invalid Supertonic asset path.');
       }
       final spec = entry.value as Map<String, dynamic>;
@@ -627,26 +370,20 @@ class OfflineEngine {
         );
       }
 
-      final installed = VoiceCatalog.installedModel(voiceId);
-
-      if (installed == null) {
-        throw OfflineEngineException(
-          'Character voice $voiceId is not installed.',
-        );
+      final style = VoiceCatalog.supertonicStyle(voiceId);
+      if (style == null) {
+        throw OfflineEngineException('Supertonic style missing for $voiceId');
       }
-
-      final config = installed.config;
-
       voiceModels[voiceId] = {
-        'model_id': installed.modelId,
-        'profile_id': installed.profileId,
-        'model_path': config.modelPath,
-        'config_path': config.configPath,
-        'architecture': config.architecture,
-        'language': config.language,
-        'sample_rate': config.sampleRate,
-        'num_speakers': config.numSpeakers,
-        'speaker_id_map': config.speakers,
+        'model_id': 'supertonic-3',
+        'profile_id': voiceId,
+        'model_path': 'bundled-supertonic-3',
+        'config_path': 'bundled-supertonic-3',
+        'architecture': 'supertonic3',
+        'language': project.targetLanguage,
+        'sample_rate': 24000,
+        'num_speakers': 1,
+        'speaker_id_map': <String, int>{},
       };
     }
 
@@ -656,6 +393,7 @@ class OfflineEngine {
       );
     }
 
+    await _installSupertonic();
     return _invoke('synthesize', {
       'target_language': project.targetLanguage,
       'segments': project.segments
