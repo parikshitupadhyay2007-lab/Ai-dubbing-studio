@@ -349,6 +349,49 @@ jobs:
               print(profile, "verified:", model.stat().st_size, "bytes")
           PY
 
+      - name: Bundle trained ECAPA speaker embedding checkpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install 'huggingface_hub>=0.30,<3' 'onnx>=1.16,<2'
+          python3 - <<'PY'
+          from pathlib import Path
+          from huggingface_hub import HfApi, hf_hub_download
+          import hashlib, json, shutil, onnx
+          repo = "Pawls2theWall/equivl-ecapa-voxceleb-onnx"
+          info = HfApi().model_info(repo, revision="main")
+          if info.cardData is None or info.cardData.get("license") != "apache-2.0":
+              raise SystemExit("ECAPA redistribution license must be explicitly Apache-2.0")
+          revision = info.sha
+          directory = Path("android/assets/models/speaker")
+          directory.mkdir(parents=True, exist_ok=True)
+          source = Path(hf_hub_download(repo_id=repo, filename="model_fp16.onnx", revision=revision))
+          destination = directory / "model.onnx"
+          shutil.copyfile(source, destination)
+          graph = onnx.load(str(destination), load_external_data=False).graph
+          inputs = [item for item in graph.input if item.name not in {init.name for init in graph.initializer}]
+          outputs = list(graph.output)
+          if len(inputs) != 1 or len(outputs) != 1 or inputs[0].name != "waveform" or outputs[0].name != "embedding":
+              raise SystemExit("Unexpected ECAPA model I/O names")
+          def dimensions(tensor):
+              return [dim.dim_value if dim.HasField("dim_value") else -1 for dim in tensor.type.tensor_type.shape.dim]
+          if dimensions(inputs[0]) != [1, -1] or dimensions(outputs[0]) not in ([192], [1, 192]):
+              raise SystemExit("ECAPA input/output shape changed")
+          if destination.stat().st_size < 35_000_000:
+              raise SystemExit("Speaker model incomplete")
+          (directory / "LICENSE.txt").write_text("Apache-2.0; upstream " + repo + "; pinned revision " + revision + "\\n")
+          # Thresholds are intentionally conservative starting values, pending
+          # held-out dialogue calibration; never treat a green build as accuracy proof.
+          manifest = dict(model_path="model.onnx", model_sha256=hashlib.sha256(destination.read_bytes()).hexdigest(),
+              sample_rate=16000, input_name="waveform", output_name="embedding",
+              embedding_dimension=192, input_samples=48000,
+              preprocessing="raw_pcm16k_mono_float32", license_record="LICENSE.txt",
+              match_threshold=0.20, new_speaker_threshold=0.40,
+              calibration_status="pending_held_out_anime_dialogue")
+          (directory / "manifest.json").write_text(json.dumps(manifest, indent=2))
+          print("Bundled ECAPA model:", revision, manifest["model_sha256"])
+          PY
+
       - name: Verify every required AI asset before APK build
         shell: bash
         run: |
