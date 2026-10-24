@@ -8,7 +8,6 @@ class CharacterVoiceCaster {
   void assign(
     DubProject project, {
     Map<String, VoiceRole> preferredRoles = const {},
-    Set<String>? installedModelIds,
   }) {
     // One style represents one independent voice. Piper installation state
     // must never decide whether a bundled Supertonic preset can be cast.
@@ -21,7 +20,7 @@ class CharacterVoiceCaster {
 
     if (distinct.isEmpty) {
       throw StateError(
-        'No installed character voices are available for '
+        'No bundled Supertonic styles are available for '
         '${project.targetLanguage}.',
       );
     }
@@ -53,7 +52,8 @@ class CharacterVoiceCaster {
               VoiceCatalog.byId(voice).role != preferredRoles[speaker]),
     );
 
-    final used = project.characterVoices.values.toSet();
+    final usedStyles = project.characterVoices.values
+        .map(VoiceCatalog.supertonicStyle).whereType<String>().toSet();
 
     for (final speaker in speakers) {
       if (project.characterVoices.containsKey(speaker)) {
@@ -62,10 +62,8 @@ class CharacterVoiceCaster {
 
       final preferredRole = preferredRoles[speaker] ?? existingRoles[speaker];
 
-      // Automatic provisional casting: use independent installed voice models
-      // in stable order when no role has been confirmed. Acoustic clustering
-      // alone does not establish gender/age, so this is an editable voice
-      // choice, never a claim that the character's role was identified.
+      // Acoustic clustering does not establish gender, age, or character role.
+      // Unclassified voices are provisional style choices, not predictions.
       final candidates = distinct.where((voice) {
         return preferredRole == null || voice.role == preferredRole;
       }).toList();
@@ -77,7 +75,7 @@ class CharacterVoiceCaster {
       }
 
       final unused = candidates.where(
-        (voice) => !used.contains(voice.id),
+        (voice) => !usedStyles.contains(VoiceCatalog.supertonicStyle(voice.id)),
       );
 
       final selected = unused.isNotEmpty
@@ -85,7 +83,7 @@ class CharacterVoiceCaster {
           : candidates.first;
 
       project.characterVoices[speaker] = selected.id;
-      used.add(selected.id);
+      usedStyles.add(VoiceCatalog.supertonicStyle(selected.id)!);
     }
 
     for (final segment in project.segments) {
