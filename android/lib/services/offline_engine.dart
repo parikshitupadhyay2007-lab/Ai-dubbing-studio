@@ -336,11 +336,8 @@ class OfflineEngine {
         );
       }
 
-      final styles = <String, String>{
-        'hi_hero': 'M1', 'hi_heroine': 'F1',
-        'en_hero': 'M1', 'en_young_male': 'M2',
-      };
-      if (!styles.containsKey(voiceId)) {
+      final style = VoiceCatalog.supertonicStyle(voiceId);
+      if (style == null) {
         throw OfflineEngineException('Supertonic style missing for $voiceId');
       }
       voiceModels[voiceId] = {
