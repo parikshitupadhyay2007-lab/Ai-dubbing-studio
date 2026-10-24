@@ -600,6 +600,52 @@ class MainActivity : FlutterActivity() {
                     }
                 }
 
+                "supertonicSmokeTest" -> {
+                    executor.execute {
+                        try {
+                            val root = File(filesDir, "supertonic3")
+                            val report = mutableListOf<Map<String, Any>>()
+                            SupertonicSpeechSynthesizer(applicationContext, root).use { engine ->
+                                for ((language, profile, sentence) in listOf(
+                                    Triple("en", "en_hero", "Hello, this is OtakuDub speaking clearly."),
+                                    Triple("hi", "hi_heroine", "नमस्ते, यह ओटाकूडब की आवाज़ का परीक्षण है।")
+                                )) {
+                                    val voice = NativeVoiceModel(
+                                        profile, "supertonic-3", "bundled-supertonic-3",
+                                        "bundled-supertonic-3", language, 24000, 1, emptyMap()
+                                    )
+                                    val request = VoiceSynthesisRequest(
+                                        language, mapOf(profile to voice),
+                                        mapOf("test_speaker" to profile),
+                                        listOf(NativeDialogueSegment(
+                                            1, 0.0, 30.0, sentence, "test_speaker", profile, "natural"
+                                        ))
+                                    )
+                                    val destination = File(cacheDir, "supertonic_smoke_$language")
+                                    val started = android.os.SystemClock.elapsedRealtime()
+                                    val clip = engine.synthesize(request, destination).single()
+                                    val elapsed = android.os.SystemClock.elapsedRealtime() - started
+                                    val output = File(clip.wavPath)
+                                    check(output.isFile && output.length() > 44L)
+                                    report.add(mapOf(
+                                        "language" to language,
+                                        "voice_id" to profile,
+                                        "wav_path" to clip.wavPath,
+                                        "wav_bytes" to output.length(),
+                                        "sample_rate" to clip.sampleRate,
+                                        "inference_ms" to elapsed
+                                    ))
+                                }
+                            }
+                            runOnUiThread { result.success(mapOf("passed" to true, "clips" to report)) }
+                        } catch (error: Exception) {
+                            runOnUiThread {
+                                result.error("SUPERTONIC_SMOKE_FAILED", error.message, null)
+                            }
+                        }
+                    }
+                }
+
                 "synthesize" -> {
                     executor.execute {
                         try {
