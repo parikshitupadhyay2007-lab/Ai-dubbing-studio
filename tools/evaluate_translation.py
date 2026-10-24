@@ -55,6 +55,8 @@ def evaluate(path):
             ]}
             for r in rows if r["meaning"] < 3 or r["names"] < 3
         ],
+        "meaning_pass_rate": round(sum(r["meaning"] >= 3 for r in rows) / len(rows), 4),
+        "name_pass_rate": round(sum(r["names"] >= 3 for r in rows) / len(rows), 4),
         "note": "Human-review results only; no automatic semantic accuracy claim.",
     }
     return report
@@ -64,6 +66,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("reviews_jsonl")
     parser.add_argument("--fail-on-critical", action="store_true")
+    parser.add_argument("--production-gate", action="store_true",
+                        help="Require 200 reviewed segments, 95% meaning pass, no critical failures")
     args = parser.parse_args()
     try:
         report = evaluate(args.reviews_jsonl)
@@ -71,6 +75,12 @@ def main():
         parser.error(str(error))
     print(json.dumps(report, indent=2, ensure_ascii=False))
     if args.fail_on_critical and report["critical_failures"]:
+        sys.exit(2)
+    if args.production_gate and (
+        report["reviewed_segments"] < 200 or
+        report["meaning_pass_rate"] < 0.95 or report["critical_failures"]
+    ):
+        print("Production translation acceptance gate failed.", file=sys.stderr)
         sys.exit(2)
 
 
