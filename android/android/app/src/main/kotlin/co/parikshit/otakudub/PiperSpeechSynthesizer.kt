@@ -133,6 +133,28 @@ class PiperSpeechSynthesizer(
                     null
                 }
 
+            // Piper provides acoustic variation controls, not learned emotion
+            // conditioning. Apply explicit delivery metadata with safe bounds;
+            // preserve the voice's own trained baseline for natural delivery.
+            val deliveryLength = when (segment.delivery) {
+                "soft" -> 1.08f
+                "urgent" -> 0.91f
+                "excited" -> 0.94f
+                "solemn" -> 1.12f
+                else -> 1.0f
+            }
+            val deliveryNoise = when (segment.delivery) {
+                "soft" -> 0.88f
+                "urgent" -> 1.08f
+                "excited" -> 1.12f
+                "solemn" -> 0.92f
+                else -> 1.0f
+            }
+            val expressiveLengthScale = (config.lengthScale * deliveryLength)
+                .coerceIn(0.65f, 1.45f)
+            val expressiveNoiseScale = (config.noiseScale * deliveryNoise)
+                .coerceIn(0.1f, 1.1f)
+
             // Fit the generated utterance to its source dialogue window when
             // possible. Piper lengthScale controls speaking duration (smaller
             // means faster); one bounded retry avoids unbounded inference and
@@ -140,21 +162,21 @@ class PiperSpeechSynthesizer(
             var samples = engine.synthesize(
                 phonemeIds = phonemeIds,
                 speakerId = speakerId,
-                noiseScale = config.noiseScale,
-                lengthScale = config.lengthScale,
+                noiseScale = expressiveNoiseScale,
+                lengthScale = expressiveLengthScale,
                 noiseW = config.noiseW
             )
             val windowSeconds = segment.end - segment.start
             val actualSeconds = samples.size.toDouble() / config.sampleRate
             if (windowSeconds >= 0.5 && actualSeconds > windowSeconds * 1.12) {
-                val adjustedScale = (config.lengthScale *
+                val adjustedScale = (expressiveLengthScale *
                     (windowSeconds / actualSeconds).toFloat() * 0.98f)
-                    .coerceIn(config.lengthScale * 0.78f, config.lengthScale)
-                if (adjustedScale < config.lengthScale * 0.99f) {
+                    .coerceIn(expressiveLengthScale * 0.78f, expressiveLengthScale)
+                if (adjustedScale < expressiveLengthScale * 0.99f) {
                     val candidate = engine.synthesize(
                         phonemeIds = phonemeIds,
                         speakerId = speakerId,
-                        noiseScale = config.noiseScale,
+                        noiseScale = expressiveNoiseScale,
                         lengthScale = adjustedScale,
                         noiseW = config.noiseW
                     )
