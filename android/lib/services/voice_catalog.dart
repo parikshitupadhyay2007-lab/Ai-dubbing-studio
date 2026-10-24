@@ -25,7 +25,7 @@ class VoiceProfile {
   String? get modelId =>
       VoiceCatalog._installedModels[id]?.modelId ?? _defaultModelId;
 
-  bool get hasAssignedModel => modelId != null;
+  bool get hasAssignedModel => modelId != null || VoiceCatalog.supertonicStyle(id) != null;
 }
 
 class InstalledVoiceModel {
@@ -103,14 +103,27 @@ class VoiceCatalog {
         orElse: () => throw ArgumentError('Unknown voice: $id'),
       );
 
+  /// Supertonic voice styles are bundled with the application, not individually
+  /// installed Piper checkpoints. Keep role-consistent choices available.
+  static String? supertonicStyle(String id) {
+    final profile = profiles.where((p) => p.id == id);
+    if (profile.isEmpty) return null;
+    const styles = <String, String>{
+      'hero': 'M1', 'young_male': 'M2', 'deep_male': 'M3',
+      'mature_male': 'M4', 'villain': 'M5', 'rough_male': 'M5',
+      'heroine': 'F1', 'young_female': 'F2', 'mature_female': 'F3',
+      'strong_female': 'F4', 'youthful_soft': 'F5',
+      'youthful_bright': 'F5',
+    };
+    if (id == 'en_hero') return 'F1'; // Legacy Lessac profile is female.
+    if (id.endsWith('_youthful_soft') || id.endsWith('_youthful_bright')) return 'F5';
+    final suffix = id.substring(3);
+    return styles[suffix];
+  }
+
   static List<VoiceProfile> available(String language) =>
-      profiles
-          .where(
-            (profile) =>
-                profile.language == language &&
-                _installedModels.containsKey(profile.id),
-          )
-          .toList(growable: false);
+      profiles.where((p) => p.language == language &&
+          supertonicStyle(p.id) != null).toList(growable: false);
 
   static InstalledVoiceModel? installedModel(String profileId) =>
       _installedModels[profileId];
