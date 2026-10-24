@@ -127,6 +127,26 @@ jobs:
           echo "===== WHISPER REVISION ====="
           git -C "$CPP/whisper.cpp" rev-parse HEAD
 
+      - name: Guard Qwen3 offline final-answer generation
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          native = Path("android/android/app/src/main/cpp/otakudub_jni.cpp").read_text()
+          required = (
+              'templateText.find("enable_thinking")',
+              'prompt += "<think>\\n\\n</think>\\n\\n";',
+              'llama_memory_clear(',
+              'llama_sampler_init_penalties(',
+              'Model ended generation without spoken text.',
+              'Native token decoding failed.',
+          )
+          for item in required:
+              if item not in native:
+                  raise SystemExit("Missing critical Qwen3 inference safety: " + item)
+          print("Native Qwen3 final-answer and termination safeguards present")
+          PY
+
       - name: Verify native source interfaces
         shell: bash
         run: |
