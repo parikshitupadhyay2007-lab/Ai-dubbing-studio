@@ -378,6 +378,7 @@ jobs:
           test -s android/assets/models/supertonic3/asset_manifest.json
           test -s android/assets/models/supertonic3/LICENSE
           test -s android/assets/models/supertonic3/onnx/vocoder.onnx
+          python3 tools/audit_supertonic3_assets.py --directory android/assets/models/supertonic3
 
       - name: Bundle trained ECAPA speaker embedding checkpoint
         shell: bash
@@ -715,6 +716,12 @@ jobs:
               manifest = json.loads(archive.read("assets/flutter_assets/AssetManifest.json")) if "assets/flutter_assets/AssetManifest.json" in names else None
               print("All required AI assets physically present in APK.")
           PY
+
+      - name: Verify all bundled Supertonic assets inside release APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/audit_supertonic3_assets.py --apk android/build/app/outputs/flutter-apk/app-release.apk
 
       - name: Verify required AI files are actually inside the APK
         shell: bash
