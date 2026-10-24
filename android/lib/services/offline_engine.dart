@@ -1,8 +1,8 @@
 import 'dart:io';
-
-import 'package:flutter/services.dart';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
+
+import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../models/dub_project.dart';
@@ -266,19 +266,18 @@ class OfflineEngine {
   }
 
   Future<void> _installSupertonic() async {
-    final manifestText = await rootBundle.loadString(
-      'assets/models/supertonic3/asset_manifest.json',
-    );
+    final manifestText = await rootBundle.loadString('assets/models/supertonic3/asset_manifest.json');
     final manifest = jsonDecode(manifestText) as Map<String, dynamic>;
     if (manifest['engine'] != 'supertonic-3') {
-      throw OfflineEngineException('Invalid Supertonic asset manifest.');
+      throw OfflineEngineException('Invalid Supertonic manifest.');
     }
     final entries = manifest['assets'] as Map<String, dynamic>;
     final root = Directory('${(await getApplicationSupportDirectory()).path}/supertonic3');
     for (final entry in entries.entries) {
       final name = entry.key;
       if (name.contains('..') || name.startsWith('/') ||
-          !RegExp(r'^[A-Za-z0-9_./-]+    DubProject project,
+          !RegExp(r'^[A-Za-z0-9_./-]+
+    DubProject project,
   ) async {
     if (project.targetLanguage != 'hi' &&
         project.targetLanguage != 'en') {
@@ -337,26 +336,23 @@ class OfflineEngine {
         );
       }
 
-      final installed = VoiceCatalog.installedModel(voiceId);
-
-      if (installed == null) {
-        throw OfflineEngineException(
-          'Character voice $voiceId is not installed.',
-        );
+      final styles = <String, String>{
+        'hi_hero': 'M1', 'hi_heroine': 'F1',
+        'en_hero': 'M1', 'en_young_male': 'M2',
+      };
+      if (!styles.containsKey(voiceId)) {
+        throw OfflineEngineException('Supertonic style missing for $voiceId');
       }
-
-      final config = installed.config;
-
       voiceModels[voiceId] = {
-        'model_id': installed.modelId,
-        'profile_id': installed.profileId,
-        'model_path': config.modelPath,
-        'config_path': config.configPath,
-        'architecture': config.architecture,
-        'language': config.language,
-        'sample_rate': config.sampleRate,
-        'num_speakers': config.numSpeakers,
-        'speaker_id_map': config.speakers,
+        'model_id': 'supertonic-3',
+        'profile_id': voiceId,
+        'model_path': 'bundled-supertonic-3',
+        'config_path': 'bundled-supertonic-3',
+        'architecture': 'supertonic3',
+        'language': project.targetLanguage,
+        'sample_rate': 24000,
+        'num_speakers': 1,
+        'speaker_id_map': <String, int>{},
       };
     }
 
@@ -547,34 +543,29 @@ class OfflineEngine {
       }
       final spec = entry.value as Map<String, dynamic>;
       final file = File('${root.path}/$name');
-      final expectedSize = (spec['bytes'] as num).toInt();
-      final expectedHash = spec['sha256'] as String;
-      var valid = await file.exists() && await file.length() == expectedSize;
-      if (valid) {
-        valid = (await sha256.bind(file.openRead()).first).toString() == expectedHash;
-      }
-      if (valid) continue;
+      final size = (spec['bytes'] as num).toInt();
+      final hash = spec['sha256'] as String;
+      Future<bool> verified() async =>
+          await file.exists() && await file.length() == size &&
+          (await sha256.bind(file.openRead()).first).toString() == hash;
+      if (await verified()) continue;
       await file.parent.create(recursive: true);
-      final size = await _channel.invokeMethod<int>('installBundledAsset', {
+      final installed = await _channel.invokeMethod<int>('installBundledAsset', {
         'asset': 'assets/models/supertonic3/$name',
         'destination': file.path,
       });
-      if (size != expectedSize || !await file.exists() ||
-          (await sha256.bind(file.openRead()).first).toString() != expectedHash) {
+      if (installed != size || !await verified()) {
         throw OfflineEngineException('Supertonic asset verification failed: $name');
       }
     }
-    // The model is only used after all components pass verification.
   }
 
-  /// Run on a physical Android device after the model assets are installed.
-  /// Returns two validated WAV file paths and actual inference latency.
   Future<Map<String, dynamic>> validateSupertonicOnDevice() async {
     await _installSupertonic();
     final report = await _invoke('supertonicSmokeTest', <String, dynamic>{});
     if (report['passed'] != true || report['clips'] is! List ||
         (report['clips'] as List).length != 2) {
-      throw OfflineEngineException('Supertonic device smoke-test did not pass.');
+      throw OfflineEngineException('Supertonic device test failed.');
     }
     return report;
   }
@@ -639,23 +630,26 @@ class OfflineEngine {
         );
       }
 
-      final styles = <String, String>{
-        'hi_hero': 'M1', 'hi_heroine': 'F1',
-        'en_hero': 'M1', 'en_young_male': 'M2',
-      };
-      if (!styles.containsKey(voiceId)) {
-        throw OfflineEngineException('No verified Supertonic voice style for $voiceId');
+      final installed = VoiceCatalog.installedModel(voiceId);
+
+      if (installed == null) {
+        throw OfflineEngineException(
+          'Character voice $voiceId is not installed.',
+        );
       }
+
+      final config = installed.config;
+
       voiceModels[voiceId] = {
-        'model_id': 'supertonic-3',
-        'profile_id': voiceId,
-        'model_path': 'bundled-supertonic-3',
-        'config_path': 'bundled-supertonic-3',
-        'architecture': 'supertonic3',
-        'language': project.targetLanguage,
-        'sample_rate': 24000,
-        'num_speakers': 1,
-        'speaker_id_map': <String, int>{},
+        'model_id': installed.modelId,
+        'profile_id': installed.profileId,
+        'model_path': config.modelPath,
+        'config_path': config.configPath,
+        'architecture': config.architecture,
+        'language': config.language,
+        'sample_rate': config.sampleRate,
+        'num_speakers': config.numSpeakers,
+        'speaker_id_map': config.speakers,
       };
     }
 
