@@ -35,7 +35,11 @@ class VoiceInstallationRegistry {
         ('assets/models/voices/$profileId.onnx', model),
         ('assets/models/voices/$profileId.onnx.json', config),
       ]) {
-        if (!await entry.$2.exists() || await entry.$2.length() == 0) {
+        final needsUpgrade = profileId == 'en_hero' &&
+              entry.$1.endsWith('.onnx') &&
+              (!await entry.$2.exists() ||
+                  await entry.$2.length() != 113895201);
+          if (!await entry.$2.exists() || await entry.$2.length() == 0 || needsUpgrade) {
           final copied = await const MethodChannel(
             'co.parikshit.otakudub/offline_engine',
           ).invokeMethod<int>('installBundledAsset', {
