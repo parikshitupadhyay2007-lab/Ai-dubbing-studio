@@ -38,7 +38,8 @@ class SupertonicSpeechSynthesizer(
             require(voice == segment.voiceId) { "Character voice assignment mismatch" }
             require(request.voices.containsKey(voice)) { "Uninstalled character voice" }
             val styleId = when (voice) {
-                "hi_hero", "en_hero", "en_young_male" -> "M1"
+                "hi_hero", "en_hero" -> "M1"
+                "en_young_male" -> "M2"
                 "hi_heroine" -> "F1"
                 else -> error("Supertonic style not assigned for $voice")
             }
