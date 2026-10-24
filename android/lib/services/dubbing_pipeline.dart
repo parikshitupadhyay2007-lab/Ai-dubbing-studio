@@ -10,7 +10,6 @@ import 'project_repository.dart';
 import 'separation_installation.dart';
 import 'segment_quality_control.dart';
 import 'voice_catalog.dart';
-import 'voice_installation_registry.dart';
 
 typedef ProgressCallback = void Function(ProjectStage stage);
 
@@ -20,9 +19,6 @@ class DubbingPipeline {
 
   final CharacterVoiceCaster _caster =
       const CharacterVoiceCaster();
-
-  final VoiceInstallationRegistry _voiceRegistry =
-      const VoiceInstallationRegistry();
 
   DubbingPipeline(this.engine, this.repository);
 
@@ -88,28 +84,15 @@ class DubbingPipeline {
   Future<void> _assignCharacterVoices(
     DubProject project,
   ) async {
-    await _voiceRegistry.refresh();
-
-    final available = VoiceCatalog.available(
-      project.targetLanguage,
-    );
-
+    final available = VoiceCatalog.available(project.targetLanguage);
     if (available.isEmpty) {
       throw OfflineEngineException(
-        'No compatible character voices are installed for '
-        '${project.targetLanguage.toUpperCase()}. '
-        'Install a valid voice model and configuration first.',
+        'No bundled Supertonic voices support ${project.targetLanguage}.',
       );
     }
 
-    final installedIds = available
-        .map((profile) => profile.modelId)
-        .whereType<String>()
-        .toSet();
-
     _caster.assign(
       project,
-      installedModelIds: installedIds,
     );
 
     for (final segment in project.segments) {
@@ -128,14 +111,9 @@ class DubbingPipeline {
         );
       }
 
-      final installed = VoiceCatalog.installedModel(
-        segment.voiceId,
-      );
-
-      if (installed == null) {
+      if (VoiceCatalog.supertonicStyle(segment.voiceId) == null) {
         throw OfflineEngineException(
-          'The voice assigned to segment ${segment.id} '
-          'is no longer installed.',
+          'The assigned Supertonic style is unavailable for segment ${segment.id}.',
         );
       }
     }
@@ -351,7 +329,7 @@ class DubbingPipeline {
         ];
 
         if (assigned == null ||
-            VoiceCatalog.installedModel(assigned) == null) {
+            VoiceCatalog.supertonicStyle(assigned) == null) {
           throw OfflineEngineException(
             'A valid character voice is missing for '
             'segment ${segment.id}.',
