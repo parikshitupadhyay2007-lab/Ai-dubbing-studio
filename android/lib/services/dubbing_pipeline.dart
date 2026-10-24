@@ -62,9 +62,22 @@ class DubbingPipeline {
       );
     }
 
-    _caster.assign(
-      project,
-    );
+    final unresolved = project.segments.where((s) =>
+        s.speakerId.trim().isEmpty || s.speakerId == 'unknown').toList();
+    if (unresolved.isNotEmpty) {
+      final preview = unresolved.take(8).map((s) =>
+          '#${s.id} (${(s.end - s.start).toStringAsFixed(2)}s)').join(', ');
+      throw OfflineEngineException(
+        'ECAPA could not establish an acoustic identity for '
+        '${unresolved.length} of ${project.segments.length} lines: $preview. '
+        'The transcript and successful speaker matches are saved. '
+        'Review only these lines in Assign Character Voices; Resume will '
+        'preserve confirmed assignments. An anime scene match alone cannot '
+        'safely identify an audible speaker.',
+      );
+    }
+
+    _caster.assign(project);
 
     for (final segment in project.segments) {
       if (segment.speakerId.trim().isEmpty ||
