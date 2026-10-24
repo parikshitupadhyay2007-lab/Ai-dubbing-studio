@@ -902,6 +902,42 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
           ),
         ),
         const SizedBox(height: 12),
+        FutureBuilder<Map<String, dynamic>>(
+          future: engine.speakerEngineStatus(),
+          builder: (context, snapshot) {
+            final state = snapshot.data;
+            final verified = state?['verified'] == true;
+            return Card(child: ListTile(
+              leading: Icon(verified ? Icons.check_circle_outline : Icons.warning_amber,
+                  color: verified ? cyan : pink),
+              title: const Text('ECAPA Speaker Recognition'),
+              subtitle: Text(snapshot.connectionState == ConnectionState.waiting
+                  ? 'Checking installed speaker pack and SHA-256…'
+                  : snapshot.hasError ? 'Speaker diagnostic failed: ${snapshot.error}'
+                  : '${state?['status'] ?? 'Status unavailable'}. '
+                    'A verified pack does not guarantee speaker identification.'),
+              trailing: IconButton(
+                tooltip: 'Repair speaker model in place (projects preserved)',
+                icon: const Icon(Icons.build_circle_outlined),
+                onPressed: () async {
+                  try {
+                    final result = await engine.speakerEngineStatus(repair: true);
+                    if (!mounted) return;
+                    setState(() {});
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('${result['status']}')),
+                    );
+                  } catch (error) {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Speaker repair failed: $error')),
+                    );
+                  }
+                },
+              ),
+            ));
+          },
+        ),
         for (final model in AiModel.values.where((model) => model != AiModel.translator && model != AiModel.speaker))
           FutureBuilder<bool>(
             future: _modelCheck(model),
