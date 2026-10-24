@@ -613,13 +613,11 @@ class MainActivity : FlutterActivity() {
                                 "synthesis/${System.nanoTime()}"
                             )
 
-                            val clips = PiperSpeechSynthesizer(
-                                applicationContext
+                            val clips = SupertonicSpeechSynthesizer(
+                                applicationContext,
+                                File(filesDir, "supertonic3")
                             ).use { synthesizer ->
-                                synthesizer.synthesize(
-                                    request,
-                                    directory
-                                )
+                                synthesizer.synthesize(request, directory)
                             }
 
                             val output = clips.map { clip ->
