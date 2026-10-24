@@ -1,8 +1,7 @@
 import 'dart:math' as math;
 import '../models/dub_project.dart';
 
-/// Evidence-backed scene retrieval. The catalog must be built from licensed,
-/// independently timed reference transcripts; no guessed episode/timestamp.
+/// A scene match identifies a candidate, never an acoustic speaker.
 class AnimeSceneCandidate {
   final String animeId, title, episodeId;
   final double referenceStartSeconds, confidence;
@@ -19,7 +18,6 @@ class AnimeSceneCandidate {
   };
 }
 
-/// Each entry represents consecutive lines, not a general franchise synopsis.
 class AnimeSceneReference {
   final String animeId, title, episodeId;
   final double startSeconds;
@@ -29,8 +27,7 @@ class AnimeSceneReference {
   const AnimeSceneReference({
     required this.animeId, required this.title, required this.episodeId,
     required this.startSeconds, required this.dialogue,
-    this.characters = const [],
-    this.frameHashes = const [],
+    this.characters = const [], this.frameHashes = const [],
   });
   factory AnimeSceneReference.fromJson(Map<String, dynamic> value) =>
       AnimeSceneReference(
@@ -39,76 +36,26 @@ class AnimeSceneReference {
         episodeId: value['episode_id'] as String,
         startSeconds: (value['start_seconds'] as num).toDouble(),
         dialogue: List<String>.from(value['dialogue'] as List),
-        characters: [for (final person in value['characters'] as List? ?? [])
-          Map<String, String>.from(person as Map)],
+        characters: [
+          for (final person in value['characters'] as List? ?? [])
+            Map<String, String>.from(person as Map),
+        ],
         frameHashes: List<String>.from(value['frame_hashes'] as List? ?? []),
       );
 }
 
 class AnimeSceneMatcher {
   const AnimeSceneMatcher();
+
   int? _parseHash(String text) {
-    if (!RegExp(r'^[0-9a-fA-F]{16} => text.toLowerCase()
-      .replaceAll(RegExp(r'[\\s.,!?;:「」『』。、！？…—–()\\[\\]\\-]+'), '');
-  /// Strict ordered matching minimizes false identification from common
-  /// greetings. The result is a candidate, never automatic speaker identity.
-  AnimeSceneCandidate? identify(
-      List<DubSegment> segments, List<AnimeSceneReference> corpus,
-      {List<String> observedFrameHashes = const []}) {
-    final lines = segments.map((s) => _normalized(s.original))
-        .where((s) => s.length >= 8).toList();
-    if (lines.length < 3 || corpus.isEmpty) return null;
-    final results = <AnimeSceneCandidate>[];
-    for (final entry in corpus) {
-      if (entry.animeId.isEmpty || entry.episodeId.isEmpty ||
-          !entry.startSeconds.isFinite || entry.startSeconds < 0) continue;
-      final reference = entry.dialogue.map(_normalized).toList();
-      var best = 0;
-        for (var i = 0; i < reference.length; i++) {
-        var count = 0;
-        while (count < lines.length && i + count < reference.length &&
-            reference[i + count] == lines[count]) {
-          count++;
-        }
-        if (count > best) best = count;
-      }
-      if (best < 3) continue;
-      // When frames are supplied, reject contradictory references. Hashes are
-      // 64-bit dHashes of rights-cleared reference frames, not identity proof.
-      if (observedFrameHashes.isNotEmpty) {
-        if (entry.frameHashes.isEmpty) continue;
-        var nearest = 65;
-        for (final observed in observedFrameHashes) {
-          final a = _parseHash(observed);
-          if (a == null) continue;
-          for (final referenceHash in entry.frameHashes) {
-            final b = _parseHash(referenceHash);
-            if (b == null) continue;
-            final distance = _hamming(a, b);
-            if (distance < nearest) nearest = distance;
-          }
-        }
-        if (nearest > 8) continue;
-      }
-      final confidence = best / math.max(3, lines.length);
-      results.add(AnimeSceneCandidate(entry.animeId, entry.title,
-          entry.episodeId, entry.startSeconds, confidence, best,
-          entry.characters));
-    }
-    results.sort((a,b) => b.confidence.compareTo(a.confidence));
-    if (results.isEmpty || results.first.confidence < 0.8 ||
-        (results.length > 1 &&
-          results.first.confidence - results[1].confidence < 0.15)) return null;
-    return results.first;
-  }
-}
-).hasMatch(text)) return null;
+    if (text.length != 16 ||
+        !RegExp(r'^[0-9a-fA-F]+$').hasMatch(text)) return null;
     return int.tryParse(text, radix: 16);
   }
 
   int _hamming(int a, int b) {
-    var value = a ^ b;
     var bits = 0;
+    var value = a ^ b;
     while (value != 0) {
       value &= value - 1;
       bits++;
@@ -116,10 +63,12 @@ class AnimeSceneMatcher {
     return bits;
   }
 
-  String _normalized(String text) => text.toLowerCase()
-      .replaceAll(RegExp(r'[\\s.,!?;:「」『』。、！？…—–()\\[\\]\\-]+'), '');
-  /// Strict ordered matching minimizes false identification from common
-  /// greetings. The result is a candidate, never automatic speaker identity.
+  String _normalized(String text) => text.toLowerCase().replaceAll(
+      RegExp(r'[\s.,!?;:「」『』。、！？…—–()\[\]-]+'), '');
+
+  /// Requires three ordered substantial lines, >=80% coverage, and a
+  /// >=15-point margin over any competing candidate.
+  /// Optional 64-bit dHashes must corroborate, never override, dialogue.
   AnimeSceneCandidate? identify(
       List<DubSegment> segments, List<AnimeSceneReference> corpus,
       {List<String> observedFrameHashes = const []}) {
@@ -132,7 +81,7 @@ class AnimeSceneMatcher {
           !entry.startSeconds.isFinite || entry.startSeconds < 0) continue;
       final reference = entry.dialogue.map(_normalized).toList();
       var best = 0;
-        for (var i = 0; i < reference.length; i++) {
+      for (var i = 0; i < reference.length; i++) {
         var count = 0;
         while (count < lines.length && i + count < reference.length &&
             reference[i + count] == lines[count]) {
@@ -141,19 +90,16 @@ class AnimeSceneMatcher {
         if (count > best) best = count;
       }
       if (best < 3) continue;
-      // When frames are supplied, reject contradictory references. Hashes are
-      // 64-bit dHashes of rights-cleared reference frames, not identity proof.
       if (observedFrameHashes.isNotEmpty) {
         if (entry.frameHashes.isEmpty) continue;
         var nearest = 65;
         for (final observed in observedFrameHashes) {
           final a = _parseHash(observed);
           if (a == null) continue;
-          for (final referenceHash in entry.frameHashes) {
-            final b = _parseHash(referenceHash);
+          for (final expected in entry.frameHashes) {
+            final b = _parseHash(expected);
             if (b == null) continue;
-            final distance = _hamming(a, b);
-            if (distance < nearest) nearest = distance;
+            nearest = math.min(nearest, _hamming(a, b));
           }
         }
         if (nearest > 8) continue;
@@ -163,10 +109,12 @@ class AnimeSceneMatcher {
           entry.episodeId, entry.startSeconds, confidence, best,
           entry.characters));
     }
-    results.sort((a,b) => b.confidence.compareTo(a.confidence));
+    results.sort((a, b) => b.confidence.compareTo(a.confidence));
     if (results.isEmpty || results.first.confidence < 0.8 ||
         (results.length > 1 &&
-          results.first.confidence - results[1].confidence < 0.15)) return null;
+            results.first.confidence - results[1].confidence < 0.15)) {
+      return null;
+    }
     return results.first;
   }
 }
