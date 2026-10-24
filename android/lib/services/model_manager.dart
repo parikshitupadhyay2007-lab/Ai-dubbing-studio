@@ -94,7 +94,7 @@ class ModelManager {
   }
 
   Future<bool> _validWhisper(File file) async {
-    if (!await _valid(file) || await file.length() != 147951465) return false;
+    if (!await _valid(file) || await file.length() < 100000000) return false;
     final reader = await file.open();
     try {
       final header = await reader.read(4);
@@ -197,7 +197,7 @@ class ModelManager {
       final valid = await _validWhisper(destination);
       if (!valid) {
         final size = await destination.exists() ? await destination.length() : 0;
-        debugPrint('Whisper validation failed: expected 147951465 bytes and little-endian ggml magic (lmgg); found $size bytes at ${destination.path}');
+        debugPrint('Whisper validation failed: expected a complete GGML checkpoint and little-endian ggml magic (lmgg); found $size bytes at ${destination.path}');
       }
       return valid;
     }
