@@ -525,10 +525,15 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
       return;
     }
     final choices = <String, String?>{
-      for (final speaker in candidateSpeakers)
+      for (final speaker in speakers)
         speaker: voices.any((v) => v.id == project.characterVoices[speaker])
             ? project.characterVoices[speaker] : null,
     };
+    List<String> activeSpeakers() => <String>{
+      ...speakers,
+      ...speakerChoices.values.whereType<String>(),
+    }.toList()..sort();
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
@@ -561,7 +566,7 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
                     ],
                     onChanged: (value) => update(() => speakerChoices[segment.id] = value),
                   ),
-                for (final speaker in candidateSpeakers)
+                for (final speaker in activeSpeakers())
                   DropdownButtonFormField<String>(
                     key: ValueKey('cast_$speaker'),
                     initialValue: choices[speaker],
@@ -583,9 +588,7 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
                 child: const Text('Cancel')),
             FilledButton(
               onPressed: speakerChoices.values.every((value) => value != null) &&
-                  candidateSpeakers.where((speaker) =>
-                      speakers.contains(speaker) || speakerChoices.values.contains(speaker))
-                      .every((speaker) => choices[speaker] != null)
+                  activeSpeakers().every((speaker) => choices[speaker] != null)
                   ? () => Navigator.pop(dialogContext, true) : null,
               child: const Text('Save casting'),
             ),
@@ -609,7 +612,7 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
     await repository.save(project);
     if (mounted) setState(() {
       current = project;
-      status = 'Character voices saved for ${speakers.length} speaker(s). '
+      status = 'Character voices saved for ${usedSpeakers.length} speaker(s). '
           'Tap RESUME MY DUB to continue.';
     });
   }
