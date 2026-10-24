@@ -567,6 +567,18 @@ class OfflineEngine {
     // The model is only used after all components pass verification.
   }
 
+  /// Run on a physical Android device after the model assets are installed.
+  /// Returns two validated WAV file paths and actual inference latency.
+  Future<Map<String, dynamic>> validateSupertonicOnDevice() async {
+    await _installSupertonic();
+    final report = await _invoke('supertonicSmokeTest', <String, dynamic>{});
+    if (report['passed'] != true || report['clips'] is! List ||
+        (report['clips'] as List).length != 2) {
+      throw OfflineEngineException('Supertonic device smoke-test did not pass.');
+    }
+    return report;
+  }
+
   Future<Map<String, dynamic>> synthesize(
     DubProject project,
   ) async {
