@@ -801,10 +801,17 @@ class MainActivity : FlutterActivity() {
                             // retry. Reducing this to "Input: ..." previously
                             // dropped source language, original dialogue and
                             // the meaning-preservation instructions.
-                            val request = if (attempt == 0) prompt else
-                                prompt + "\nIMPORTANT: The previous response was invalid. " +
-                                "Return only the requested final spoken dialogue; " +
-                                "no reasoning, control tokens, labels or commentary."
+                            // A compact retry avoids exhausting small-model output
+                            // budgets on the original verbose prompt.
+                            val request = if (attempt == 0) prompt else if (refine) {
+                                "/no_think\nRewrite this $targetLanguage spoken dialogue naturally " +
+                                    "without changing its meaning. Output only the spoken line.\n" +
+                                    "Dialogue: $input\nAnswer:"
+                            } else {
+                                "/no_think\nTranslate this dialogue from $sourceLanguage to " +
+                                    "$targetLanguage. Output only the translation.\n" +
+                                    "Dialogue: $original\nAnswer:"
+                            }
                             val response = nativeGenerate(
                                 request,
                                 if (attempt == 0) {
@@ -960,11 +967,15 @@ class MainActivity : FlutterActivity() {
             throw IllegalStateException("OtakuMind returned model-control text instead of dialogue.")
         }
         val line = cleaned.lineSequence()
+            .map { it.trim() }
+            .map {
+                it.replace(
+                    Regex("^(Translation|Refined dialogue|Assistant|Answer):\\s*", RegexOption.IGNORE_CASE),
+                    ""
+                ).trim()
+            }
             .firstOrNull { it.isNotBlank() }
-            ?.trim()
             .orEmpty()
-            .replace(Regex("^(Translation|Refined dialogue|Assistant):\\s*", RegexOption.IGNORE_CASE), "")
-            .trim()
             .trim('"', '“', '”')
             .trim()
         if (line.isBlank() || line.startsWith("ERROR:") ||
