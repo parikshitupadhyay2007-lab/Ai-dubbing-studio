@@ -32,6 +32,7 @@ jobs:
 
       - name: Test trained expressive TTS reference plan
         run: python3 -m unittest discover -s tools -p 'test_render_supertonic3_reference.py' -v
+          python3 -m unittest discover -s tools -p 'test_prepare_supertonic3_assets.py' -v
 
       - name: Verify project files
         shell: bash
