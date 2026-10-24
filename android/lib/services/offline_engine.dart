@@ -184,6 +184,23 @@ class OfflineEngine {
             .resolve('speaker/manifest.json')
             .toFilePath();
     final manifest = File(selected);
+    if (speakerModelManifest == null && !await manifest.exists()) {
+      final folder = manifest.parent;
+      await folder.create(recursive: true);
+      for (final name in ['model.onnx', 'LICENSE.txt', 'manifest.json']) {
+        final destination = File('${folder.path}/$name');
+        final bytes = await const MethodChannel(
+          'co.parikshit.otakudub/offline_engine',
+        ).invokeMethod<int>('installBundledAsset', {
+          'asset': 'assets/models/speaker/$name',
+          'destination': destination.path,
+        });
+        if (bytes == null || bytes <= 0 || !await destination.exists() ||
+            await destination.length() != bytes) {
+          throw OfflineEngineException('Cannot install trained speaker asset: $name');
+        }
+      }
+    }
     if (!await manifest.exists()) {
       throw OfflineEngineException(
         'Trained speaker model pack is missing: $selected',
