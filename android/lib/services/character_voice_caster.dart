@@ -10,21 +10,14 @@ class CharacterVoiceCaster {
     Map<String, VoiceRole> preferredRoles = const {},
     Set<String>? installedModelIds,
   }) {
-    final available = VoiceCatalog.forLanguage(
-      project.targetLanguage,
-    ).where((profile) {
-      final modelId = profile.modelId;
-
-      return modelId != null &&
-          (installedModelIds == null ||
-              installedModelIds.contains(modelId));
-    }).toList();
-
-    // Different catalog profiles backed by the same ONNX model are not
-    // independent character voices. Collapse duplicates before casting.
-    final uniqueModels = <String>{};
-    final distinct = available.where((profile) =>
-        uniqueModels.add(profile.modelId!)).toList();
+    // One style represents one independent voice. Piper installation state
+    // must never decide whether a bundled Supertonic preset can be cast.
+    final uniqueStyles = <String>{};
+    final distinct = VoiceCatalog.available(project.targetLanguage)
+        .where((profile) {
+          final style = VoiceCatalog.supertonicStyle(profile.id);
+          return style != null && uniqueStyles.add(style);
+        }).toList();
 
     if (distinct.isEmpty) {
       throw StateError(
