@@ -38,7 +38,7 @@ class AnimeSceneReference {
 class AnimeSceneMatcher {
   const AnimeSceneMatcher();
   String _normalized(String text) => text.toLowerCase()
-      .replaceAll(RegExp(r'[\s\p{P}\p{S}]+', unicode: true), '');
+      .replaceAll(RegExp(r'[\\s.,!?;:「」『』。、！？…—–()\\[\\]\\-]+'), '');
   /// Strict ordered matching minimizes false identification from common
   /// greetings. The result is a candidate, never automatic speaker identity.
   AnimeSceneCandidate? identify(
@@ -52,14 +52,13 @@ class AnimeSceneMatcher {
           !entry.startSeconds.isFinite || entry.startSeconds < 0) continue;
       final reference = entry.dialogue.map(_normalized).toList();
       var best = 0;
-      var offset = 0;
-      for (var i = 0; i < reference.length; i++) {
+        for (var i = 0; i < reference.length; i++) {
         var count = 0;
         while (count < lines.length && i + count < reference.length &&
             reference[i + count] == lines[count]) {
           count++;
         }
-        if (count > best) { best = count; offset = i; }
+        if (count > best) best = count;
       }
       if (best < 3) continue;
       final confidence = best / math.max(3, lines.length);
