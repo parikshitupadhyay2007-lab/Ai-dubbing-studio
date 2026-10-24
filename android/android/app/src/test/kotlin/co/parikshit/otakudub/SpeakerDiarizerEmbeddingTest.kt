@@ -153,17 +153,18 @@ class SpeakerDiarizerEmbeddingTest {
                 SpeakerFeatureExtractor {
                     calls++
                     when (calls) {
-                        1 -> doubleArrayOf(0.97, 0.243)
-                        2 -> doubleArrayOf(1.0, 0.0)
-                        3 -> doubleArrayOf(0.0, 1.0)
-                        else -> doubleArrayOf(1.0, 0.0)
+                        1 -> doubleArrayOf(1.0, 0.0)
+                        2 -> doubleArrayOf(0.0, 1.0)
+                        3 -> doubleArrayOf(kotlin.math.cos(0.85), kotlin.math.sin(0.85))
+                        else -> doubleArrayOf(kotlin.math.cos(0.4), kotlin.math.sin(0.4))
                     }
-                }, 0.02, 0.04
+                }, 0.22, 0.38
             )
-            // An ambiguous early identity becomes attributable once a later
-            // independent speaker profile has been acoustically established.
-            assertEquals("speaker_1", result[0]["speaker_id"])
-            assertTrue((result[0]["speaker_confidence"] as Double) > 0.0)
+            // Segment three is initially too ambiguous to join speaker one.
+            // The fourth observation updates speaker one acoustically, allowing
+            // the third segment to be matched on the final backward pass.
+            assertEquals("speaker_1", result[2]["speaker_id"])
+            assertTrue((result[2]["speaker_confidence"] as Double) > 0.0)
         } finally { file.delete() }
     }
 
