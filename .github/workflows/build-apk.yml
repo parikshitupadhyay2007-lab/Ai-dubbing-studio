@@ -289,7 +289,7 @@ jobs:
             --output "$MODEL_DIR/separation.onnx" \
             "https://huggingface.co/Politrees/UVR_resources/resolve/0472e5cd4e0f77b95ca2df7a8162992e6799fa49/MDXNet_models/UVR-MDX-NET-Inst_HQ_3.onnx"
           echo "317554b07fe1ea5279a77f2b1520a41ea4b93432560c4ffd08792c30fddf9adc  $MODEL_DIR/separation.onnx" | sha256sum --check
-          python3 -m pip install 'onnx>=1.16,<2'
+          python3 -m pip install 'onnx>=1.16,<2' 'onnxruntime>=1.19,<2'
           python3 - <<'PY'
           import json
           import onnx
@@ -378,8 +378,14 @@ jobs:
               raise SystemExit("Unexpected ECAPA model I/O names")
           def dimensions(tensor):
               return [dim.dim_value if dim.HasField("dim_value") else -1 for dim in tensor.type.tensor_type.shape.dim]
-          if (len(dimensions(inputs[0])) != 2 or dimensions(inputs[0])[0] not in (1, -1) or dimensions(outputs[0]) not in ([192], [1, 192], [-1, 192])):
+          if (len(dimensions(inputs[0])) != 2 or dimensions(inputs[0])[0] not in (1, -1) or dimensions(outputs[0]) not in ([192], [-1], [1, 192], [-1, 192])):
               raise SystemExit(f"ECAPA input/output shape changed: {dimensions(inputs[0])} -> {dimensions(outputs[0])}")
+          import numpy as np
+          import onnxruntime as ort
+          session = ort.InferenceSession(str(destination), providers=["CPUExecutionProvider"])
+          probe = session.run(["embedding"], {"waveform": np.zeros((1, 48000), dtype=np.float32)})[0]
+          if probe.size != 192 or not np.isfinite(probe).all():
+              raise SystemExit(f"ECAPA runtime embedding invalid: {probe.shape}")
           if destination.stat().st_size < 35_000_000:
               raise SystemExit("Speaker model incomplete")
           (directory / "LICENSE.txt").write_text("Apache-2.0; upstream " + repo + "; pinned revision " + revision + "\\n")
