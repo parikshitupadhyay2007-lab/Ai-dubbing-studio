@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'character_voice_caster.dart';
 import 'dialogue_quality_gate.dart';
 import 'offline_engine.dart';
+import 'otakumind_director.dart';
 import 'project_repository.dart';
 import 'separation_installation.dart';
 import 'segment_quality_control.dart';
@@ -21,6 +22,8 @@ class DubbingPipeline {
       const CharacterVoiceCaster();
 
   DubbingPipeline(this.engine, this.repository);
+
+  OtakuMindDirector get director => OtakuMindDirector(engine);
 
   Future<void> _stage(
     DubProject project,
@@ -253,27 +256,7 @@ class DubbingPipeline {
           segment.translation, segment.original, project.sourceLanguage,
           project.targetLanguage,
         )) continue;
-        final single = DubProject(
-          id: project.id, title: project.title, sourcePath: project.sourcePath,
-          targetLanguage: project.targetLanguage,
-          sourceLanguage: project.sourceLanguage,
-          segments: [segment], characterVoices: project.characterVoices,
-        );
-        final response = await engine.translate(single);
-        final checked = _checkedSegments(
-          response['segments'], single.segments, 'Translation',
-        );
-        final candidate = checked.single.translation.trim();
-        if (!DialogueQualityGate.acceptableTranslation(
-          candidate, segment.original, project.sourceLanguage,
-          project.targetLanguage,
-        )) {
-          throw OfflineEngineException(
-            'Translation failed validation for segment ${segment.id} '
-            '(${project.sourceLanguage} → ${project.targetLanguage}): '
-            '${DialogueQualityGate.rejectionReason(candidate, segment.original, project.sourceLanguage, project.targetLanguage)}.',
-          );
-        }
+        final candidate = await director.translateLine(project, segment);
         segment.translation = candidate;
         project.refinedSegmentIds.remove(segment.id);
         await repository.save(project); // durable successful-line checkpoint
@@ -294,29 +277,20 @@ class DubbingPipeline {
         );
         // Refinement is optional: a model failure must not discard already
         // validated translations or force an entire project to restart.
-        List<DubSegment> next;
+        // Optional model proposal; invalid or failed output never overwrites
+        // previously validated translation or changes acoustic identity.
+        Map<int, String> accepted;
         try {
-          final refined = await engine.refineDialogue(batch);
-          next = _checkedSegments(refined['segments'], pending, 'Refinement');
+          accepted = await director.refineBatch(project, pending);
         } catch (_) {
-          // Leave these IDs pending so a resumed run can retry refinement.
-          // Continue to synthesis using the previously validated dialogue.
           await repository.save(project);
           continue;
         }
-        // Reject model-control text, wrong-script output, and dramatic
-        // expansion. Keep the already validated translation instead.
-        for (var i = 0; i < pending.length; i++) {
-          final candidate = next[i].translation.trim();
-          final previous = pending[i].translation.trim();
-          final safe = DialogueQualityGate.acceptableTranslation(
-                candidate, pending[i].original, project.sourceLanguage,
-                project.targetLanguage,
-              ) &&
-              candidate.length <= previous.length * 2 + 24;
-          if (safe) {
-            pending[i].translation = candidate;
-            project.refinedSegmentIds.add(pending[i].id);
+        for (final segment in pending) {
+          final candidate = accepted[segment.id];
+          if (candidate != null) {
+            segment.translation = candidate;
+            project.refinedSegmentIds.add(segment.id);
           }
         }
         await repository.save(project);
@@ -347,6 +321,8 @@ class DubbingPipeline {
           );
         }
       }
+
+      director.verifyBeforeSynthesis(project);
 
       // Apply deterministic pre-synthesis quality triage to the actual pipeline.
       // Do not generate an MP4 with unresolved identities, malformed dialogue,
