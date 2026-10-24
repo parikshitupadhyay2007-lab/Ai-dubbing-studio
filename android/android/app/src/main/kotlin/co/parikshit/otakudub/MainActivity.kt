@@ -442,11 +442,46 @@ class MainActivity : FlutterActivity() {
                                 )
                             }
 
-                            val identified =
+                            // A requested trained pack must actually run; never silently
+                            // substitute the handcrafted acoustic baseline on load failure.
+                            val speakerPack = call.argument<String>("speaker_model_manifest")
+                            val identified = if (speakerPack.isNullOrBlank()) {
                                 SpeakerDiarizer.identify(
-                                    workingWav.absolutePath,
-                                    segments
+                                    workingWav.absolutePath, segments
                                 )
+                            } else {
+                                val manifest = org.json.JSONObject(
+                                    File(speakerPack).readText(Charsets.UTF_8)
+                                )
+                                val packDirectory = File(speakerPack).canonicalFile.parentFile
+                                    ?: error("Speaker pack has no parent directory.")
+                                fun packFile(key: String): File {
+                                    val candidate = File(packDirectory, manifest.getString(key)).canonicalFile
+                                    require(candidate.parentFile == packDirectory) {
+                                        "Speaker pack paths must refer to files inside its directory."
+                                    }
+                                    return candidate
+                                }
+                                val config = SpeakerEmbeddingModelConfig(
+                                    modelPath = packFile("model_path").absolutePath,
+                                    sha256 = manifest.getString("model_sha256"),
+                                    sampleRate = manifest.getInt("sample_rate"),
+                                    inputName = manifest.getString("input_name"),
+                                    outputName = manifest.getString("output_name"),
+                                    embeddingDimension = manifest.getInt("embedding_dimension"),
+                                    matchThreshold = manifest.getDouble("match_threshold"),
+                                    newSpeakerThreshold = manifest.getDouble("new_speaker_threshold"),
+                                    licenseRecord = packFile("license_record").absolutePath,
+                                    inputSamples = manifest.getInt("input_samples"),
+                                    preprocessing = manifest.getString("preprocessing")
+                                )
+                                SpeakerOnnxExtractor(config).use { extractor ->
+                                    SpeakerDiarizer.identify(
+                                        workingWav.absolutePath, segments, extractor,
+                                        config.matchThreshold, config.newSpeakerThreshold
+                                    )
+                                }
+                            }
 
                             runOnUiThread {
                                 result.success(
