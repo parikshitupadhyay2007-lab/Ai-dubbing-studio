@@ -13,6 +13,17 @@ class EngineCoordination(unittest.TestCase):
         self.assertIn("await _installSupertonic();", flutter)
         self.assertEqual(flutter.count("Future<void> _installSupertonic()"), 1)
         self.assertEqual(flutter.count("Future<Map<String, dynamic>> synthesize("), 1)
+    def test_no_duplicated_or_truncated_flutter_engine(self):
+        flutter = source("android/lib/services/offline_engine.dart")
+        for signature in (
+            "Future<void> _installSupertonic()",
+            "Future<Map<String, dynamic>> synthesize(",
+            "Future<Map<String, dynamic>> transcribe(",
+            "Future<List<String>> sampleSceneFrameHashes(",
+        ):
+            self.assertEqual(flutter.count(signature), 1, signature)
+        self.assertTrue(flutter.rstrip().endswith("}"))
+        self.assertNotIn(").hasMatch(hash))) {\\n      throw OfflineEngineException", flutter)
     def test_pipeline_does_not_gate_on_piper(self):
         pipeline = source("android/lib/services/dubbing_pipeline.dart")
         caster = source("android/lib/services/character_voice_caster.dart")
