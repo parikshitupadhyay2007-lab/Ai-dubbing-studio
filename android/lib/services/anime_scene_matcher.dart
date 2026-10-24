@@ -7,12 +7,15 @@ class AnimeSceneCandidate {
   final String animeId, title, episodeId;
   final double referenceStartSeconds, confidence;
   final int matchingLines;
+  final List<Map<String, String>> possibleCharacters;
   const AnimeSceneCandidate(this.animeId, this.title, this.episodeId,
-      this.referenceStartSeconds, this.confidence, this.matchingLines);
+      this.referenceStartSeconds, this.confidence, this.matchingLines,
+      this.possibleCharacters);
   Map<String, dynamic> toJson() => {
     'anime_id': animeId, 'title': title, 'episode_id': episodeId,
     'reference_start_seconds': referenceStartSeconds,
     'confidence': confidence, 'matching_lines': matchingLines,
+    'possible_characters': possibleCharacters,
   };
 }
 
@@ -21,9 +24,11 @@ class AnimeSceneReference {
   final String animeId, title, episodeId;
   final double startSeconds;
   final List<String> dialogue;
+  final List<Map<String, String>> characters;
   const AnimeSceneReference({
     required this.animeId, required this.title, required this.episodeId,
     required this.startSeconds, required this.dialogue,
+    this.characters = const [],
   });
   factory AnimeSceneReference.fromJson(Map<String, dynamic> value) =>
       AnimeSceneReference(
@@ -32,6 +37,8 @@ class AnimeSceneReference {
         episodeId: value['episode_id'] as String,
         startSeconds: (value['start_seconds'] as num).toDouble(),
         dialogue: List<String>.from(value['dialogue'] as List),
+        characters: [for (final person in value['characters'] as List? ?? [])
+          Map<String, String>.from(person as Map)],
       );
 }
 
@@ -63,7 +70,8 @@ class AnimeSceneMatcher {
       if (best < 3) continue;
       final confidence = best / math.max(3, lines.length);
       results.add(AnimeSceneCandidate(entry.animeId, entry.title,
-          entry.episodeId, entry.startSeconds, confidence, best));
+          entry.episodeId, entry.startSeconds, confidence, best,
+          entry.characters));
     }
     results.sort((a,b) => b.confidence.compareTo(a.confidence));
     if (results.isEmpty || results.first.confidence < 0.8 ||
