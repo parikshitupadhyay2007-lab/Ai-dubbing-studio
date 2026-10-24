@@ -50,40 +50,6 @@ class DubbingPipeline {
     ];
   }
 
-  // Native stages must preserve the original timeline and segment identity.
-  // Otherwise dialogue can silently be dubbed with the wrong character voice.
-  List<DubSegment> _checkedSegments(
-    dynamic response,
-    List<DubSegment> previous,
-    String stage,
-  ) {
-    final next = _parseSegments(response);
-    if (next.length != previous.length) {
-      throw OfflineEngineException(
-        '$stage changed the number of dialogue segments.',
-      );
-    }
-    if (next.map((segment) => segment.id).toSet().length != next.length) {
-      throw OfflineEngineException('$stage returned duplicate segment IDs.');
-    }
-    for (var i = 0; i < next.length; i++) {
-      final before = previous[i];
-      final after = next[i];
-      if (after.id != before.id ||
-          after.original != before.original ||
-          after.speakerId != before.speakerId ||
-          (after.start - before.start).abs() > 0.001 ||
-          (after.end - before.end).abs() > 0.001 ||
-          !after.start.isFinite || !after.end.isFinite ||
-          after.start < 0 || after.end <= after.start) {
-        throw OfflineEngineException(
-          '$stage changed speaker identity or timing for segment ${before.id}.',
-        );
-      }
-    }
-    return next;
-  }
-
   Future<void> _assignCharacterVoices(
     DubProject project,
   ) async {
@@ -270,11 +236,6 @@ class DubbingPipeline {
         final pending = project.segments.skip(offset).take(batchSize)
             .where((segment) => !project.refinedSegmentIds.contains(segment.id)).toList();
         if (pending.isEmpty) continue;
-        final batch = DubProject(
-          id: project.id, title: project.title, sourcePath: project.sourcePath,
-          targetLanguage: project.targetLanguage, sourceLanguage: project.sourceLanguage,
-          segments: pending, characterVoices: project.characterVoices,
-        );
         // Refinement is optional: a model failure must not discard already
         // validated translations or force an entire project to restart.
         // Optional model proposal; invalid or failed output never overwrites
