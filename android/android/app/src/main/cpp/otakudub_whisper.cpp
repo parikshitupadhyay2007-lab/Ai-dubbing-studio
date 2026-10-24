@@ -267,6 +267,9 @@ Java_co_parikshit_otakudub_MainActivity_nativeTranscribeWav(
         "(D)V"
     );
 
+    std::string detectedLanguage = lang;
+    const bool automaticLanguage = lang.empty() || lang == "auto" || lang == "unknown";
+    if (automaticLanguage) detectedLanguage.clear();
     for (size_t offset = 0; offset < audio.size(); offset += chunkSamples) {
         const size_t length = std::min(chunkSamples, audio.size() - offset);
         const int status = whisper_full(context, params, audio.data() + offset,
@@ -276,6 +279,20 @@ Java_co_parikshit_otakudub_MainActivity_nativeTranscribeWav(
             env->ThrowNew(env->FindClass("java/lang/IllegalStateException"),
                           "Offline Whisper failed while processing an audio chunk.");
             return nullptr;
+        }
+        if (automaticLanguage && detectedLanguage.empty()) {
+            const int languageId = whisper_full_lang_id(context);
+            const char* code = languageId >= 0 ? whisper_lang_str(languageId) : nullptr;
+            if (!code || !*code) {
+                whisper_free(context);
+                env->ThrowNew(env->FindClass("java/lang/IllegalStateException"),
+                              "Whisper did not detect a source language.");
+                return nullptr;
+            }
+            detectedLanguage = code;
+            // Subsequent chunks must use the same detected language instead of
+            // re-detecting independently and silently mixing language outputs.
+            params.language = detectedLanguage.c_str();
         }
         const double timeOffset = static_cast<double>(offset) / 16000.0;
         const int count = whisper_full_n_segments(context);
@@ -343,5 +360,14 @@ Java_co_parikshit_otakudub_MainActivity_nativeTranscribeWav(
 
     whisper_free(context);
 
-    return segments;
+    jobject response = env->NewObject(mapClass, mapConstructor);
+    auto putResponse = [&](const char* key, jobject value) {
+        jstring javaKey = env->NewStringUTF(key);
+        env->CallObjectMethod(response, putMethod, javaKey, value);
+        env->DeleteLocalRef(javaKey);
+        env->DeleteLocalRef(value);
+    };
+    putResponse("segments", segments);
+    putResponse("language", env->NewStringUTF(detectedLanguage.c_str()));
+    return response;
 }
