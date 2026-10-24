@@ -9,6 +9,8 @@ import android.content.ContentValues
 import android.content.ContentUris
 import android.provider.MediaStore
 import android.os.Build
+import android.media.MediaMetadataRetriever
+import android.graphics.Bitmap
 import androidx.core.content.ContextCompat
 import java.io.FileOutputStream
 import java.util.concurrent.Executors
@@ -177,6 +179,54 @@ class MainActivity : FlutterActivity() {
                                 result.error("ASSET_INSTALL_FAILED",
                                     error.message ?: "Bundled model extraction failed.", null)
                             }
+                        }
+                    }
+                }
+
+                "sampleSceneFrameHashes" -> {
+                    val path = call.argument<String>("source_path")
+                    if (path.isNullOrBlank() || !File(path).isFile) {
+                        result.error("INVALID_SOURCE", "Video source is missing.", null)
+                        return@setMethodCallHandler
+                    }
+                    executor.execute {
+                        val retriever = MediaMetadataRetriever()
+                        try {
+                            retriever.setDataSource(path)
+                            val durationMs = retriever.extractMetadata(
+                                MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()
+                                ?: error("Video duration unavailable.")
+                            if (durationMs <= 0) error("Invalid video duration.")
+                            val hashes = mutableListOf<String>()
+                            val sampleMs = listOf(0L, durationMs / 4, durationMs / 2,
+                                durationMs * 3 / 4, (durationMs - 1000L).coerceAtLeast(0L))
+                                .distinct()
+                            for (timeMs in sampleMs) {
+                                val frame = retriever.getFrameAtTime(
+                                    timeMs * 1000L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                                    ?: continue
+                                val small = Bitmap.createScaledBitmap(frame, 9, 8, true)
+                                frame.recycle()
+                                var bits = 0L
+                                for (y in 0 until 8) for (x in 0 until 8) {
+                                    val left = small.getPixel(x, y)
+                                    val right = small.getPixel(x + 1, y)
+                                    fun luminance(pixel: Int): Int =
+                                        (android.graphics.Color.red(pixel) * 299 +
+                                            android.graphics.Color.green(pixel) * 587 +
+                                            android.graphics.Color.blue(pixel) * 114) / 1000
+                                    bits = (bits shl 1) or
+                                        (if (luminance(left) > luminance(right)) 1L else 0L)
+                                }
+                                small.recycle()
+                                hashes.add(java.lang.Long.toUnsignedString(bits, 16).padStart(16, '0'))
+                            }
+                            runOnUiThread { result.success(mapOf("frame_hashes" to hashes)) }
+                        } catch (error: Exception) {
+                            runOnUiThread { result.error("SCENE_FRAME_ERROR",
+                                error.message ?: "Could not sample scene frames.", null) }
+                        } finally {
+                            retriever.release()
                         }
                     }
                 }
