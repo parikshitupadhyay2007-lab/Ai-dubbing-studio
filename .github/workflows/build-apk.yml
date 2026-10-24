@@ -206,12 +206,12 @@ jobs:
             --retry 5 \
             --retry-delay 5 \
             --output "$MODEL_DIR/whisper.bin" \
-            "https://huggingface.co/ggerganov/whisper.cpp/resolve/90a64d80ea254cf67575b41a5971f972c79f7b45/ggml-small.bin"
+            "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin"
 
-          echo "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b  $MODEL_DIR/whisper.bin" \
+          echo "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2  $MODEL_DIR/whisper.bin" \
             | sha256sum --check --status
 
-          test "$(stat -c%s "$MODEL_DIR/whisper.bin")" -ge 450000000
+          test "$(stat -c%s "$MODEL_DIR/whisper.bin")" -ge 550000000
           python3 - <<'PY'
           from pathlib import Path
           model = Path("android/assets/models/whisper.bin")
@@ -410,7 +410,7 @@ jobs:
           import json, hashlib
           root = Path("android/assets/models")
           required = {
-              "whisper.bin": 450000000,
+              "whisper.bin": 550000000,
               "otakumind.gguf": 1200000000,
               "separation.onnx": 1000000,
               "separation.json": 10,
@@ -456,7 +456,7 @@ jobs:
           import json
           root = Path("android/assets/models")
           required = {
-              "whisper.bin": 450000000,
+              "whisper.bin": 550000000,
               "otakumind.gguf": 1200000000,
               "separation.onnx": 1000000,
               "separation.json": 10,
@@ -656,7 +656,7 @@ jobs:
           import zipfile, json
           apk = Path("android/build/app/outputs/flutter-apk/app-release.apk")
           required = {
-              "assets/flutter_assets/assets/models/whisper.bin": 100000000,
+              "assets/flutter_assets/assets/models/whisper.bin": 550000000,
               "assets/flutter_assets/assets/models/otakumind.gguf": 400000000,
               "assets/flutter_assets/assets/models/separation.onnx": 1000000,
               "assets/flutter_assets/assets/models/separation.json": 10,
