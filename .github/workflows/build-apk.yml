@@ -26,6 +26,10 @@ jobs:
         shell: bash
         run: python3 -m unittest discover -s tools -p 'test_evaluate_speaker_diarization.py' -v
 
+      - name: Test speaker model release qualification
+        shell: bash
+        run: python3 -m unittest discover -s tools -p 'test_verify_speaker_model_release.py' -v
+
       - name: Verify project files
         shell: bash
         run: |
