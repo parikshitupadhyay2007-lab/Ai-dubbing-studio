@@ -272,7 +272,11 @@ class OfflineEngine {
       throw OfflineEngineException('Invalid Supertonic manifest.');
     }
     final entries = manifest['assets'] as Map<String, dynamic>;
-    final root = Directory('${(await getApplicationSupportDirectory()).path}/supertonic3');
+    final nativePath = await _channel.invokeMethod<String>('supertonicModelDirectory');
+    if (nativePath == null || nativePath.isEmpty) {
+      throw OfflineEngineException('Native Supertonic model directory unavailable.');
+    }
+    final root = Directory(nativePath);
     for (final entry in entries.entries) {
       final name = entry.key;
       final parts = name.split('/');
