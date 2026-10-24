@@ -22,6 +22,10 @@ jobs:
         shell: bash
         run: python3 -m unittest discover -s tools -p 'test_evaluate_translation.py' -v
 
+      - name: Test speaker identity evaluation
+        shell: bash
+        run: python3 -m unittest discover -s tools -p 'test_evaluate_speaker_diarization.py' -v
+
       - name: Verify project files
         shell: bash
         run: |
