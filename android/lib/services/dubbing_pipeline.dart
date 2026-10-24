@@ -252,6 +252,20 @@ class DubbingPipeline {
         await _assignCharacterVoices(project); // casting checkpoint
       }
 
+      // Legacy checkpoints may contain the literal request value "auto":
+      // older native transcription echoed it instead of detected language.
+      // Never infer Japanese from the filename or blindly pass "auto" to MT.
+      if (project.sourceLanguage.trim().isEmpty ||
+          const {'auto', 'unknown'}.contains(
+            project.sourceLanguage.trim().toLowerCase())) {
+        throw OfflineEngineException(
+          'This project has no detected source language (legacy auto '
+          'checkpoint). Re-import the video after installing an engine '
+          'that reports Whisper detected language. Existing translations '
+          'cannot be validated against an unknown source.',
+        );
+      }
+
       // Translate and commit each segment independently. A later malformed
       // response must not discard earlier valid dialogue in the same batch.
       await _stage(project, ProjectStage.translating, onProgress);
