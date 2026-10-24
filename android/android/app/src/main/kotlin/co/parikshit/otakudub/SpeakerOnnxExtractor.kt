@@ -36,10 +36,12 @@ class SpeakerOnnxExtractor(
                 require(input.type.toString() == "FLOAT" && output.type.toString() == "FLOAT") {
                     "Speaker ONNX tensors must be Float32."
                 }
-                require(input.shape.contentEquals(longArrayOf(1, config.inputSamples.toLong()))) {
+                require(input.shape.size == 2 && input.shape[0] == 1L &&
+                    (input.shape[1] == -1L || input.shape[1] == config.inputSamples.toLong())) {
                     "Speaker ONNX input shape does not match verified waveform contract."
                 }
-                require(output.shape.contentEquals(longArrayOf(1, config.embeddingDimension.toLong()))) {
+                require(output.shape.contentEquals(longArrayOf(config.embeddingDimension.toLong())) ||
+                    output.shape.contentEquals(longArrayOf(1, config.embeddingDimension.toLong()))) {
                     "Speaker ONNX output shape does not match verified embedding contract."
                 }
             } catch (error: Throwable) {
