@@ -22,6 +22,24 @@ void main() {
     expect(VoiceCatalog.byId('en_hero').role, VoiceRole.female);
   });
 
+  test('every bundled profile has role-compatible Supertonic style', () {
+    for (final language in ['hi', 'en']) {
+      final voices = VoiceCatalog.available(language);
+      expect(voices.length, 12);
+      for (final voice in voices) {
+        final style = VoiceCatalog.supertonicStyle(voice.id);
+        expect(style, isNotNull, reason: voice.id);
+        if (voice.role == VoiceRole.male) {
+          expect(style!.startsWith('M'), isTrue, reason: voice.id);
+        } else {
+          expect(style!.startsWith('F'), isTrue, reason: voice.id);
+        }
+      }
+    }
+    expect(VoiceCatalog.supertonicStyle('en_hero'), 'F1');
+    expect(VoiceCatalog.supertonicStyle('en_young_male'), 'M2');
+  });
+
   test('unknown voice ID is rejected rather than silently substituted', () {
     expect(() => VoiceCatalog.byId('nonexistent_voice'), throwsArgumentError);
   });
