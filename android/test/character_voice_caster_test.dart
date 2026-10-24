@@ -52,6 +52,18 @@ void main() {
     expect(project.characterVoices, before);
   });
 
+  test('different characters receive distinct synthesis styles when possible', () {
+    final project = DubProject(
+      id: 'style-test', title: 'test', sourcePath: 'source.mp4',
+      targetLanguage: 'hi',
+      segments: [for (var i = 1; i <= 5; i++) line(i, 'speaker_$i')],
+    );
+    const CharacterVoiceCaster().assign(project);
+    final styles = project.characterVoices.values
+        .map(VoiceCatalog.supertonicStyle).toList();
+    expect(styles.toSet().length, 5);
+  });
+
   test('saved casting is preserved rather than overwritten', () {
     final project = DubProject(
       id: 'test', title: 'test', sourcePath: 'source.mp4',
