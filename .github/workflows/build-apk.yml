@@ -368,6 +368,16 @@ jobs:
               print(profile, "verified:", model.stat().st_size, "bytes")
           PY
 
+      - name: Bundle verified Supertonic 3 four-stage inference pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install 'huggingface_hub>=0.30,<3'
+          python3 tools/prepare_supertonic3_assets.py --output android/assets/models/supertonic3
+          test -s android/assets/models/supertonic3/asset_manifest.json
+          test -s android/assets/models/supertonic3/LICENSE
+          test -s android/assets/models/supertonic3/onnx/vocoder.onnx
+
       - name: Bundle trained ECAPA speaker embedding checkpoint
         shell: bash
         run: |
