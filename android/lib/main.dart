@@ -415,6 +415,11 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
 
   late final engine = OfflineEngine(models);
   late final pipeline = DubbingPipeline(engine, repository);
+  late Future<Map<String, dynamic>> _speakerCheck = engine.speakerEngineStatus();
+
+  void _refreshSpeakerCheck() {
+    setState(() => _speakerCheck = engine.speakerEngineStatus());
+  }
 
   int tab = 0;
   String language = 'hi';
@@ -903,7 +908,7 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
         ),
         const SizedBox(height: 12),
         FutureBuilder<Map<String, dynamic>>(
-          future: engine.speakerEngineStatus(),
+          future: _speakerCheck,
           builder: (context, snapshot) {
             final state = snapshot.data;
             final verified = state?['verified'] == true;
@@ -923,7 +928,7 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
                   try {
                     final result = await engine.speakerEngineStatus(repair: true);
                     if (!mounted) return;
-                    setState(() {});
+                    _refreshSpeakerCheck();
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('${result['status']}')),
                     );
