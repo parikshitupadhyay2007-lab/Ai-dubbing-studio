@@ -166,7 +166,22 @@ class DubbingPipeline {
         final references = entries.map((entry) =>
             AnimeSceneReference.fromJson(Map<String, dynamic>.from(entry as Map)))
             .toList();
-        director.identifyScene(project, references);
+        // Visual evidence is optional: older/audio-only files and unsupported
+        // codecs must still dub, but cannot claim multimodal corroboration.
+        List<String> frameHashes = const [];
+        if (references.any((reference) => reference.frameHashes.isNotEmpty)) {
+          try {
+            frameHashes = await engine.sampleSceneFrameHashes(project.sourcePath);
+          } catch (_) {
+            // No frame evidence: text-only retrieval remains explicitly marked.
+          }
+        }
+        final candidate = director.identifyScene(project, references,
+            observedFrameHashes: frameHashes);
+        if (candidate != null) {
+          project.animeSceneContext!['evidence'] =
+              frameHashes.isEmpty ? 'dialogue_only' : 'dialogue_and_visual';
+        }
         await repository.save(project);
       }
 
