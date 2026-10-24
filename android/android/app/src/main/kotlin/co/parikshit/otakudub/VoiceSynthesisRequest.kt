@@ -62,23 +62,25 @@ data class VoiceSynthesisRequest(
                     "Voice $profileId has the wrong language."
                 }
 
-                require(File(modelPath).isFile) {
+                val supertonic = data["architecture"] == "supertonic3"
+                require(supertonic) { "Supertonic 3 voice configuration required for $profileId." }
+                require(supertonic || File(modelPath).isFile) {
                     "ONNX file missing for $profileId."
                 }
 
-                require(File(modelPath).length() > 0L) {
+                require(supertonic || File(modelPath).length() > 0L) {
                     "ONNX file is empty for $profileId."
                 }
 
-                require(File(configPath).isFile) {
+                require(supertonic || File(configPath).isFile) {
                     "Voice configuration missing for $profileId."
                 }
 
-                require(File(configPath).length() > 0L) {
+                require(supertonic || File(configPath).length() > 0L) {
                     "Voice configuration is empty for $profileId."
                 }
 
-                require(data["architecture"] == "piper") {
+                require(data["architecture"] == "supertonic3") {
                     "Unsupported architecture for $profileId."
                 }
 
