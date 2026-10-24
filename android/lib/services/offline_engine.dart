@@ -174,13 +174,16 @@ class OfflineEngine {
   }
 
   Future<Map<String, dynamic>> identifySpeakers(
-    DubProject project,
-  ) {
+    DubProject project, {
+    String? speakerModelManifest,
+  }) {
     return _invoke('identifySpeakers', {
       'source_path': project.sourcePath,
       'segments': project.segments
           .map((segment) => segment.toJson())
           .toList(),
+      if (speakerModelManifest != null)
+        'speaker_model_manifest': speakerModelManifest,
     });
   }
 
