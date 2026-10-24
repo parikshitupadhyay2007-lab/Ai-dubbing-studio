@@ -61,6 +61,7 @@ object SpeakerDiarizer {
         )
         val profiles = mutableListOf<VoiceProfile>()
         var embeddingDimensions: Int? = null
+        val observations = arrayOfNulls<DoubleArray>(segments.size)
 
         // Sweep both directions instead of checking every pair of segments.
         // Preserve the original 50 ms tolerance for boundary-level overlap.
@@ -144,6 +145,7 @@ object SpeakerDiarizer {
             }
 
             if (features != null) {
+                observations[entry.index] = features.copyOf()
 
                 var bestIndex = -1
                 var bestDistance = Double.MAX_VALUE
@@ -228,11 +230,31 @@ object SpeakerDiarizer {
             }.toMap()
         }
 
-        // Never convert an unresolved segment into an asserted speaker identity.
-        // Proximity alone is not speaker evidence, even for a recording in which
-        // only one voice has been recognized so far. In particular, assigning a
-        // speaker_id with zero confidence can still trigger incorrect voice casting.
-        return restoreOrder(ordered, identified)
+        // A second *acoustic* pass lets early uncertain lines benefit from
+        // speaker profiles learned from later, clearer dialogue. Do not use
+        // chronology, silence, or nearest-neighbour guessing as identity proof.
+        // Overlapping segments and invalid/short embeddings remain unresolved.
+        val restored = restoreOrder(ordered, identified).toMutableList()
+        val matchThreshold = if (embeddingExtractor == null) MATCH_THRESHOLD else embeddingMatchThreshold!!
+        for (index in restored.indices) {
+            if (restored[index]["speaker_id"] != "unknown" || overlapsByIndex[index]) continue
+            val features = observations[index] ?: continue
+            val distances = profiles.map { profile ->
+                if (embeddingExtractor == null) distance(features, profile.features)
+                else SpeakerFeatureValidation.cosineDistance(features, profile.features)
+            }.withIndex().sortedBy { it.value }
+            val best = distances.firstOrNull() ?: continue
+            val second = distances.getOrNull(1)?.value ?: Double.POSITIVE_INFINITY
+            if (best.value < matchThreshold &&
+                second - best.value >= MIN_MATCH_MARGIN) {
+                restored[index] = restored[index].toMutableMap().apply {
+                    put("speaker_id", "speaker_${best.index + 1}")
+                    put("speaker_confidence",
+                        (1.0 - best.value / matchThreshold).coerceIn(0.0, 0.75))
+                }
+            }
+        }
+        return restored
     }
 
     private fun restoreOrder(
