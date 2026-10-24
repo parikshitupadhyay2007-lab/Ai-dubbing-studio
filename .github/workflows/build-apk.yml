@@ -322,8 +322,8 @@ jobs:
           voices = [
             ("hi_hero", "hi/hi_IN/pratham/medium/hi_IN-pratham-medium",
              "169964b0871667f6793416d4b35e97357a68ba1ad01df8580c28048989ee7693", "hi"),
-            ("en_hero", "en/en_US/lessac/medium/en_US-lessac-medium",
-             "5efe09e69902187827af646e1a6e9d269dee769f9877d17b16b1b46eeaaf019f", "en"),
+            ("en_hero", "en/en_US/lessac/high/en_US-lessac-high",
+             "99d1f6181a7f5ccbe3f117ba8ce63c93", "en"),
             ("hi_heroine", "hi/hi_IN/priyamvada/medium/hi_IN-priyamvada-medium",
              "7d5e20c2d1e72de8ed772f222e679626", "hi"),
             ("en_young_male", "en/en_US/hfc_male/medium/en_US-hfc_male-medium",
@@ -381,9 +381,9 @@ jobs:
                   raise SystemExit("Invalid OtakuMind GGUF header")
           for name, expected in {
               "voices/hi_hero.onnx": "169964b0871667f6793416d4b35e97357a68ba1ad01df8580c28048989ee7693",
-              "voices/en_hero.onnx": "5efe09e69902187827af646e1a6e9d269dee769f9877d17b16b1b46eeaaf019f",
+              "voices/en_hero.onnx": "99d1f6181a7f5ccbe3f117ba8ce63c93",
           }.items():
-              if hashlib.sha256((root / name).read_bytes()).hexdigest() != expected:
+              if (hashlib.sha256((root / name).read_bytes()).hexdigest() if len(expected) == 64 else hashlib.md5((root / name).read_bytes()).hexdigest()) != expected:
                   raise SystemExit("Voice checksum mismatch: " + name)
           for name, language in [("hi_hero", "hi"), ("en_hero", "en")]:
               cfg = json.loads((root / "voices" / (name + ".onnx.json")).read_text())
