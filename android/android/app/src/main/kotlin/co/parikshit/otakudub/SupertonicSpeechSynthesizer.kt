@@ -38,10 +38,20 @@ class SupertonicSpeechSynthesizer(
             require(voice == segment.voiceId) { "Character voice assignment mismatch" }
             require(request.voices.containsKey(voice)) { "Uninstalled character voice" }
             val styleId = when (voice) {
-                "hi_hero", "en_hero" -> "M1"
-                "en_young_male" -> "M2"
-                "hi_heroine" -> "F1"
-                else -> error("Supertonic style not assigned for $voice")
+                "en_hero" -> "F1" // Legacy Lessac English heroine profile
+                else -> when (voice?.removePrefix("hi_")?.removePrefix("en_")) {
+                    "hero" -> "M1"
+                    "young_male" -> "M2"
+                    "deep_male" -> "M3"
+                    "mature_male" -> "M4"
+                    "villain", "rough_male" -> "M5"
+                    "heroine" -> "F1"
+                    "young_female" -> "F2"
+                    "mature_female" -> "F3"
+                    "strong_female" -> "F4"
+                    "youthful_soft", "youthful_bright" -> "F5"
+                    else -> error("Supertonic style not assigned for $voice")
+                }
             }
             val expressivePrefix = when(segment.delivery) {
                 "soft" -> "<breath>"
