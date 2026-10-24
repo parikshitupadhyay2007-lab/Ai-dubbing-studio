@@ -62,6 +62,10 @@ class MainActivity : FlutterActivity() {
 
             when (call.method) {
 
+                "supertonicModelDirectory" -> {
+                    result.success(File(filesDir, "supertonic3").absolutePath)
+                }
+
                 "saveCompletedVideo" -> {
                     val path = call.argument<String>("path")
                     val projectId = call.argument<String>("projectId")
