@@ -3,3 +3,10 @@
 **/*.jks
 **/*.keystore
 **/key.properties
+
+# Local third-party training corpora and rights evidence (never commit)
+private_datasets/
+private/
+datasets/raw/
+datasets/derived/
+*.partial
