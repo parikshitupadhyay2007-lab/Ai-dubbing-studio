@@ -184,7 +184,14 @@ class OfflineEngine {
             .resolve('speaker/manifest.json')
             .toFilePath();
     final manifest = File(selected);
-    if (speakerModelManifest == null && !await manifest.exists()) {
+    final bundledManifest = speakerModelManifest == null
+        ? await rootBundle.loadString('assets/models/speaker/manifest.json')
+        : null;
+    final needsRefresh = bundledManifest != null &&
+        (!await manifest.exists() || await manifest.readAsString() != bundledManifest ||
+         !await File('${manifest.parent.path}/model.onnx').exists() ||
+         !await File('${manifest.parent.path}/LICENSE.txt').exists());
+    if (needsRefresh) {
       final folder = manifest.parent;
       await folder.create(recursive: true);
       for (final name in ['model.onnx', 'LICENSE.txt', 'manifest.json']) {
