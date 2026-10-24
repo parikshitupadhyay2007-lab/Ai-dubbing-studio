@@ -139,6 +139,34 @@ class SpeakerDiarizerEmbeddingTest {
         } finally { file.delete() }
     }
 
+    @Test fun backwardPassRecoversEarlyAmbiguousCleanLineFromLaterSpeakerEvidence() {
+        val file = wav()
+        var calls = 0
+        try {
+            val result = SpeakerDiarizer.identify(
+                file.path, listOf(
+                    line(1, 0.0, 0.6),
+                    line(2, 0.8, 1.4),
+                    line(3, 1.6, 2.2),
+                    line(4, 2.3, 2.9)
+                ),
+                SpeakerFeatureExtractor {
+                    calls++
+                    when (calls) {
+                        1 -> doubleArrayOf(0.97, 0.243)
+                        2 -> doubleArrayOf(1.0, 0.0)
+                        3 -> doubleArrayOf(0.0, 1.0)
+                        else -> doubleArrayOf(1.0, 0.0)
+                    }
+                }, 0.02, 0.04
+            )
+            // An ambiguous early identity becomes attributable once a later
+            // independent speaker profile has been acoustically established.
+            assertEquals("speaker_1", result[0]["speaker_id"])
+            assertTrue((result[0]["speaker_confidence"] as Double) > 0.0)
+        } finally { file.delete() }
+    }
+
     @Test fun changingEmbeddingDimensionsFailsClosed() {
         val file = wav()
         var calls = 0
