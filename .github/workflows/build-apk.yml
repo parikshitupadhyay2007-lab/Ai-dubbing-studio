@@ -203,9 +203,9 @@ jobs:
             --retry 5 \
             --retry-delay 5 \
             --output "$MODEL_DIR/whisper.bin" \
-            "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin"
+            "https://huggingface.co/ggerganov/whisper.cpp/resolve/90a64d80ea254cf67575b41a5971f972c79f7b45/ggml-small.bin"
 
-          echo "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe  $MODEL_DIR/whisper.bin" \
+          echo "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b  $MODEL_DIR/whisper.bin" \
             | sha256sum --check --status
 
           test "$(stat -c%s "$MODEL_DIR/whisper.bin")" -ge 100000000
@@ -239,16 +239,16 @@ jobs:
           from huggingface_hub import HfApi, hf_hub_download
           import shutil
 
-          repo = "tensorblock/Qwen_Qwen3-0.6B-GGUF"
+          repo = "tensorblock/Qwen_Qwen3-1.7B-GGUF"
           files = HfApi().list_repo_files(repo)
           print("AVAILABLE MODEL FILES:", files, flush=True)
           matches = [
               name for name in files
-              if Path(name).name == "Qwen3-0.6B-Q3_K_M.gguf"
+              if Path(name).name == "Qwen3-1.7B-Q4_K_M.gguf"
               ]
           if len(matches) != 1:
               raise SystemExit(
-                  f"Expected one Q3_K_M model; found: {matches}"
+                  f"Expected one Q4_K_M model; found: {matches}"
               )
 
           print(f"Downloading: {matches[0]}")
@@ -264,7 +264,7 @@ jobs:
           shutil.copyfile(source, destination)
 
           size = destination.stat().st_size
-          if size < 400_000_000:
+          if size < 1_200_000_000:
               raise SystemExit("Incomplete model download")
 
           with destination.open("rb") as file:
