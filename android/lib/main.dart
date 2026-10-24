@@ -506,18 +506,26 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
     final speakers = project.segments.map((s) => s.speakerId)
         .where((id) => id.trim().isNotEmpty && id != 'unknown')
         .toSet().toList()..sort();
-    if (speakers.isEmpty) {
-      setState(() => status = 'No reliable speaker identity is available yet.');
-      return;
-    }
-    await const VoiceInstallationRegistry().restore();
+    final unresolved = project.segments.where((segment) =>
+        segment.speakerId.trim().isEmpty || segment.speakerId == 'unknown')
+        .toList();
+    // Uncertain segments require explicit confirmation. Never invent a
+    // speaker identity from timeline proximity or silently cast unknown audio.
+    final speakerChoices = <int, String?>{
+      for (final segment in unresolved) segment.id: null,
+    };
+    final candidateSpeakers = <String>[
+      ...speakers,
+      for (var index = 1; index <= unresolved.length; index++)
+        'speaker_manual_$index',
+    ];
     final voices = VoiceCatalog.available(project.targetLanguage);
     if (voices.isEmpty) {
-      setState(() => status = 'No installed voices for this language.');
+      setState(() => status = 'No bundled Supertonic voices for this language.');
       return;
     }
     final choices = <String, String?>{
-      for (final speaker in speakers)
+      for (final speaker in candidateSpeakers)
         speaker: voices.any((v) => v.id == project.characterVoices[speaker])
             ? project.characterVoices[speaker] : null,
     };
@@ -532,7 +540,28 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
               children: [
                 const Text('Choose a voice for each detected speaker. '
                     'Voice identity cannot be inferred reliably from acoustic clustering.'),
-                for (final speaker in speakers)
+                if (unresolved.isNotEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: Text('These dialogue segments could not be identified reliably. '
+                        'Select an existing speaker or a new identity after checking the source video.'),
+                  ),
+                for (final segment in unresolved)
+                  DropdownButtonFormField<String>(
+                    key: ValueKey('resolve_speaker_${segment.id}'),
+                    initialValue: speakerChoices[segment.id],
+                    decoration: InputDecoration(
+                      labelText: 'Segment ${segment.id} (${segment.start.toStringAsFixed(1)}–${segment.end.toStringAsFixed(1)} s)',
+                      helperText: segment.original.length > 60
+                          ? '${segment.original.substring(0, 60)}…' : segment.original,
+                    ),
+                    items: [
+                      for (final speaker in candidateSpeakers)
+                        DropdownMenuItem(value: speaker, child: Text(speaker)),
+                    ],
+                    onChanged: (value) => update(() => speakerChoices[segment.id] = value),
+                  ),
+                for (final speaker in candidateSpeakers)
                   DropdownButtonFormField<String>(
                     key: ValueKey('cast_$speaker'),
                     initialValue: choices[speaker],
@@ -553,7 +582,10 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
             TextButton(onPressed: () => Navigator.pop(dialogContext, false),
                 child: const Text('Cancel')),
             FilledButton(
-              onPressed: choices.values.every((value) => value != null)
+              onPressed: speakerChoices.values.every((value) => value != null) &&
+                  candidateSpeakers.where((speaker) =>
+                      speakers.contains(speaker) || speakerChoices.values.contains(speaker))
+                      .every((speaker) => choices[speaker] != null)
                   ? () => Navigator.pop(dialogContext, true) : null,
               child: const Text('Save casting'),
             ),
@@ -562,9 +594,15 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
       ),
     );
     if (confirmed != true) return;
+    for (final segment in unresolved) {
+      segment.speakerId = speakerChoices[segment.id]!;
+      segment.speakerConfidence = 0; // Explicitly user-resolved, not model confidence.
+    }
+    final usedSpeakers = project.segments.map((segment) => segment.speakerId).toSet();
     project.characterVoices
       ..clear()
-      ..addAll({for (final entry in choices.entries) entry.key: entry.value!});
+      ..addAll({for (final entry in choices.entries)
+        if (usedSpeakers.contains(entry.key)) entry.key: entry.value!});
     for (final segment in project.segments) {
       segment.voiceId = project.characterVoices[segment.speakerId] ?? '';
     }
