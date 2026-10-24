@@ -157,6 +157,446 @@ class OfflineEngine {
     return result;
   }
 
+  /// Sample native video frames as 64-bit perceptual hashes for retrieval.
+  /// Failure should leave anime identity unknown, not block acoustic dubbing.
+  Future<List<String>> sampleSceneFrameHashes(String sourcePath) async {
+    final result = await _invoke('sampleSceneFrameHashes', {
+      'source_path': sourcePath,
+    });
+    final hashes = result['frame_hashes'];
+    if (hashes is! List || hashes.any((hash) =>
+        hash is! String || !RegExp(r'^[0-9a-fA-F]{16}    DubProject project,
+  ) async {
+    final model = await models.path(AiModel.whisper);
+
+    if (model == null) {
+      throw OfflineEngineException(
+        'Install a compatible offline Whisper model first.',
+      );
+    }
+
+    return _invoke('transcribe', {
+      'source_path': project.sourcePath,
+      'model_path': model,
+      'language': project.sourceLanguage,
+    });
+  }
+
+  /// Installs the bundled ECAPA pack without modifying any saved project.
+  Future<Map<String, dynamic>> speakerEngineStatus({bool repair = false}) async {
+    final selected = (await models.directory).uri
+        .resolve('speaker/manifest.json').toFilePath();
+    final manifest = File(selected);
+    final bundled = await rootBundle.loadString('assets/models/speaker/manifest.json');
+    final folder = manifest.parent;
+    final model = File('${folder.path}/model.onnx');
+    final license = File('${folder.path}/LICENSE.txt');
+    Future<String> state() async {
+      if (!await manifest.exists() || !await model.exists() || !await license.exists()) {
+        return 'Missing speaker model pack';
+      }
+      if (await manifest.readAsString() != bundled) return 'Outdated speaker manifest';
+      final parsed = jsonDecode(bundled) as Map<String, dynamic>;
+      final actual = (await sha256.bind(model.openRead()).first).toString();
+      if (actual != parsed['model_sha256']) return 'ECAPA checksum mismatch';
+      return 'ECAPA pack verified (inference not yet tested)';
+    }
+    var current = await state();
+    if (repair && current != 'ECAPA pack verified (inference not yet tested)') {
+      await folder.create(recursive: true);
+      for (final name in ['model.onnx', 'LICENSE.txt', 'manifest.json']) {
+        final destination = File('${folder.path}/$name');
+        final bytes = await _channel.invokeMethod<int>('installBundledAsset', {
+          'asset': 'assets/models/speaker/$name',
+          'destination': destination.path,
+        });
+        if (bytes == null || bytes <= 0 || !await destination.exists() ||
+            await destination.length() != bytes) {
+          throw OfflineEngineException('Speaker asset installation failed: $name');
+        }
+      }
+      current = await state();
+    }
+    return {'status': current, 'verified': current.startsWith('ECAPA pack verified'),
+      'manifest_path': selected};
+  }
+
+  Future<Map<String, dynamic>> identifySpeakers(
+    DubProject project, {
+    String? speakerModelManifest,
+  }) async {
+    final selected = speakerModelManifest ??
+        (await speakerEngineStatus(repair: true))['manifest_path'] as String;
+    if (speakerModelManifest == null) {
+      final status = await speakerEngineStatus();
+      if (status['verified'] != true) {
+        throw OfflineEngineException('Speaker model: ${status['status']}');
+      }
+    }
+    return _invoke('identifySpeakers', {
+      'source_path': project.sourcePath,
+      'segments': project.segments
+          .map((segment) => segment.toJson())
+          .toList(),
+      'speaker_model_manifest': selected,
+    });
+  }
+
+  Future<Map<String, dynamic>> translate(
+    DubProject project,
+  ) async {
+    final model = await models.path(AiModel.otakuMind);
+
+    if (model == null) {
+      throw OfflineEngineException(
+        'OtakuMind offline language model is missing.',
+      );
+    }
+
+    return _invoke('translate', {
+      'model_path': model,
+      'source_language': project.sourceLanguage,
+      'target_language': project.targetLanguage,
+      'segments': project.segments
+          .map((segment) => segment.toJson())
+          .toList(),
+    });
+  }
+
+  Future<Map<String, dynamic>> refineDialogue(
+    DubProject project,
+  ) async {
+    final model = await models.path(AiModel.otakuMind);
+
+    if (model == null) {
+      throw OfflineEngineException(
+        'OtakuMind local language model is missing.',
+      );
+    }
+
+    return _invoke('refineDialogue', {
+      'model_path': model,
+      'target_language': project.targetLanguage,
+      'segments': project.segments
+          .map((segment) => segment.toJson())
+          .toList(),
+    });
+  }
+
+  Future<void> _installSupertonic() async {
+    final manifestText = await rootBundle.loadString('assets/models/supertonic3/asset_manifest.json');
+    final manifest = jsonDecode(manifestText) as Map<String, dynamic>;
+    if (manifest['engine'] != 'supertonic-3') {
+      throw OfflineEngineException('Invalid Supertonic manifest.');
+    }
+    final entries = manifest['assets'] as Map<String, dynamic>;
+    final nativePath = await _channel.invokeMethod<String>('supertonicModelDirectory');
+    if (nativePath == null || nativePath.isEmpty) {
+      throw OfflineEngineException('Native Supertonic model directory unavailable.');
+    }
+    final root = Directory(nativePath);
+    for (final entry in entries.entries) {
+      final name = entry.key;
+      final parts = name.split('/');
+      if (name.isEmpty || name.startsWith('/') ||
+          parts.any((part) => part.isEmpty || part == '.' || part == '..') ||
+          !RegExp(r'^[a-zA-Z0-9_./-]+$').hasMatch(name)) {
+        throw OfflineEngineException('Invalid Supertonic asset path.');
+      }
+      final spec = entry.value as Map<String, dynamic>;
+      final file = File('${root.path}/$name');
+      final size = (spec['bytes'] as num).toInt();
+      final hash = spec['sha256'] as String;
+      Future<bool> verified() async =>
+          await file.exists() && await file.length() == size &&
+          (await sha256.bind(file.openRead()).first).toString() == hash;
+      if (await verified()) continue;
+      await file.parent.create(recursive: true);
+      final installed = await _channel.invokeMethod<int>('installBundledAsset', {
+        'asset': 'assets/models/supertonic3/$name',
+        'destination': file.path,
+      });
+      if (installed != size || !await verified()) {
+        throw OfflineEngineException('Supertonic asset verification failed: $name');
+      }
+    }
+  }
+
+  Future<Map<String, dynamic>> validateSupertonicOnDevice() async {
+    await _installSupertonic();
+    final report = await _invoke('supertonicSmokeTest', <String, dynamic>{});
+    if (report['passed'] != true || report['clips'] is! List ||
+        (report['clips'] as List).length != 2) {
+      throw OfflineEngineException('Supertonic device test failed.');
+    }
+    return report;
+  }
+
+  Future<Map<String, dynamic>> synthesize(
+    DubProject project,
+  ) async {
+    if (project.targetLanguage != 'hi' &&
+        project.targetLanguage != 'en') {
+      throw OfflineEngineException(
+        'Voice synthesis currently supports Hindi and English.',
+      );
+    }
+
+    if (project.segments.isEmpty) {
+      throw OfflineEngineException(
+        'No dialogue is available for voice synthesis.',
+      );
+    }
+
+    final voiceModels = <String, Map<String, dynamic>>{};
+
+    for (final segment in project.segments) {
+      if (segment.translation.trim().isEmpty) {
+        throw OfflineEngineException(
+          'Translated dialogue is missing for segment ${segment.id}.',
+        );
+      }
+
+      if (segment.end <= segment.start) {
+        throw OfflineEngineException(
+          'Invalid dialogue timing for segment ${segment.id}.',
+        );
+      }
+
+      final speakerId = segment.speakerId.trim();
+      final voiceId = segment.voiceId.trim();
+
+      if (speakerId.isEmpty || speakerId == 'unknown') {
+        throw OfflineEngineException(
+          'Speaker identification is incomplete for segment ${segment.id}.',
+        );
+      }
+
+      if (voiceId.isEmpty) {
+        throw OfflineEngineException(
+          'No voice assigned to segment ${segment.id}.',
+        );
+      }
+
+      if (project.characterVoices[speakerId] != voiceId) {
+        throw OfflineEngineException(
+          'Character voice assignment mismatch for segment ${segment.id}.',
+        );
+      }
+
+      final profile = VoiceCatalog.byId(voiceId);
+
+      if (profile.language != project.targetLanguage) {
+        throw OfflineEngineException(
+          'Voice $voiceId does not support the target language.',
+        );
+      }
+
+      final style = VoiceCatalog.supertonicStyle(voiceId);
+      if (style == null) {
+        throw OfflineEngineException('Supertonic style missing for $voiceId');
+      }
+      voiceModels[voiceId] = {
+        'model_id': 'supertonic-3',
+        'profile_id': voiceId,
+        'model_path': 'bundled-supertonic-3',
+        'config_path': 'bundled-supertonic-3',
+        'architecture': 'supertonic3',
+        'language': project.targetLanguage,
+        'sample_rate': 24000,
+        'num_speakers': 1,
+        'speaker_id_map': <String, int>{},
+      };
+    }
+
+    if (voiceModels.isEmpty) {
+      throw OfflineEngineException(
+        'No usable character voice models were assigned.',
+      );
+    }
+
+    await _installSupertonic();
+    return _invoke('synthesize', {
+      'target_language': project.targetLanguage,
+      'segments': project.segments
+          .map((segment) => segment.toJson())
+          .toList(),
+      'character_voices':
+          Map<String, String>.from(project.characterVoices),
+      'voice_models': voiceModels,
+    });
+  }
+
+  /// Places synthesized WAV clips onto the source video's
+  /// dialogue timeline.
+  Future<Map<String, dynamic>> mixDialogue(
+    DubProject project,
+    List<dynamic> audioClips,
+  ) async {
+    if (audioClips.isEmpty) {
+      throw OfflineEngineException(
+        'Cannot mix an empty dialogue clip list.',
+      );
+    }
+
+    final clips = <Map<String, dynamic>>[];
+
+    for (final item in audioClips) {
+      if (item is! Map) {
+        throw OfflineEngineException(
+          'Invalid synthesized dialogue clip.',
+        );
+      }
+
+      clips.add(Map<String, dynamic>.from(item));
+    }
+
+    final result = await _invoke('mixDialogue', {
+      'source_path': project.sourcePath,
+      'clips': clips,
+    });
+
+    final wavPath = result['wav_path'];
+
+    if (wavPath is! String || wavPath.isEmpty) {
+      throw OfflineEngineException(
+        'Dialogue mixing returned no WAV path.',
+      );
+    }
+
+    if (!await File(wavPath).exists()) {
+      throw OfflineEngineException(
+        'The synchronized dialogue WAV was not created.',
+      );
+    }
+
+    return result;
+  }
+
+  Future<String> mixSoundtrack({
+    required String dialogueWavPath,
+    required String accompanimentPath,
+  }) async {
+    for (final path in [dialogueWavPath, accompanimentPath]) {
+      if (!await File(path).exists()) {
+        throw OfflineEngineException('Required soundtrack WAV is missing: $path');
+      }
+    }
+    final result = await _invoke('mixSoundtrack', {
+      'dialogue_wav_path': dialogueWavPath,
+      'accompaniment_path': accompanimentPath,
+    });
+    final path = result['wav_path'];
+    if (path is! String || !await File(path).exists() ||
+        await File(path).length() <= 44) {
+      throw OfflineEngineException('Soundtrack recombination produced no audio.');
+    }
+    return path;
+  }
+
+  /// Exports a dubbed MP4 using the original video stream
+  /// and synchronized dialogue WAV.
+  ///
+  /// The original soundtrack is replaced, not mixed.
+  Future<Map<String, dynamic>> exportVideo(
+    DubProject project,
+    String dialogueWavPath,
+  ) async {
+    final dialogue = File(dialogueWavPath);
+
+    if (!await dialogue.exists()) {
+      throw OfflineEngineException(
+        'Synchronized dialogue WAV is missing.',
+      );
+    }
+
+    final source = File(project.sourcePath);
+
+    if (!await source.exists()) {
+      throw OfflineEngineException(
+        'Original source video is missing.',
+      );
+    }
+
+    // The imported source may live in a read-only picker/cache directory.
+    // Export into OtakuDub's writable, persistent project storage instead.
+    final docs = await getApplicationDocumentsDirectory();
+    final outputDirectory = Directory(
+      '${docs.path}/otakudub/projects/${project.id}',
+    );
+    await outputDirectory.create(recursive: true);
+
+    final outputPath =
+        '${outputDirectory.path}/OtakuDub-${project.id}.mp4';
+
+    final response = await _invoke('exportVideo', {
+      'source_path': project.sourcePath,
+      'dialogue_wav_path': dialogueWavPath,
+      'output_path': outputPath,
+    });
+
+    final exportedPath = response['output_path'];
+
+    if (exportedPath is! String || exportedPath.isEmpty) {
+      throw OfflineEngineException(
+        'Video export returned no output path.',
+      );
+    }
+
+    final exportedFile = File(exportedPath);
+
+    if (!await exportedFile.exists() ||
+        await exportedFile.length() == 0) {
+      throw OfflineEngineException(
+        'The exported MP4 is missing or empty.',
+      );
+    }
+
+    return response;
+  }
+
+  // Internal OtakuMind access.
+  // The public chatbot interface remains removed.
+
+  Future<String> chat({
+    required String message,
+    required String personality,
+    required String language,
+    required List<Map<String, String>> history,
+  }) async {
+    final model = await models.path(AiModel.otakuMind);
+
+    if (model == null) {
+      throw OfflineEngineException(
+        'OtakuMind GGUF model is missing.',
+      );
+    }
+
+    final response = await _invoke('chat', {
+      'model_path': model,
+      'message': message,
+      'personality': personality,
+      'language': language,
+      'history': history,
+    });
+
+    final reply = response['reply'];
+
+    if (reply is! String || reply.trim().isEmpty) {
+      throw OfflineEngineException(
+        'OtakuMind returned an invalid response.',
+      );
+    }
+
+    return reply;
+  }
+}
+).hasMatch(hash))) {
+      throw OfflineEngineException('Native frame sampler returned invalid hashes.');
+    }
+    return List<String>.from(hashes);
+  }
+
   Future<Map<String, dynamic>> transcribe(
     DubProject project,
   ) async {
