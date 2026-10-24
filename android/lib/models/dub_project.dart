@@ -22,6 +22,7 @@ class DubSegment {
   String speakerId;
   String voiceId;
   double speakerConfidence;
+  String delivery;
 
   DubSegment({
     required this.id,
@@ -32,6 +33,7 @@ class DubSegment {
     this.speakerId = 'unknown',
     this.voiceId = '',
     this.speakerConfidence = 0,
+    this.delivery = 'natural',
   });
 
   factory DubSegment.fromJson(Map<String, dynamic> json) {
@@ -45,6 +47,7 @@ class DubSegment {
       voiceId: json['voice_id'] as String? ?? '',
       speakerConfidence:
           (json['speaker_confidence'] as num?)?.toDouble() ?? 0,
+      delivery: json['delivery'] as String? ?? 'natural',
     );
   }
 
@@ -57,6 +60,7 @@ class DubSegment {
         'speaker_id': speakerId,
         'voice_id': voiceId,
         'speaker_confidence': speakerConfidence,
+        'delivery': delivery,
       };
 }
 
