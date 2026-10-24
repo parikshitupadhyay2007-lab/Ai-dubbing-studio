@@ -165,16 +165,18 @@ class OfflineEngine {
     });
     final hashes = result['frame_hashes'];
     if (hashes is! List || hashes.any((hash) =>
-        hash is! String || !RegExp(r'^[0-9a-fA-F]{16}    DubProject project,
-  ) async {
-    final model = await models.path(AiModel.whisper);
-
-    if (model == null) {
-      throw OfflineEngineException(
-        'Install a compatible offline Whisper model first.',
-      );
+        hash is! String || hash.length != 16 ||
+        !RegExp(r'^[0-9a-fA-F]+').hasMatch(hash))) {
+      throw OfflineEngineException('Native frame sampler returned invalid hashes.');
     }
+    return List<String>.from(hashes);
+  }
 
+  Future<Map<String, dynamic>> transcribe(DubProject project) async {
+    final model = await models.path(AiModel.whisper);
+    if (model == null) {
+      throw OfflineEngineException('Install a compatible offline Whisper model first.');
+    }
     return _invoke('transcribe', {
       'source_path': project.sourcePath,
       'model_path': model,
