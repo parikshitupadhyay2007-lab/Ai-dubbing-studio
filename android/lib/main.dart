@@ -896,8 +896,8 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
           child: Padding(
             padding: EdgeInsets.all(16),
             child: Text(
-              'OtakuMind runs internally for dialogue refinement. '
-              'Translation uses OtakuMind and speaker identification runs in the native engine. Voice synthesis requires compatible installed voice models.',
+              'OtakuMind directs translation, dialogue refinement and engine handoffs offline. '
+              'OtakuMind coordinates specialist transcription, speaker tracking, translation and Supertonic voice synthesis. Uncertain acoustic identity is never invented.',
             ),
           ),
         ),
