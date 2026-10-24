@@ -70,6 +70,14 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Fail fast on Flutter source errors
+        working-directory: android
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter pub get
+          dart analyze --fatal-infos lib/services/offline_engine.dart lib/services/voice_catalog.dart
+
       - name: Install Android SDK
         shell: bash
         run: |
