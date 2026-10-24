@@ -1,5 +1,6 @@
 import '../models/dub_project.dart';
 import 'dialogue_quality_gate.dart';
+import 'anime_scene_matcher.dart';
 import 'offline_engine.dart';
 
 /// OtakuMind is the offline dubbing director, never an interactive chatbot.
@@ -10,6 +11,15 @@ import 'offline_engine.dart';
 class OtakuMindDirector {
   final OfflineEngine engine;
   const OtakuMindDirector(this.engine);
+
+  /// Optional grounded scene lookup, using an explicitly supplied catalog.
+  /// No hit is preferable to claiming an unsupported anime or episode.
+  AnimeSceneCandidate? identifyScene(DubProject project,
+      List<AnimeSceneReference> catalog) {
+    final candidate = const AnimeSceneMatcher().identify(project.segments, catalog);
+    project.animeSceneContext = candidate?.toJson();
+    return candidate;
+  }
 
   List<DubSegment> _checked(
       dynamic raw, List<DubSegment> source, String stage) {
