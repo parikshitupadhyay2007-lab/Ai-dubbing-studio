@@ -48,7 +48,7 @@ class MainActivity : FlutterActivity() {
         modelPath: String,
         wavPath: String,
         language: String
-    ): List<Map<String, Any>>
+    ): Map<String, Any>
 
     override fun configureFlutterEngine(
         flutterEngine: FlutterEngine
@@ -334,11 +334,27 @@ class MainActivity : FlutterActivity() {
                                 wav.absolutePath
                             )
 
-                            val segments = nativeTranscribeWav(
+                            val transcription = nativeTranscribeWav(
                                 model,
                                 wav.absolutePath,
                                 language
-                            ).mapIndexed { index, segment ->
+                            )
+                            val detectedLanguage =
+                                (transcription["language"] as? String)?.trim().orEmpty()
+                            if (detectedLanguage.isBlank() ||
+                                detectedLanguage == "auto" ||
+                                detectedLanguage == "unknown") {
+                                throw IllegalStateException(
+                                    "Whisper did not return a detected source language."
+                                )
+                            }
+                            @Suppress("UNCHECKED_CAST")
+                            val rawSegments = transcription["segments"]
+                                as? List<Map<String, Any>>
+                                ?: throw IllegalStateException(
+                                    "Whisper returned invalid dialogue segments."
+                                )
+                            val segments = rawSegments.mapIndexed { index, segment ->
                                 mapOf(
                                     "id" to index,
                                     "start" to
@@ -362,7 +378,7 @@ class MainActivity : FlutterActivity() {
                                 result.success(
                                     mapOf(
                                         "segments" to segments,
-                                        "language" to language
+                                        "language" to detectedLanguage
                                     )
                                 )
                             }
