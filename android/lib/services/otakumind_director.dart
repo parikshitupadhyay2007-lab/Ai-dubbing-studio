@@ -15,8 +15,10 @@ class OtakuMindDirector {
   /// Optional grounded scene lookup, using an explicitly supplied catalog.
   /// No hit is preferable to claiming an unsupported anime or episode.
   AnimeSceneCandidate? identifyScene(DubProject project,
-      List<AnimeSceneReference> catalog) {
-    final candidate = const AnimeSceneMatcher().identify(project.segments, catalog);
+      List<AnimeSceneReference> catalog,
+      {List<String> observedFrameHashes = const []}) {
+    final candidate = const AnimeSceneMatcher().identify(project.segments, catalog,
+        observedFrameHashes: observedFrameHashes);
     project.animeSceneContext = candidate?.toJson();
     return candidate;
   }
