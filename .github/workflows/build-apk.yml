@@ -239,12 +239,12 @@ jobs:
           from huggingface_hub import HfApi, hf_hub_download
           import shutil
 
-          repo = "tensorblock/Qwen_Qwen3-1.7B-GGUF"
+          repo = "Mungert/Qwen3-1.7B-GGUF"
           files = HfApi().list_repo_files(repo)
           print("AVAILABLE MODEL FILES:", files, flush=True)
           matches = [
               name for name in files
-              if Path(name).name == "Qwen3-1.7B-Q4_K_M.gguf"
+              if Path(name).name == "Qwen3-1.7B-q4_k_m.gguf"
               ]
           if len(matches) != 1:
               raise SystemExit(
