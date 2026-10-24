@@ -184,7 +184,7 @@ class OfflineEngine {
             .resolve('speaker/manifest.json')
             .toFilePath();
     final manifest = File(selected);
-    if (!await manifest.isFile()) {
+    if (!await manifest.exists()) {
       throw OfflineEngineException(
         'Trained speaker model pack is missing: $selected',
       );
