@@ -243,69 +243,39 @@ class DubbingPipeline {
         await _assignCharacterVoices(project); // casting checkpoint
       }
 
-      // Translate small batches, persist each completed batch, and skip
-      // already translated segments when reopening an interrupted project.
+      // Translate and commit each segment independently. A later malformed
+      // response must not discard earlier valid dialogue in the same batch.
       await _stage(project, ProjectStage.translating, onProgress);
-      const batchSize = 4;
-      for (var offset = 0; offset < project.segments.length; offset += batchSize) {
-        final pending = project.segments
-            .skip(offset).take(batchSize)
-            .where((s) => !DialogueQualityGate.acceptableTranslation(
-              s.translation, s.original, project.sourceLanguage,
-              project.targetLanguage)).toList();
-        if (pending.isEmpty) continue;
-        final batch = DubProject(
+      const batchSize = 4; // Only refinement batches; translation is atomic per line.
+      for (final segment in project.segments) {
+        if (DialogueQualityGate.acceptableTranslation(
+          segment.translation, segment.original, project.sourceLanguage,
+          project.targetLanguage,
+        )) continue;
+        final single = DubProject(
           id: project.id, title: project.title, sourcePath: project.sourcePath,
-          targetLanguage: project.targetLanguage, sourceLanguage: project.sourceLanguage,
-          segments: pending, characterVoices: project.characterVoices,
+          targetLanguage: project.targetLanguage,
+          sourceLanguage: project.sourceLanguage,
+          segments: [segment], characterVoices: project.characterVoices,
         );
-        // Retry transient or malformed model output once. A failed batch is
-        // retried per segment so one bad line cannot discard valid dialogue.
-        Future<List<DubSegment>> translateChecked(DubProject request) async {
-          final response = await engine.translate(request);
-          final checked = _checkedSegments(
-            response['segments'], request.segments, 'Translation',
+        final response = await engine.translate(single);
+        final checked = _checkedSegments(
+          response['segments'], single.segments, 'Translation',
+        );
+        final candidate = checked.single.translation.trim();
+        if (!DialogueQualityGate.acceptableTranslation(
+          candidate, segment.original, project.sourceLanguage,
+          project.targetLanguage,
+        )) {
+          throw OfflineEngineException(
+            'Translation failed validation for segment ${segment.id} '
+            '(${project.sourceLanguage} → ${project.targetLanguage}): '
+            '${DialogueQualityGate.rejectionReason(candidate, segment.original, project.sourceLanguage, project.targetLanguage)}.',
           );
-          for (final s in checked) {
-            if (!DialogueQualityGate.acceptableTranslation(
-              s.translation, s.original, project.sourceLanguage,
-              project.targetLanguage)) {
-              throw OfflineEngineException(
-                'Translation failed validation for segment ${s.id} '
-                '(${project.sourceLanguage} → ${project.targetLanguage}): '
-                '${DialogueQualityGate.rejectionReason(s.translation, s.original, project.sourceLanguage, project.targetLanguage)}. '
-                'The generated text was rejected rather than dubbed.',
-              );
-            }
-          }
-          return checked;
         }
-
-        late final List<DubSegment> translated;
-        try {
-          translated = await translateChecked(batch);
-        } catch (_) {
-          // Retry each line independently; do not persist a partial batch.
-          final recovered = <DubSegment>[];
-          for (final segment in pending) {
-            final single = DubProject(
-              id: project.id, title: project.title,
-              sourcePath: project.sourcePath,
-              targetLanguage: project.targetLanguage,
-              sourceLanguage: project.sourceLanguage,
-              segments: [segment],
-              characterVoices: project.characterVoices,
-            );
-            recovered.add((await translateChecked(single)).single);
-          }
-          translated = recovered;
-        }
-        for (var i = 0; i < pending.length; i++) {
-          pending[i].translation = translated[i].translation.trim();
-          // Re-translation invalidates any earlier refinement checkpoint.
-          project.refinedSegmentIds.remove(pending[i].id);
-        }
-        await repository.save(project);
+        segment.translation = candidate;
+        project.refinedSegmentIds.remove(segment.id);
+        await repository.save(project); // durable successful-line checkpoint
       }
 
       // A completed translation checkpoint is persisted before refinement.
