@@ -49,7 +49,16 @@ def validate(document):
             names.add(character["id"])
             if character.get("role") not in ("unknown","male","female","youthful"):
                 raise ValueError("Role must be annotated, not inferred from name")
-        result.append({k:row[k] for k in sorted(REQUIRED)})
+        hashes = row.get("frame_hashes", [])
+        if not isinstance(hashes, list) or any(
+            not isinstance(h, str) or len(h) != 16 or
+            any(c not in "0123456789abcdefABCDEF" for c in h)
+            for h in hashes):
+            raise ValueError("frame_hashes must be 16-digit hexadecimal dHashes")
+        record = {k:row[k] for k in sorted(REQUIRED)}
+        if hashes:
+            record["frame_hashes"] = hashes
+        result.append(record)
     return result
 
 def main():
