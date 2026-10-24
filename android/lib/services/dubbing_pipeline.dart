@@ -176,7 +176,16 @@ class DubbingPipeline {
       if (!hasTranscript) {
         await _stage(project, ProjectStage.transcribing, onProgress);
         final transcript = await engine.transcribe(project);
-        project.sourceLanguage = transcript['language'] as String? ?? 'unknown';
+        final detectedLanguage = (transcript['language'] as String? ?? '')
+            .trim().toLowerCase().split(RegExp('[-_]')).first;
+        if (detectedLanguage.isEmpty || detectedLanguage == 'auto' ||
+            detectedLanguage == 'unknown') {
+          throw OfflineEngineException(
+            'Whisper could not identify the source language reliably. '
+            'Translation cannot proceed with an unknown language.',
+          );
+        }
+        project.sourceLanguage = detectedLanguage;
       final transcribedSegments = _parseSegments(transcript['segments']);
       if (transcribedSegments.map((s) => s.id).toSet().length !=
               transcribedSegments.length ||
