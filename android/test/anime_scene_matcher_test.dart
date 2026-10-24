@@ -27,6 +27,29 @@ void main() {
     expect(hit?.episodeId, '2');
     expect(hit?.matchingLines, 3);
   });
+  test('frame evidence must corroborate matching dialogue when supplied', () {
+    final references = [
+      const AnimeSceneReference(animeId: 'a', title: 'A', episodeId: '2',
+          startSeconds: 60, dialogue: [
+          '星が輝いているよ', '明日はまた会えるかな', 'この場所を忘れないで'],
+          frameHashes: ['0000000000000000'])
+    ];
+    expect(match.identify(lines, references,
+        observedFrameHashes: ['ffffffffffffffff']), isNull);
+    expect(match.identify(lines, references,
+        observedFrameHashes: ['0000000000000000'])?.animeId, 'a');
+    expect(match.identify(lines, references,
+        observedFrameHashes: ['not-a-hash']), isNull);
+  });
+  test('normalizes spaces and punctuation in timed source transcript', () {
+    final spaced = [segment(1, ' 星が 輝いているよ！ '), lines[1], lines[2]];
+    final refs = [
+      const AnimeSceneReference(animeId: 'a', title: 'A', episodeId: '2',
+          startSeconds: 60, dialogue: [
+          '星が輝いているよ', '明日はまた会えるかな', 'この場所を忘れないで'])
+    ];
+    expect(match.identify(spaced, refs)?.episodeId, '2');
+  });
   test('abstains for ambiguous identical reference scenes', () {
     final entries = [
       for (final id in ['a', 'b'])
