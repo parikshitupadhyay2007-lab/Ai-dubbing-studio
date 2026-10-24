@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "policy": "No dataset bytes or performer voice recordings committed to Git. Check source terms at time of acquisition.",
+  "datasets": [
+    {"id":"librispeech-dev-clean","engine":"whisper","status":"public_direct","purpose":"English ASR validation, not anime adaptation","license":"CC-BY-4.0","url":"https://www.openslr.org/resources/12/dev-clean.tar.gz","attribution":"Panayotov et al., LibriSpeech (2015)","commercial_review":"Attribution required; review original documentation"},
+    {"id":"fleurs","engine":"whisper","status":"manual_review","purpose":"Japanese Hindi English ASR tests","license":"CC-BY-4.0 (verify current card)","url":"https://huggingface.co/datasets/google/fleurs","commercial_review":"Verify dataset and upstream source terms before any download"},
+    {"id":"common-voice","engine":"whisper","status":"account_required","purpose":"Japanese Hindi English ASR; DO NOT use for identity recognition","license":"CC0 subject to Mozilla Data Collective usage terms","url":"https://mozilladatacollective.com/","commercial_review":"Access through Mozilla Data Collective only; no rehosting; no speaker identification"},
+    {"id":"voxceleb","engine":"ecapa","status":"permission_review","purpose":"Research speaker diarization only until rights cleared","license":"Underlying audiovisual rights need review","url":"https://www.robots.ox.ac.uk/~vgg/data/voxceleb/","commercial_review":"Do not place in commercial training pipeline without rights approval"},
+    {"id":"otakumind-scenes","engine":"qwen3","status":"original_or_licensed_only","purpose":"Episode timelines, dialogues, verified characters and held-out scenes","license":"Owned or express permission","url":null,"commercial_review":"Create original fictional test scenes or obtain explicit permission for real anime content"},
+    {"id":"consented-voices","engine":"supertonic","status":"consent_required","purpose":"Hindi/English expressive voice evaluation; training only if official recipe and permission allow","license":"Written consent and checkpoint terms","url":null,"commercial_review":"Do not imitate real performers or infer permission from public availability"},
+    {"id":"paired-stems","engine":"mdx","status":"original_or_licensed_only","purpose":"Paired dialogue and accompaniment with exact mixture recipe","license":"Owned or expressly licensed multitracks","url":null,"commercial_review":"Do not treat research-only MUSDB18 as commercial training data"}
+  ]
+}
