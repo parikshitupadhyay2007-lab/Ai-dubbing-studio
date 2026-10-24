@@ -416,6 +416,8 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
   late final engine = OfflineEngine(models);
   late final pipeline = DubbingPipeline(engine, repository);
   late Future<Map<String, dynamic>> _speakerCheck = engine.speakerEngineStatus();
+  bool _speakerRepairing = false;
+  String? _speakerRepairMessage;
 
   void _refreshSpeakerCheck() {
     setState(() => _speakerCheck = engine.speakerEngineStatus());
@@ -912,34 +914,50 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
           builder: (context, snapshot) {
             final state = snapshot.data;
             final verified = state?['verified'] == true;
-            return Card(child: ListTile(
-              leading: Icon(verified ? Icons.check_circle_outline : Icons.warning_amber,
-                  color: verified ? cyan : pink),
-              title: const Text('ECAPA Speaker Recognition'),
-              subtitle: Text(snapshot.connectionState == ConnectionState.waiting
-                  ? 'Checking installed speaker pack and SHA-256…'
-                  : snapshot.hasError ? 'Speaker diagnostic failed: ${snapshot.error}'
-                  : '${state?['status'] ?? 'Status unavailable'}. '
-                    'A verified pack does not guarantee speaker identification.'),
-              trailing: IconButton(
-                tooltip: 'Repair speaker model in place (projects preserved)',
-                icon: const Icon(Icons.build_circle_outlined),
-                onPressed: () async {
-                  try {
-                    final result = await engine.speakerEngineStatus(repair: true);
-                    if (!mounted) return;
-                    _refreshSpeakerCheck();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('${result['status']}')),
-                    );
-                  } catch (error) {
-                    if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Speaker repair failed: $error')),
-                    );
-                  }
-                },
-              ),
+            return Card(child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                ListTile(
+                  leading: Icon(verified ? Icons.check_circle_outline : Icons.warning_amber,
+                      color: verified ? cyan : pink),
+                  title: const Text('ECAPA Speaker Recognition'),
+                  subtitle: Text(_speakerRepairMessage ??
+                      (snapshot.connectionState == ConnectionState.waiting
+                          ? 'Checking installed speaker pack and SHA-256…'
+                          : snapshot.hasError
+                              ? 'Speaker diagnostic failed: ${snapshot.error}'
+                              : '${state?['status'] ?? 'Status unavailable'}. '
+                                  'Verification does not guarantee speaker identification.')),
+                ),
+                if (_speakerRepairing) const LinearProgressIndicator(),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  icon: Icon(_speakerRepairing ? Icons.hourglass_top : Icons.build_circle_outlined),
+                  label: Text(_speakerRepairing ? 'Repair running — please wait' : 'Check / repair speaker engine'),
+                  onPressed: _speakerRepairing ? null : () async {
+                    setState(() {
+                      _speakerRepairing = true;
+                      _speakerRepairMessage = 'Checking and repairing bundled ECAPA files. Please wait…';
+                    });
+                    try {
+                      final result = await engine.speakerEngineStatus(repair: true);
+                      if (!mounted) return;
+                      setState(() {
+                        _speakerRepairMessage = result['status']?.toString() ?? 'Unknown repair result';
+                        _speakerRepairing = false;
+                        _speakerCheck = Future.value(result);
+                      });
+                    } catch (error) {
+                      if (!mounted) return;
+                      setState(() {
+                        _speakerRepairMessage = 'Repair failed: $error';
+                        _speakerRepairing = false;
+                        _speakerCheck = engine.speakerEngineStatus();
+                      });
+                    }
+                  },
+                ),
+              ]),
             ));
           },
         ),
