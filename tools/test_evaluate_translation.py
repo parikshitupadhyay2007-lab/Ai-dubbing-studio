@@ -23,6 +23,12 @@ class TranslationEvaluationTests(unittest.TestCase):
                             encoding="utf-8")
             return evaluate(path)
 
+    def test_release_rates_are_derived_from_human_scores(self):
+        report = self.run_review([row(), row(id="s2", meaning=2, names=4)])
+        self.assertEqual(report["meaning_pass_rate"], 0.5)
+        self.assertEqual(report["name_pass_rate"], 1.0)
+        self.assertEqual(report["critical_failures"][0]["id"], "s2")
+
     def test_valid_review(self):
         report = self.run_review([row()])
         self.assertEqual(report["reviewed_segments"], 1)
