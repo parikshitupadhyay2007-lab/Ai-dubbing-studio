@@ -185,7 +185,23 @@ Java_co_parikshit_otakudub_MainActivity_nativeGenerate(
     if (actualSize != formattedSize) {
         return error(env, "ERROR: Could not apply model chat template.");
     }
-    const std::string prompt(formatted.data(), static_cast<size_t>(actualSize));
+    std::string prompt(formatted.data(), static_cast<size_t>(actualSize));
+
+    // The pinned Qwen3 GGUF defaults to reasoning. The simple chat-template
+    // interface does not expose its enable_thinking=false Jinja option.
+    // Prefill an empty completed thinking block only for Qwen3 templates
+    // ending at the start of the assistant message.
+    const std::string templateText(chatTemplate);
+    const std::string assistantSuffix = "<|im_start|>assistant\n";
+    const bool qwen3ThinkingTemplate =
+        templateText.find("enable_thinking") != std::string::npos &&
+        templateText.find("<think>") != std::string::npos;
+    if (qwen3ThinkingTemplate &&
+        prompt.size() >= assistantSuffix.size() &&
+        prompt.compare(prompt.size() - assistantSuffix.size(),
+                       assistantSuffix.size(), assistantSuffix) == 0) {
+        prompt += "<think>\n\n</think>\n\n";
+    }
 
     const llama_vocab* vocab =
         llama_model_get_vocab(model);
@@ -281,14 +297,19 @@ Java_co_parikshit_otakudub_MainActivity_nativeGenerate(
     );
 
     std::string output;
+    bool endedNormally = false;
+    bool decodeFailed = false;
+    int generatedTokens = 0;
 
     for (int i = 0; i < requestedTokens; ++i) {
         const llama_token token =
             llama_sampler_sample(sampler, context, -1);
 
         if (llama_vocab_is_eog(vocab, token)) {
+            endedNormally = true;
             break;
         }
+        ++generatedTokens;
 
         llama_sampler_accept(sampler, token);
 
@@ -306,12 +327,25 @@ Java_co_parikshit_otakudub_MainActivity_nativeGenerate(
 
         if (llama_decode(context, nextBatch) != 0) {
             LOGE("Generation stopped: token evaluation failed");
+            decodeFailed = true;
             break;
         }
     }
 
     llama_sampler_free(sampler);
 
+    // Record only status, never private dialogue or generated content.
+    LOGE("Generation diagnostics: tokens=%d, eog=%d, decode_failure=%d, bytes=%zu",
+         generatedTokens, endedNormally ? 1 : 0, decodeFailed ? 1 : 0,
+         output.size());
+    if (decodeFailed) {
+        return error(env, "ERROR: Native token decoding failed.");
+    }
+    if (output.empty()) {
+        return error(env, endedNormally
+            ? "ERROR: Model ended generation without spoken text."
+            : "ERROR: Model produced no text within generation budget.");
+    }
     return env->NewStringUTF(output.c_str());
 }
 
