@@ -31,14 +31,13 @@ class VoiceInstallationRegistry {
     for (final profileId in ['hi_hero', 'hi_heroine', 'en_hero', 'en_young_male']) {
       final model = File('${directory.path}/$profileId.onnx');
       final config = File('${directory.path}/$profileId.onnx.json');
+      final replaceLegacyLessac = profileId == 'en_hero' &&
+          (!await model.exists() || await model.length() != 113895201);
       for (final entry in <(String, File)>[
         ('assets/models/voices/$profileId.onnx', model),
         ('assets/models/voices/$profileId.onnx.json', config),
       ]) {
-        final needsUpgrade = profileId == 'en_hero' &&
-              entry.$1.endsWith('.onnx') &&
-              (!await entry.$2.exists() ||
-                  await entry.$2.length() != 113895201);
+        final needsUpgrade = replaceLegacyLessac;
           if (!await entry.$2.exists() || await entry.$2.length() == 0 || needsUpgrade) {
           final copied = await const MethodChannel(
             'co.parikshit.otakudub/offline_engine',
