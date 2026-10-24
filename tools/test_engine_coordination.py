@@ -23,7 +23,7 @@ class EngineCoordination(unittest.TestCase):
         self.assertIn("director.translateLine", pipeline)
         self.assertIn("director.refineBatch", pipeline)
         self.assertIn("director.verifyBeforeSynthesis", pipeline)
-        self.assertIn("speakerId != before.speakerId", source("android/lib/services/otakumind_director.dart"))
+        self.assertIn("line.speakerId != before.speakerId", source("android/lib/services/otakumind_director.dart"))
         self.assertIn("Synthesis omitted dialogue segments.", pipeline)
     def test_native_four_stage_and_routing(self):
         native = source("android/android/app/src/main/kotlin/co/parikshit/otakudub/MainActivity.kt")
