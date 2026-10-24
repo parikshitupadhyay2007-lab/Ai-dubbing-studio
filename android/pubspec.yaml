@@ -27,6 +27,7 @@ flutter:
   assets:
     - assets/models/
     - assets/models/voices/
+    - assets/models/speaker/
 
 flutter_launcher_icons:
   android: true
