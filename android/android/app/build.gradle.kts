@@ -166,6 +166,7 @@ dependencies {
     implementation(
         "com.microsoft.onnxruntime:onnxruntime-android:1.20.0"
     )
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.17.2")
     testImplementation("junit:junit:4.13.2")
 }
 
