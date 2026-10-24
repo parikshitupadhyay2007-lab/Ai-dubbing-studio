@@ -59,7 +59,9 @@ def render(plan, output_directory):
         text = f'{expression}{segment["text"]}' if expression else segment["text"]
         waveform, duration = tts.synthesize(text=text, voice_style=styles[voice],
             lang=language, total_steps=10, verbose=False)
-        if not math.isfinite(float(duration)) or float(duration) <= 0:
+        # Upstream returns a one-element NumPy duration array.
+        duration_seconds = float(duration.item() if hasattr(duration, "item") else duration)
+        if not math.isfinite(duration_seconds) or duration_seconds <= 0:
             raise RuntimeError(f'Invalid synthesis duration for {segment["id"]}')
         output = output_directory / f'segment_{segment["id"]}.wav'
         tts.save_audio(waveform, str(output))
@@ -67,9 +69,9 @@ def render(plan, output_directory):
             raise RuntimeError(f'Empty synthesized file for {segment["id"]}')
         report.append(dict(id=segment["id"], speaker_id=segment["speaker_id"],
             voice=voice, expression=segment.get("expression", "natural"),
-            start=segment["start"], end=segment["end"], duration=float(duration),
+            start=segment["start"], end=segment["end"], duration=duration_seconds,
             wav_path=str(output.resolve()),
-            exceeds_window=float(duration) > (segment["end"] - segment["start"]) * 1.12))
+            exceeds_window=duration_seconds > (segment["end"] - segment["start"]) * 1.12))
     (output_directory / "render_report.json").write_text(json.dumps(report, indent=2))
     return report
 
