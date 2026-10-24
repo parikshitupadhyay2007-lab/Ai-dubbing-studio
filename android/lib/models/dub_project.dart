@@ -78,6 +78,7 @@ class DubProject {
   final List<DubSegment> segments;
   final Map<String, String> characterVoices;
   final Set<int> refinedSegmentIds;
+  Map<String, dynamic>? animeSceneContext;
 
   DubProject({
     required this.id,
@@ -91,6 +92,7 @@ class DubProject {
     List<DubSegment>? segments,
     Map<String, String>? characterVoices,
     Set<int>? refinedSegmentIds,
+    this.animeSceneContext,
   })  : segments = segments ?? [],
         characterVoices = characterVoices ?? {},
         refinedSegmentIds = refinedSegmentIds ?? <int>{};
@@ -108,6 +110,7 @@ class DubProject {
         'segments': segments.map((s) => s.toJson()).toList(),
         'character_voices': characterVoices,
         'refined_segment_ids': refinedSegmentIds.toList()..sort(),
+        'anime_scene_context': animeSceneContext,
       };
 
   factory DubProject.fromJson(Map<String, dynamic> json) {
@@ -130,6 +133,8 @@ class DubProject {
       characterVoices: Map<String, String>.from(
         json['character_voices'] as Map? ?? {},
       ),
+      animeSceneContext: json['anime_scene_context'] is Map
+          ? Map<String, dynamic>.from(json['anime_scene_context'] as Map) : null,
       refinedSegmentIds: (json['refined_segment_ids'] as List? ?? [])
           .map((value) => (value as num).toInt()).toSet(),
     );
