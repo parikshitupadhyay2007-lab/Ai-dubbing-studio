@@ -20,7 +20,8 @@ data class NativeDialogueSegment(
     val end: Double,
     val text: String,
     val speakerId: String,
-    val voiceId: String
+    val voiceId: String,
+    val delivery: String = "natural"
 )
 
 data class VoiceSynthesisRequest(
@@ -172,13 +173,19 @@ data class VoiceSynthesisRequest(
                     "Voice model $voice is unavailable."
                 }
 
+                val delivery = (data["delivery"] as? String) ?: "natural"
+                require(delivery in setOf("natural", "soft", "urgent", "excited", "solemn")) {
+                    "Unsupported delivery style for segment $id."
+                }
+
                 NativeDialogueSegment(
                     id = id,
                     start = start,
                     end = end,
                     text = text,
                     speakerId = speaker,
-                    voiceId = voice
+                    voiceId = voice,
+                    delivery = delivery
                 )
             }
 
