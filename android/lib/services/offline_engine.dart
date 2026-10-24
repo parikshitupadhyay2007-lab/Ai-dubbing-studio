@@ -175,45 +175,56 @@ class OfflineEngine {
     });
   }
 
-  Future<Map<String, dynamic>> identifySpeakers(
-    DubProject project, {
-    String? speakerModelManifest,
-  }) async {
-    // A trained pack is selected explicitly or discovered from the app's
-    // model directory. A malformed installed pack must fail visibly.
-    final selected = speakerModelManifest ??
-        (await models.directory).uri
-            .resolve('speaker/manifest.json')
-            .toFilePath();
+  /// Installs the bundled ECAPA pack without modifying any saved project.
+  Future<Map<String, dynamic>> speakerEngineStatus({bool repair = false}) async {
+    final selected = (await models.directory).uri
+        .resolve('speaker/manifest.json').toFilePath();
     final manifest = File(selected);
-    final bundledManifest = speakerModelManifest == null
-        ? await rootBundle.loadString('assets/models/speaker/manifest.json')
-        : null;
-    final needsRefresh = bundledManifest != null &&
-        (!await manifest.exists() || await manifest.readAsString() != bundledManifest ||
-         !await File('${manifest.parent.path}/model.onnx').exists() ||
-         !await File('${manifest.parent.path}/LICENSE.txt').exists());
-    if (needsRefresh) {
-      final folder = manifest.parent;
+    final bundled = await rootBundle.loadString('assets/models/speaker/manifest.json');
+    final folder = manifest.parent;
+    final model = File('${folder.path}/model.onnx');
+    final license = File('${folder.path}/LICENSE.txt');
+    Future<String> state() async {
+      if (!await manifest.exists() || !await model.exists() || !await license.exists()) {
+        return 'Missing speaker model pack';
+      }
+      if (await manifest.readAsString() != bundled) return 'Outdated speaker manifest';
+      final parsed = jsonDecode(bundled) as Map<String, dynamic>;
+      final actual = (await sha256.bind(model.openRead()).first).toString();
+      if (actual != parsed['model_sha256']) return 'ECAPA checksum mismatch';
+      return 'ECAPA pack verified (inference not yet tested)';
+    }
+    var current = await state();
+    if (repair && current != 'ECAPA pack verified (inference not yet tested)') {
       await folder.create(recursive: true);
       for (final name in ['model.onnx', 'LICENSE.txt', 'manifest.json']) {
         final destination = File('${folder.path}/$name');
-        final bytes = await const MethodChannel(
-          'co.parikshit.otakudub/offline_engine',
-        ).invokeMethod<int>('installBundledAsset', {
+        final bytes = await _channel.invokeMethod<int>('installBundledAsset', {
           'asset': 'assets/models/speaker/$name',
           'destination': destination.path,
         });
         if (bytes == null || bytes <= 0 || !await destination.exists() ||
             await destination.length() != bytes) {
-          throw OfflineEngineException('Cannot install trained speaker asset: $name');
+          throw OfflineEngineException('Speaker asset installation failed: $name');
         }
       }
+      current = await state();
     }
-    if (!await manifest.exists()) {
-      throw OfflineEngineException(
-        'Trained speaker model pack is missing: $selected',
-      );
+    return {'status': current, 'verified': current.startsWith('ECAPA pack verified'),
+      'manifest_path': selected};
+  }
+
+  Future<Map<String, dynamic>> identifySpeakers(
+    DubProject project, {
+    String? speakerModelManifest,
+  }) async {
+    final selected = speakerModelManifest ??
+        (await speakerEngineStatus(repair: true))['manifest_path'] as String;
+    if (speakerModelManifest == null) {
+      final status = await speakerEngineStatus();
+      if (status['verified'] != true) {
+        throw OfflineEngineException('Speaker model: ${status['status']}');
+      }
     }
     return _invoke('identifySpeakers', {
       'source_path': project.sourcePath,
