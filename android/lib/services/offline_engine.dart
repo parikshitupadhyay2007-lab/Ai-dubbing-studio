@@ -166,7 +166,8 @@ class OfflineEngine {
     final hashes = result['frame_hashes'];
     if (hashes is! List || hashes.any((hash) =>
         hash is! String || hash.length != 16 ||
-        !RegExp(r'^[0-9a-fA-F]+\)) {
+        !hash.split('').every((character) =>
+            '0123456789abcdefABCDEF'.contains(character)))) {
       throw OfflineEngineException('Native frame sampler returned invalid hashes.');
     }
     return List<String>.from(hashes);
