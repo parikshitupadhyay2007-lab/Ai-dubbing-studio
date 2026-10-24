@@ -645,10 +645,12 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
       await refreshProjects();
     } catch (e) {
       if (mounted) {
-        final needsCasting = e.toString().contains('no verified voice role');
+        final needsCasting = e.toString().contains('no verified voice role') ||
+            e.toString().contains('Speaker identification is incomplete');
         setState(() => status = needsCasting
-            ? 'Speaker voices need confirmation. Tap ASSIGN CHARACTER VOICES, '
-              'choose each voice, save, then resume. Your transcription is preserved.'
+            ? 'Speaker identification needs review. Tap ASSIGN CHARACTER VOICES, '
+              'resolve any unknown segments, choose voices, save, then resume. '
+              'Your transcription is preserved.'
             : 'Processing stopped: $e');
       }
     } finally {
