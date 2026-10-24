@@ -375,8 +375,8 @@ jobs:
               raise SystemExit("Unexpected ECAPA model I/O names")
           def dimensions(tensor):
               return [dim.dim_value if dim.HasField("dim_value") else -1 for dim in tensor.type.tensor_type.shape.dim]
-          if dimensions(inputs[0]) != [1, -1] or dimensions(outputs[0]) not in ([192], [1, 192]):
-              raise SystemExit("ECAPA input/output shape changed")
+          if (len(dimensions(inputs[0])) != 2 or dimensions(inputs[0])[0] not in (1, -1) or\n              dimensions(outputs[0]) not in ([192], [1, 192], [-1, 192])):
+              raise SystemExit(f"ECAPA input/output shape changed: {dimensions(inputs[0])} -> {dimensions(outputs[0])}")
           if destination.stat().st_size < 35_000_000:
               raise SystemExit("Speaker model incomplete")
           (directory / "LICENSE.txt").write_text("Apache-2.0; upstream " + repo + "; pinned revision " + revision + "\\n")
