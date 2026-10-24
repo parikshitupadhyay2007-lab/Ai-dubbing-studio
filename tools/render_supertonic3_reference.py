@@ -48,7 +48,14 @@ def validate_plan(plan):
 def render(plan, output_directory, assets_directory):
     language, voices, segments = validate_plan(plan)
     from supertonic import TTS
-    assets_directory = Path(assets_directory)\n    required = ("onnx/duration_predictor.onnx", "onnx/text_encoder.onnx",\n                "onnx/vector_estimator.onnx", "onnx/vocoder.onnx",\n                "onnx/tts.json", "onnx/unicode_indexer.json")\n    missing = [name for name in required if not (assets_directory / name).is_file()]\n    if missing:\n        raise FileNotFoundError("Incomplete Supertonic asset pack: " + ", ".join(missing))\n    tts = TTS(model="supertonic-3", model_dir=assets_directory, auto_download=False)
+    assets_directory = Path(assets_directory)
+    required = ("onnx/duration_predictor.onnx", "onnx/text_encoder.onnx",
+                "onnx/vector_estimator.onnx", "onnx/vocoder.onnx",
+                "onnx/tts.json", "onnx/unicode_indexer.json")
+    missing = [name for name in required if not (assets_directory / name).is_file()]
+    if missing:
+        raise FileNotFoundError("Incomplete Supertonic asset pack: " + ", ".join(missing))
+    tts = TTS(model="supertonic-3", model_dir=assets_directory, auto_download=False)
     output_directory = Path(output_directory)
     output_directory.mkdir(parents=True, exist_ok=True)
     styles = {voice: tts.get_voice_style(voice_name=voice) for voice in set(voices.values())}
