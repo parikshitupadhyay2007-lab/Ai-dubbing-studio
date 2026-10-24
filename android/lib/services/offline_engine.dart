@@ -176,14 +176,25 @@ class OfflineEngine {
   Future<Map<String, dynamic>> identifySpeakers(
     DubProject project, {
     String? speakerModelManifest,
-  }) {
+  }) async {
+    // A trained pack is selected explicitly or discovered from the app's
+    // model directory. A malformed installed pack must fail visibly.
+    final selected = speakerModelManifest ??
+        (await models.directory).uri
+            .resolve('speaker/manifest.json')
+            .toFilePath();
+    final manifest = File(selected);
+    if (!await manifest.isFile()) {
+      throw OfflineEngineException(
+        'Trained speaker model pack is missing: $selected',
+      );
+    }
     return _invoke('identifySpeakers', {
       'source_path': project.sourcePath,
       'segments': project.segments
           .map((segment) => segment.toJson())
           .toList(),
-      if (speakerModelManifest != null)
-        'speaker_model_manifest': speakerModelManifest,
+      'speaker_model_manifest': selected,
     });
   }
 
