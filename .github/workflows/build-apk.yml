@@ -98,6 +98,8 @@ jobs:
           BACKUP="$(mktemp -d)"
 
           cp -a android/app/src/main/kotlin "$BACKUP/kotlin"
+          cp -a android/app/src/main/java "$BACKUP/java"
+          cp -a android/app/src/main/assets "$BACKUP/native_assets"
           cp -a android/app/src/main/cpp "$BACKUP/cpp"
           cp android/app/build.gradle.kts "$BACKUP/build.gradle.kts"
 
@@ -109,13 +111,19 @@ jobs:
           mkdir -p android/app/src/main
 
           rm -rf android/app/src/main/kotlin
+          rm -rf android/app/src/main/java
+          rm -rf android/app/src/main/assets
           rm -rf android/app/src/main/cpp
 
           cp -a "$BACKUP/kotlin" android/app/src/main/kotlin
+          cp -a "$BACKUP/java" android/app/src/main/java
+          cp -a "$BACKUP/native_assets" android/app/src/main/assets
           cp -a "$BACKUP/cpp" android/app/src/main/cpp
           cp "$BACKUP/build.gradle.kts" android/app/build.gradle.kts
 
           test -f android/app/src/main/AndroidManifest.xml
+          test -s android/app/src/main/java/co/parikshit/otakudub/SupertonicReference.java
+          test -s android/app/src/main/assets/SUPERTONIC_JAVA_NOTICE.txt
 
       - name: Install pinned native AI sources
         shell: bash
