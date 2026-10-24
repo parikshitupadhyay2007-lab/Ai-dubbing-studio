@@ -39,3 +39,16 @@ model-asset integrity and signing ONLY. No GitHub-hosted emulator/CI result
 substitutes for missing licensed data or real-device listening acceptance.
 Keep the build artifact explicitly labeled as test/release candidate until all
 above checks have actual results.
+
+## Single integrated scope and licensing policy
+All Plan A and Plan B features remain IN SCOPE for the same combined build:
+Whisper transcription; licensed anime catalog schema and indexing; visual scene
+fingerprints; episode/timeline and annotated character candidates; acoustic
+ECAPA verification; OtakuMind contextual directing; Supertonic dubbing; MDX
+soundtrack preservation; MP4 output. No component is excluded simply because
+its eventual reference data will require a license. Synthetic/owned records
+may exercise every code path today. Real third-party records stay unbundled
+until the necessary access and usage permissions have actually been granted.
+A future commercial license is not retroactive permission to collect, train
+on, redistribute, or bundle copyrighted material today. CI must test an
+empty/no-match catalog and a rights-cleared fixture catalog alike.
