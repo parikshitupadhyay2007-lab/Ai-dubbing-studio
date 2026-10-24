@@ -35,6 +35,10 @@ jobs:
           python3 -m unittest discover -s tools -p 'test_render_supertonic3_reference.py' -v
           python3 -m unittest discover -s tools -p 'test_prepare_supertonic3_assets.py' -v
 
+      - name: Test OtakuMind anime evidence and benchmark contracts
+        shell: bash
+        run: python3 -m unittest discover -s tools -p 'test_anime_evidence.py' -v
+
       - name: Test engine coordination and handoff contracts
         shell: bash
         run: python3 -m unittest discover -s tools -p 'test_engine_coordination.py' -v
