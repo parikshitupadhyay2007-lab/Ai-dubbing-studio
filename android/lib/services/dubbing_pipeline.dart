@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 
 import '../models/dub_project.dart';
 import 'package:flutter/services.dart';
@@ -7,6 +8,7 @@ import 'character_voice_caster.dart';
 import 'dialogue_quality_gate.dart';
 import 'offline_engine.dart';
 import 'otakumind_director.dart';
+import 'anime_scene_matcher.dart';
 import 'project_repository.dart';
 import 'separation_installation.dart';
 import 'segment_quality_control.dart';
@@ -152,6 +154,20 @@ class DubbingPipeline {
       }
 
         await repository.save(project); // transcription checkpoint
+      }
+
+      // Resolve franchise/episode context only from a corroborated, explicitly
+      // supplied reference corpus. An empty catalog leaves identity unknown
+      // and never blocks acoustic diarization or alters speaker IDs.
+      if (project.animeSceneContext == null && project.segments.isNotEmpty) {
+        final catalogText = await rootBundle.loadString(
+            'assets/anime_scene_catalog.json');
+        final entries = jsonDecode(catalogText) as List;
+        final references = entries.map((entry) =>
+            AnimeSceneReference.fromJson(Map<String, dynamic>.from(entry as Map)))
+            .toList();
+        director.identifyScene(project, references);
+        await repository.save(project);
       }
 
       if (!hasCasting) {
