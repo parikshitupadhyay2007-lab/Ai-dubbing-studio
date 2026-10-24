@@ -62,7 +62,22 @@ class SupertonicSpeechSynthesizer(
             val window = segment.end - segment.start
             require(window > 0.0 && segment.text.isNotBlank())
             val text = expressivePrefix + segment.text
-            val result = engine.call(text, request.targetLanguage, style(styleId), 8, 1.05f, 0.15f, env)
+            val preset = style(styleId)
+            var result = engine.call(text, request.targetLanguage, preset, 8, 1.05f, 0.15f, env)
+            // One bounded speed retry; never silently mix speech past the scene boundary.
+            // Speech naturalness takes precedence over unlimited forced compression.
+            val firstLength = result.duration[0].toDouble()
+            if (firstLength.isFinite() && firstLength > window * 1.12 && window >= 0.5) {
+                val speed = (1.05 * firstLength / window * 1.03).coerceIn(1.05, 1.28).toFloat()
+                if (speed > 1.07f) {
+                    val candidate = engine.call(text, request.targetLanguage, preset, 8, speed, 0.15f, env)
+                    if (candidate.duration[0].isFinite() &&
+                        kotlin.math.abs(candidate.duration[0] - window) <
+                        kotlin.math.abs(result.duration[0] - window)) {
+                        result = candidate
+                    }
+                }
+            }
             val count = (result.duration[0] * engine.sampleRate).toInt().coerceIn(0, result.wav.size)
             require(count > 0) { "Supertonic produced no samples for segment ${segment.id}" }
             val samples = result.wav.copyOf(count)
