@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -112,7 +113,7 @@ class _OtakuDubLaunchState extends State<OtakuDubLaunch>
     animation.forward().whenComplete(() {
       if (!mounted) return;
 
-      Navigator.of(context).pushReplacement(
+      unawaited(Navigator.of(context).pushReplacement(
         PageRouteBuilder<void>(
           transitionDuration: const Duration(milliseconds: 650),
           pageBuilder: (_, __, ___) => const OtakuDubHome(),
@@ -123,7 +124,7 @@ class _OtakuDubLaunchState extends State<OtakuDubLaunch>
             );
           },
         ),
-      );
+      ));
     });
   }
 
@@ -418,10 +419,6 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
   late Future<Map<String, dynamic>> _speakerCheck = engine.speakerEngineStatus();
   bool _speakerRepairing = false;
   String? _speakerRepairMessage;
-
-  void _refreshSpeakerCheck() {
-    setState(() => _speakerCheck = engine.speakerEngineStatus());
-  }
 
   int tab = 0;
   String language = 'hi';
