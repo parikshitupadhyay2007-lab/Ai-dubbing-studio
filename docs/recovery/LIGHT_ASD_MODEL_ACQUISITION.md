@@ -1,0 +1,7 @@
+# Trained active-speaker model acquisition
+
+Selected upstream: Junhua Liao et al., Light-ASD (CVPR 2023), https://github.com/Junhua-Liao/Light-ASD, upstream revision `ed38c232de5efe0261dbd68627c0ade7cdfe14eb`. This repository publicly offers pretrained model weights under a repository MIT licence; review model-specific and training-data conditions before distribution.
+
+Run GitHub Actions workflow **Acquire trained Light-ASD checkpoint** on recovery/phase-0-audit. This uses `.github/scripts/acquire-light-asd.py` to clone exactly the pinned upstream revision, reject empty/LFS-pointer checkpoints, and produce an artifact containing real upstream `.model` files with SHA-256 manifest. This manual workflow has been ADDED, not asserted to have executed successfully.
+
+IMPORTANT: upstream checkpoints are PyTorch state dicts and cannot be renamed `.onnx` or loaded directly by ONNX Runtime Android. Next: inspect upstream architecture and preprocessing; build reproducible eval-mode ONNX export with fixed input/output schema; compare PyTorch and ONNX outputs on actual synchronized audio/face-track windows; integrate aligned video track extraction and audio feature extraction; benchmark on anime (including offscreen/static-mouth) and calibrate scores. Do NOT mark `model_verified` true or replace the explicit Kotlin missing-model error until all steps pass. Model identifies active visible tracks, not named anime characters.
