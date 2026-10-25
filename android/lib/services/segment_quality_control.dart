@@ -60,9 +60,14 @@ class SegmentQualityControl {
     )) {
       issues.add(QualityIssue.invalidTranslation);
     }
+    // A manually reviewed identity is marked by the UI with a stable
+    // speaker_manual_* ID and confidence 0 (not a fabricated model score).
+    // It is accepted only after an explicit voice assignment below.
+    final manuallyResolved = segment.speakerId.startsWith('speaker_manual_') &&
+        segment.speakerConfidence == 0;
     if (segment.speakerId.trim().isEmpty || segment.speakerId == 'unknown' ||
         !segment.speakerConfidence.isFinite ||
-        segment.speakerConfidence <= 0) {
+        (!manuallyResolved && segment.speakerConfidence <= 0)) {
       issues.add(QualityIssue.unresolvedSpeaker);
     }
     if (segment.voiceId.trim().isEmpty) issues.add(QualityIssue.missingVoice);
