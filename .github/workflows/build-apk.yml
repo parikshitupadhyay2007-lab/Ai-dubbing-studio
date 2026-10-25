@@ -543,6 +543,9 @@ jobs:
           print("ALL REQUIRED AI ASSETS VERIFIED BEFORE COMPILATION")
           PY
 
+      - name: Test Supertonic duration fitting contract
+        run: python3 -m unittest discover -s tools -p 'test_supertonic_duration_fit.py' -v
+
       - name: Verify nested Flutter model asset declarations
         shell: bash
         run: |
