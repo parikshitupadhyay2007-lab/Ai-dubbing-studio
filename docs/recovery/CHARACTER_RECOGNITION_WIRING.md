@@ -1,0 +1,9 @@
+# Character-recognition wiring checkpoint
+
+Pipeline now links optional native `analyzeActiveSpeakers` results through `ActiveSpeakerEvidenceGate` into `CharacterEvidenceMatcher`. Only annotations attached to the uniquely matched anime/episode/start are considered, and annotation `source_hash` must match measured visual evidence while `reference_id` must equal the catalog `source_id`. Proposals are persisted under `animeSceneContext.character_match_candidates` as `candidate_requires_independent_validation`. Acoustic speaker and voice assignment stay independent.
+
+Catalog validator rejects explicit unspecified rights and checks annotation structure, source identifier consistency and duplicates. These checks establish schema consistency, NOT authenticity of a claimed licence or source. Test coverage added for unknown rights and inconsistent annotation references.
+
+The bundled `android/assets/anime_scene_catalog.json` remains `[]` because no actual licensed episode-level scene dialogue and character/track annotation corpus has been acquired and validated for redistribution. General franchise/character metadata cannot truthfully be substituted for ground-truth line-level speaker links. Do not fabricate entries. A corpus acquisition and rights review process must precede population.
+
+CRITICAL REMAINING: Native `analyzeActiveSpeakers` is a Dart bridge without an established bundled inference implementation or trained/checksummed active speaker weights; consequently no real visual predictions have been verified. The current matcher is a *candidate generator*, not calibrated OtakuMind fusion or verified named-character identification. Before enabling verified identity, validate corpus authenticity/licence, establish model provenance, calibrate on held-out anime clips, reject conflicting speaker-level candidates, then integrate accepted authenticated links. CI and an actual APK build/device test are not confirmed for this checkpoint.
