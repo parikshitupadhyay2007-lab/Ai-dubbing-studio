@@ -607,6 +607,7 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
     for (final segment in unresolved) {
       segment.speakerId = speakerChoices[segment.id]!;
       segment.speakerConfidence = 0; // Explicitly user-resolved, not model confidence.
+      segment.speakerManuallyVerified = true;
     }
     final usedSpeakers = project.segments.map((segment) => segment.speakerId).toSet();
     project.characterVoices
