@@ -11,6 +11,7 @@ import 'dialogue_quality_gate.dart';
 import 'offline_engine.dart';
 import 'otakumind_director.dart';
 import 'anime_scene_matcher.dart';
+import 'verified_anime_catalog.dart';
 import 'project_repository.dart';
 import 'separation_installation.dart';
 import 'segment_quality_control.dart';
@@ -184,7 +185,7 @@ class DubbingPipeline {
       if (project.animeSceneContext == null && project.segments.isNotEmpty) {
         final catalogText = await rootBundle.loadString(
             'assets/anime_scene_catalog.json');
-        final entries = jsonDecode(catalogText) as List;
+        final entries = const VerifiedAnimeCatalog().parse(catalogText);
         final references = entries.map((entry) =>
             AnimeSceneReference.fromJson(Map<String, dynamic>.from(entry as Map)))
             .toList();
