@@ -8,6 +8,7 @@ import 'package:open_filex/open_filex.dart';
 
 import 'models/dub_project.dart';
 import 'services/dubbing_pipeline.dart';
+import 'services/character_identity_fusion.dart';
 import 'services/model_manager.dart';
 import 'services/offline_engine.dart';
 import 'services/project_repository.dart';
@@ -666,6 +667,7 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
     for (final segment in project.segments) {
       segment.voiceId = project.characterVoices[segment.speakerId] ?? '';
     }
+    const CharacterIdentityFusion().record(project);
     await repository.save(project);
     if (mounted) setState(() {
       current = project;
