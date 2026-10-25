@@ -27,6 +27,10 @@ class CharacterIdentityFusion {
         'segment_ids': lines.map((s) => s.id).toList()..sort(),
         'scene_candidate': sceneMatched ? scene['anime_id'] : null,
         'scene_evidence': sceneMatched ? sceneEvidence : null,
+        'identity_status': manual ? 'manual_acoustic_review' :
+            'acoustic_provisional',
+        'voice_casting_status': project.characterVoices.containsKey(speaker)
+            ? 'assigned' : 'pending',
         'visual_speaker_link_verified': false,
         'reference_speaker_link_verified': false,
       };
