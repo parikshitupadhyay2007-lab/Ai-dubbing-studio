@@ -431,7 +431,45 @@ class DubbingPipeline {
         onProgress,
       );
 
-      final synthesis = await engine.synthesize(project);
+      // A failed duration fit must not force the entire project to restart.
+      // Only the rejected line is eligible for a bounded, validated rewrite.
+      Map<String, dynamic> synthesis;
+      final timingRetries = <int, int>{};
+      while (true) {
+        try {
+          synthesis = await engine.synthesize(project);
+          break;
+        } on OfflineEngineException catch (error) {
+          final match = RegExp(
+            r'Dialogue for segment (\\d+) requires excessive duration compression',
+          ).firstMatch(error.message);
+          if (match == null) rethrow;
+          final id = int.parse(match.group(1)!);
+          final attempts = timingRetries[id] ?? 0;
+          if (attempts >= 2) rethrow;
+          final matches = project.segments.where((s) => s.id == id).toList();
+          if (matches.length != 1) rethrow;
+          final segment = matches.single;
+          final previous = segment.translation.trim();
+          Map<int, String> proposals;
+          try {
+            proposals = await director.refineBatch(project, [segment]);
+          } catch (_) {
+            rethrow;
+          }
+          final candidate = proposals[id]?.trim();
+          if (candidate == null || candidate.length >= previous.length ||
+              !DialogueQualityGate.acceptableTranslation(
+                candidate, segment.original, project.sourceLanguage,
+                project.targetLanguage)) {
+            rethrow;
+          }
+          segment.translation = candidate;
+          timingRetries[id] = attempts + 1;
+          project.refinedSegmentIds.add(id);
+          await repository.save(project);
+        }
+      }
 
       // Matches the native MainActivity synthesize response.
       final clips = synthesis['clips'];
