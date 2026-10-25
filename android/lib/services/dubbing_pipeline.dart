@@ -64,6 +64,11 @@ class DubbingPipeline {
 
     final unresolved = project.segments.where((s) =>
         s.speakerId.trim().isEmpty || s.speakerId == 'unknown').toList();
+    // Cast every acoustically identified speaker before handling exceptions.
+    // Scene metadata is advisory, never an invented acoustic identity or role.
+    _caster.assign(project);
+    await repository.save(project); // preserve partial automatic casting
+
     if (unresolved.isNotEmpty) {
       final preview = unresolved.take(8).map((s) =>
           '#${s.id} (${(s.end - s.start).toStringAsFixed(2)}s)').join(', ');
@@ -71,13 +76,12 @@ class DubbingPipeline {
         'ECAPA could not establish an acoustic identity for '
         '${unresolved.length} of ${project.segments.length} lines: $preview. '
         'The transcript and successful speaker matches are saved. '
-        'Review only these lines in Assign Character Voices; Resume will '
-        'preserve confirmed assignments. An anime scene match alone cannot '
+        'Verified speakers have already received provisional, consistent '
+        'voices. Review only unresolved lines in Assign Character Voices; '
+        'Resume preserves confirmed assignments. An anime scene match cannot '
         'safely identify an audible speaker.',
       );
     }
-
-    _caster.assign(project);
 
     for (final segment in project.segments) {
       if (segment.speakerId.trim().isEmpty ||
@@ -204,8 +208,9 @@ class DubbingPipeline {
         // when the user supplies voice assignments; do not re-run clustering
         // and invalidate the selected speaker IDs on resume.
         final hasIdentifiedSpeakers = hasTranscript &&
-            project.segments.every((s) =>
-                s.speakerId.trim().isNotEmpty && s.speakerId != 'unknown');
+            project.segments.any((s) =>
+                s.speakerId.trim().isNotEmpty && s.speakerId != 'unknown') &&
+            project.characterVoices.isNotEmpty;
         if (!hasIdentifiedSpeakers) {
         final casting = await engine.identifySpeakers(project);
       final beforeCasting = List<DubSegment>.from(project.segments);
