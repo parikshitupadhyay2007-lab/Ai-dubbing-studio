@@ -1,6 +1,11 @@
 name: Acquire trained Light-ASD checkpoint
 
 on:
+  push:
+    branches: ['recovery/phase-0-audit']
+    paths:
+      - '.github/scripts/acquire-light-asd.py'
+      - '.github/workflows/acquire-light-asd.yml'
   workflow_dispatch:
 
 permissions:
@@ -27,6 +32,8 @@ jobs:
           doc=json.loads((root/'manifest.json').read_text())
           assert doc['upstream_revision']=='ed38c232de5efe0261dbd68627c0ade7cdfe14eb'
           assert doc['checkpoints']
+          assert (root/'LICENSE.upstream').is_file()
+          assert hashlib.sha256((root/'LICENSE.upstream').read_bytes()).hexdigest()==doc['license_sha256']
           for record in doc['checkpoints']:
               data=(root/record['filename']).read_bytes()
               assert len(data)==record['size'] and len(data)>100000
