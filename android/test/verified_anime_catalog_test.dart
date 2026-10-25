@@ -32,6 +32,16 @@ void main() {
       '"start_seconds":2,"end_seconds":4', '"start_seconds":1,"end_seconds":4')),
       throwsFormatException);
   });
+  test('rejects timeline dialogue absent from source corpus', () {
+    expect(() => validator.parse(base.replaceFirst(
+      '"dialogue":"First original line"', '"dialogue":"Invented line"')),
+      throwsFormatException);
+  });
+  test('rejects forged expression provenance', () {
+    expect(() => validator.parse(base.replaceFirst(
+      '"expression":{"source_id":"fixture-1"', '"expression":{"source_id":"elsewhere"')),
+      throwsFormatException);
+  });
   test('empty catalog cannot invent anime identities', () {
     expect(validator.parse('[]'), isEmpty);
   });
