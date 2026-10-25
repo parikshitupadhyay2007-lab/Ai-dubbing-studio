@@ -1,0 +1,40 @@
+name: Acquire trained Light-ASD checkpoint
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  acquire-light-asd:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: recovery/phase-0-audit
+      - name: Obtain genuine upstream pretrained weights and manifest
+        run: |
+          python3 .github/scripts/acquire-light-asd.py \
+            --revision ed38c232de5efe0261dbd68627c0ade7cdfe14eb \
+            --output model-artifacts/light-asd
+      - name: Confirm nonempty checkpoint manifest
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, pathlib
+          root=pathlib.Path('model-artifacts/light-asd')
+          doc=json.loads((root/'manifest.json').read_text())
+          assert doc['upstream_revision']=='ed38c232de5efe0261dbd68627c0ade7cdfe14eb'
+          assert doc['checkpoints']
+          for record in doc['checkpoints']:
+              data=(root/record['filename']).read_bytes()
+              assert len(data)==record['size'] and len(data)>100000
+              assert hashlib.sha256(data).hexdigest()==record['sha256']
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: trained-light-asd-pytorch-checkpoints
+          path: model-artifacts/light-asd/
+          if-no-files-found: error
+          retention-days: 7
