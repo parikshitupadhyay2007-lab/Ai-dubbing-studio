@@ -24,6 +24,11 @@ void main() {
       project, [sample('a'), sample('b')]);
     expect(result, isEmpty);
   });
+  test('visual intervals must not extend beyond acoustic boundaries', () {
+    const gate = ActiveSpeakerEvidenceGate();
+    expect(gate.evaluate(project, [sample('a', start: .8)]), isEmpty);
+    expect(gate.evaluate(project, [sample('a', end: 2.2)]), isEmpty);
+  });
   test('non-covering time range is withheld', () {
     final result = const ActiveSpeakerEvidenceGate().evaluate(
       project, [sample('a', start: 1.4)]);
