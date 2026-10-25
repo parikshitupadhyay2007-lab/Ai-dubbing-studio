@@ -538,6 +538,19 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
       ...speakerChoices.values.whereType<String>(),
     }.toList()..sort();
 
+    bool canSaveCasting() =>
+        speakerChoices.values.every((value) => value != null) &&
+        activeSpeakers().every((speaker) => choices[speaker] != null);
+
+    String castingGuidance() {
+      final unresolvedCount = speakerChoices.values.where((v) => v == null).length;
+      final missingVoices = activeSpeakers()
+          .where((speaker) => choices[speaker] == null).length;
+      if (unresolvedCount == 0 && missingVoices == 0) return 'Ready to save casting.';
+      return 'To enable Save casting: resolve $unresolvedCount dialogue segment(s) '
+          'and assign voices for $missingVoices speaker(s). Scroll to see all speakers.';
+    }
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
@@ -555,6 +568,11 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
                     child: Text('These dialogue segments could not be identified reliably. '
                         'Select an existing speaker or a new identity after checking the source video.'),
                   ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(castingGuidance(),
+                    key: const ValueKey('casting_requirements')),
+                ),
                 for (final segment in unresolved)
                   DropdownButtonFormField<String>(
                     key: ValueKey('resolve_speaker_${segment.id}'),
