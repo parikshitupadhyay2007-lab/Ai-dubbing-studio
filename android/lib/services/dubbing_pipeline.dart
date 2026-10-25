@@ -298,7 +298,21 @@ class DubbingPipeline {
           ];
           // Preserve measured timing as advisory evidence only. No expression
           // or mouth motion is inferred from a static scene hash or transcript.
-          scene['lip_timing_candidates'] = [
+          scene['measured_expression_candidates'] = [
+            for (final entry in accepted.entries)
+              if (entry.value.verifiedDelivery) <String, dynamic>{
+                'segment_id': entry.key,
+                'track_id': entry.value.trackId,
+                'delivery': entry.value.delivery,
+                'confidence': entry.value.deliveryConfidence,
+                'model_id': entry.value.modelId,
+                'source_hash': entry.value.sourceHash,
+                'status': 'measured_candidate_not_automatically_applied',
+              },
+          ];
+          scene['expression_inference_status'] =
+              'native_model_output_requires_independent_validation';
+                    scene['lip_timing_candidates'] = [
             for (final entry in accepted.entries) <String, dynamic>{
               'segment_id': entry.key,
               'track_id': entry.value.trackId,
