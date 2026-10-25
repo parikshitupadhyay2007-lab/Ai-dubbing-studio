@@ -296,6 +296,20 @@ class DubbingPipeline {
               'status': 'candidate_requires_independent_validation',
             },
           ];
+          // Preserve measured timing as advisory evidence only. No expression
+          // or mouth motion is inferred from a static scene hash or transcript.
+          scene['lip_timing_candidates'] = [
+            for (final entry in accepted.entries) <String, dynamic>{
+              'segment_id': entry.key,
+              'track_id': entry.value.trackId,
+              'start_seconds': entry.value.startSeconds,
+              'end_seconds': entry.value.endSeconds,
+              'score': entry.value.lipSyncScore,
+              'model_id': entry.value.modelId,
+              'source_hash': entry.value.sourceHash,
+              'status': 'measured_candidate_not_output_lip_sync',
+            },
+          ];
           project.animeSceneContext!['active_speaker_evidence'] = [
             for (final entry in accepted.entries)
               <String, dynamic>{
