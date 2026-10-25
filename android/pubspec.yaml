@@ -29,10 +29,6 @@ flutter:
     - assets/anime_scene_catalog.json
     - assets/models/
     - assets/models/voices/
-    - assets/models/speaker/
-    - assets/models/supertonic3/
-    - assets/models/supertonic3/onnx/
-    - assets/models/supertonic3/voice_styles/
 
 flutter_launcher_icons:
   android: true
