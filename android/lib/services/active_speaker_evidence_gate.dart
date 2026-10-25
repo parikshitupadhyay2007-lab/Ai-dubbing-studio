@@ -15,7 +15,9 @@ class ActiveSpeakerEvidenceGate {
       final segment = bySegment[candidate.segmentId];
       if (segment == null || !candidate.unambiguousCandidate ||
           candidate.startSeconds > segment.start + 0.15 ||
+          candidate.startSeconds < segment.start - 0.15 ||
           candidate.endSeconds < segment.end - 0.15 ||
+          candidate.endSeconds > segment.end + 0.15 ||
           segment.speakerId.trim().isEmpty || segment.speakerId == 'unknown') {
         continue;
       }
