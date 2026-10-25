@@ -22,6 +22,7 @@ class DubSegment {
   String speakerId;
   String voiceId;
   double speakerConfidence;
+  bool speakerManuallyVerified;
   String delivery;
 
   DubSegment({
@@ -33,6 +34,7 @@ class DubSegment {
     this.speakerId = 'unknown',
     this.voiceId = '',
     this.speakerConfidence = 0,
+    this.speakerManuallyVerified = false,
     this.delivery = 'natural',
   });
 
@@ -47,6 +49,7 @@ class DubSegment {
       voiceId: json['voice_id'] as String? ?? '',
       speakerConfidence:
           (json['speaker_confidence'] as num?)?.toDouble() ?? 0,
+      speakerManuallyVerified: json['speaker_manually_verified'] == true,
       delivery: json['delivery'] as String? ?? 'natural',
     );
   }
@@ -60,6 +63,7 @@ class DubSegment {
         'speaker_id': speakerId,
         'voice_id': voiceId,
         'speaker_confidence': speakerConfidence,
+        'speaker_manually_verified': speakerManuallyVerified,
         'delivery': delivery,
       };
 }
