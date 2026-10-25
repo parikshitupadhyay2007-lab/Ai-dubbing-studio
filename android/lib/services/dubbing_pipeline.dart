@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import 'character_voice_caster.dart';
 import 'character_identity_fusion.dart';
+import 'identity_confidence_gate.dart';
 import 'dialogue_quality_gate.dart';
 import 'offline_engine.dart';
 import 'otakumind_director.dart';
@@ -63,8 +64,7 @@ class DubbingPipeline {
       );
     }
 
-    final unresolved = project.segments.where((s) =>
-        s.speakerId.trim().isEmpty || s.speakerId == 'unknown').toList();
+    final unresolved = const IdentityConfidenceGate().unresolved(project);
     // Cast every acoustically identified speaker before handling exceptions.
     // Scene metadata is advisory, never an invented acoustic identity or role.
     _caster.assign(project);
@@ -108,6 +108,9 @@ class DubbingPipeline {
       }
     }
 
+    if (!const IdentityConfidenceGate().readyForSynthesis(project)) {
+      throw OfflineEngineException('Casting confidence gate is incomplete.');
+    }
     await repository.save(project);
   }
 
