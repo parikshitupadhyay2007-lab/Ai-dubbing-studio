@@ -9,12 +9,15 @@ class VisualSpeakerEvidence {
   final double competingTrackScore;
   final String modelId;
   final String sourceHash;
+  final String? delivery;
+  final double? deliveryConfidence;
 
   const VisualSpeakerEvidence({
     required this.segmentId, required this.trackId,
     required this.startSeconds, required this.endSeconds,
     required this.lipSyncScore, required this.competingTrackScore,
     required this.modelId, required this.sourceHash,
+    this.delivery, this.deliveryConfidence,
   });
 
   bool get structurallyValid =>
@@ -25,6 +28,18 @@ class VisualSpeakerEvidence {
       lipSyncScore >= 0 && lipSyncScore <= 1 &&
       competingTrackScore >= 0 && competingTrackScore <= 1 &&
       modelId.trim().isNotEmpty && sourceHash.trim().isNotEmpty;
+
+  /// Optional expression labels must come from a measured audiovisual model.
+  /// A visual speaking score by itself cannot establish emotion or delivery.
+  static const supportedDeliveries = <String>{
+    'natural', 'shouting', 'whispering', 'crying', 'excited',
+    'sad', 'angry', 'calm',
+  };
+
+  bool get verifiedDelivery => unambiguousCandidate &&
+      delivery != null && supportedDeliveries.contains(delivery) &&
+      deliveryConfidence != null && deliveryConfidence!.isFinite &&
+      deliveryConfidence! >= 0.90 && deliveryConfidence! <= 1;
 
   /// Conservative proposal gate; it is not proof of a named character.
   bool get unambiguousCandidate => structurallyValid &&
@@ -40,5 +55,7 @@ class VisualSpeakerEvidence {
         competingTrackScore: (json['competing_track_score'] as num).toDouble(),
         modelId: json['model_id'] as String,
         sourceHash: json['source_hash'] as String,
+        delivery: json['delivery'] as String?,
+        deliveryConfidence: (json['delivery_confidence'] as num?)?.toDouble(),
       );
 }
