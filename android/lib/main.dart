@@ -657,7 +657,8 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
     } catch (e) {
       if (mounted) {
         final needsCasting = e.toString().contains('no verified voice role') ||
-            e.toString().contains('Speaker identification is incomplete');
+            e.toString().contains('Speaker identification is incomplete') ||
+            e.toString().contains('ECAPA could not establish an acoustic identity');
         setState(() => status = needsCasting
             ? 'Speaker identification needs review. Tap ASSIGN CHARACTER VOICES, '
               'resolve any unknown segments, choose voices, save, then resume. '
