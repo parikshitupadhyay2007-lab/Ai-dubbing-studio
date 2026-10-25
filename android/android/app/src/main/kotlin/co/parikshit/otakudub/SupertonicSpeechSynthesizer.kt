@@ -6,6 +6,7 @@ import java.io.Closeable
 import java.io.File
 import kotlin.math.abs
 import kotlin.math.sqrt
+import kotlin.math.floor
 
 /** Four-stage Supertonic 3 renderer using the upstream Java ONNX graph. */
 class SupertonicSpeechSynthesizer(
@@ -80,7 +81,34 @@ class SupertonicSpeechSynthesizer(
             }
             val count = (result.duration[0] * engine.sampleRate).toInt().coerceIn(0, result.wav.size)
             require(count > 0) { "Supertonic produced no samples for segment ${segment.id}" }
-            val samples = result.wav.copyOf(count)
+            // The model's estimated duration does not guarantee a dialogue-window fit.
+            // Use the generation-speed retry above before bounded post-render fitting.
+            // Resample the ENTIRE waveform: never crop away the final spoken phonemes.
+            val targetSamples = floor(window * engine.sampleRate).toInt()
+            require(targetSamples >= 2) { "Dialogue timing window is too short for segment ${segment.id}" }
+            val rendered = result.wav.copyOf(count)
+            val samples = if (count > targetSamples) {
+                val compression = count.toDouble() / targetSamples
+                require(compression <= 1.50) {
+                    "Dialogue for segment ${segment.id} requires excessive duration compression; shorten the translation."
+                }
+                val fitted = FloatArray(targetSamples)
+                val step = (count - 1).toDouble() / (targetSamples - 1)
+                for (i in fitted.indices) {
+                    val position = i * step
+                    val left = floor(position).toInt().coerceIn(0, count - 1)
+                    val right = (left + 1).coerceAtMost(count - 1)
+                    val fraction = (position - left).toFloat()
+                    fitted[i] = rendered[left] * (1f - fraction) + rendered[right] * fraction
+                }
+                // A 10 ms fade avoids a discontinuity at the window boundary.
+                val fade = (engine.sampleRate / 100).coerceAtMost(fitted.size)
+                for (i in 0 until fade) {
+                    val index = fitted.lastIndex - i
+                    fitted[index] *= i.toFloat() / fade
+                }
+                fitted
+            } else rendered
             var power = 0.0
             var peak = 0.0
             for (sample in samples) {
@@ -89,11 +117,11 @@ class SupertonicSpeechSynthesizer(
                 power += value * value
                 if (value > peak) peak = value
             }
-            require(sqrt(power / count) >= 0.0001 && peak >= 0.001 && peak < 0.9999695) {
+            require(sqrt(power / samples.size) >= 0.0001 && peak >= 0.001 && peak < 0.9999695) {
                 "Supertonic output is silent or clipping"
             }
-            require(count.toDouble() / engine.sampleRate <= window * 1.12) {
-                "Supertonic output exceeds dialogue timing window for segment ${segment.id}"
+            require(samples.size.toDouble() / engine.sampleRate <= window) {
+                "Duration fitting failed for segment ${segment.id}"
             }
             val output = VoiceWavWriter.write(File(outputDirectory, "segment_${segment.id}.wav"),
                 samples, engine.sampleRate)
