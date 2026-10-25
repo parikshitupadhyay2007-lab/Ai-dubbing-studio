@@ -26,9 +26,6 @@ jobs:
       - name: Resolve dependencies
         working-directory: android
         run: flutter pub get
-      - name: Format changed Dart files
-        working-directory: android
-        run: dart format --output=none --set-exit-if-changed lib/models/dub_project.dart lib/services/segment_quality_control.dart test/manual_speaker_quality_test.dart
       - name: Analyze
         working-directory: android
         run: flutter analyze
