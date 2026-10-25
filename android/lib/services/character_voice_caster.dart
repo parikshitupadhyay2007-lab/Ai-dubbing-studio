@@ -40,7 +40,7 @@ class CharacterVoiceCaster {
       if (role == 'female') verifiedPreferences[entry.key] = VoiceRole.female;
       if (role == 'youthful') verifiedPreferences[entry.key] = VoiceRole.youthful;
     }
-    final roles = <String, VoiceRole>{...verifiedPreferences, ...preferredRoles};
+    final roles = <String, VoiceRole>{...preferredRoles, ...verifiedPreferences};
 
     final speakers = <String>{};
     final existingRoles = <String, VoiceRole>{};
