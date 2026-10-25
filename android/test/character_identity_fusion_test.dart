@@ -40,4 +40,37 @@ void main() {
     expect(evidence['manually_reviewed'], isTrue);
     expect(evidence['acoustic_confidence'], isNull);
   });
+  test('multimodal link rejects unrelated segments and preserves speaker IDs', () {
+    final project = DubProject(id: 'fusion', title: 'fixture',
+      sourcePath: 'video.mp4', targetLanguage: 'hi',
+      segments: [
+        DubSegment(id: 1, start: 0, end: 1, original: 'One',
+          speakerId: 'speaker_1', speakerConfidence: 0.9),
+        DubSegment(id: 2, start: 1, end: 2, original: 'Two',
+          speakerId: 'speaker_2', speakerConfidence: 0.9),
+      ]);
+    const fusion = CharacterIdentityFusion();
+    fusion.record(project);
+    expect(fusion.applyVerifiedLink(project, speakerId: 'speaker_1',
+      characterId: 'character-a', segmentIds: [1, 2],
+      referenceId: 'ref', visualEvidenceId: 'visual',
+      acousticEvidenceId: 'acoustic'), isFalse);
+    expect(fusion.applyVerifiedLink(project, speakerId: 'speaker_1',
+      characterId: 'character-a', segmentIds: [1],
+      referenceId: '', visualEvidenceId: 'visual',
+      acousticEvidenceId: 'acoustic'), isFalse);
+    expect(fusion.applyVerifiedLink(project, speakerId: 'speaker_1',
+      characterId: 'character-a', segmentIds: [1],
+      referenceId: 'ref', visualEvidenceId: 'visual',
+      acousticEvidenceId: 'acoustic'), isTrue);
+    fusion.record(project);
+    final evidence = project.speakerIdentityEvidence['speaker_1'] as Map;
+    expect(evidence['character_id'], 'character-a');
+    expect(evidence['identity'], 'verified_character');
+    expect(project.segments.first.speakerId, 'speaker_1');
+    project.segments.first.speakerId = 'speaker_2';
+    fusion.record(project);
+    expect(project.speakerIdentityEvidence.containsKey('speaker_1'), isFalse);
+  });
+
 }
