@@ -20,3 +20,9 @@
 - Verify actual model binary integrity, CI and an APK installed on device.
 
 A passing Flutter analyzer or unit test alone does not verify native inference or dubbing quality.
+
+## New guarded fusion contract
+`CharacterIdentityFusion.applyVerifiedLink` supports segment-scoped, named-character associations only when acoustic, visual and reference evidence identifiers are all supplied and the segment IDs belong to the claimed speaker. This validates structural provenance; it does **not** authenticate identifiers or perform visual inference. Re-recording evidence drops a previously linked character when its linked segment's acoustic speaker assignment changes. Native evidence producers and independently licensed catalog content are outstanding.
+
+## Release status
+No new APK was produced by these commits. CI, real-device testing, intelligibility, emotional quality, voice-role suitability, accurate multimodal identity, and model binary availability must be proven independently before release.
