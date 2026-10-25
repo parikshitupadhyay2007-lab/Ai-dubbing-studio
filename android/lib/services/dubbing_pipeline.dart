@@ -11,6 +11,8 @@ import 'offline_engine.dart';
 import 'otakumind_director.dart';
 import 'anime_scene_matcher.dart';
 import 'verified_anime_catalog.dart';
+import 'active_speaker_evidence_gate.dart';
+import 'visual_speaker_evidence.dart';
 import 'project_repository.dart';
 import 'separation_installation.dart';
 import 'segment_quality_control.dart';
@@ -249,6 +251,34 @@ class DubbingPipeline {
       }
 
         await repository.save(project); // diarization checkpoint
+        }
+        // Visual inference is optional until verified native weights are shipped.
+        // A missing native handler must not turn a scene hash into lip evidence.
+        try {
+          final visual = await engine.analyzeActiveSpeakers(project);
+          final raw = visual['candidates'] as List;
+          final candidates = raw.map((item) => VisualSpeakerEvidence.fromJson(
+              Map<String, dynamic>.from(item as Map))).toList();
+          final accepted = const ActiveSpeakerEvidenceGate()
+              .evaluate(project, candidates);
+          project.animeSceneContext ??= <String, dynamic>{};
+          project.animeSceneContext!['active_speaker_evidence'] = [
+            for (final entry in accepted.entries)
+              <String, dynamic>{
+                'segment_id': entry.key,
+                'track_id': entry.value.trackId,
+                'model_id': entry.value.modelId,
+                'source_hash': entry.value.sourceHash,
+                'lip_sync_score': entry.value.lipSyncScore,
+                'status': 'visual_track_candidate_not_character_identity',
+              },
+          ];
+        } on OfflineEngineException {
+          // Provisional acoustic casting remains available offline.
+        } on FormatException {
+          // Invalid output cannot become character-identification evidence.
+        } on TypeError {
+          // Reject malformed native maps without corrupting the checkpoint.
         }
         await _assignCharacterVoices(project); // casting checkpoint
       }
