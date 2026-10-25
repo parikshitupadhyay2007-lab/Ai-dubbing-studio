@@ -8,7 +8,8 @@ class IdentityConfidenceGate {
   List<DubSegment> unresolved(DubProject project) => project.segments.where((s) =>
       s.speakerId.trim().isEmpty || s.speakerId.trim() == 'unknown' ||
       !s.speakerConfidence.isFinite ||
-      (!s.speakerManuallyVerified && s.speakerConfidence <= 0)).toList();
+      (s.speakerConfidence <= 0 &&
+          !(s.speakerManuallyVerified && s.speakerConfidence == 0))).toList();
 
   bool readyForSynthesis(DubProject project) {
     if (project.segments.isEmpty || unresolved(project).isNotEmpty) return false;
