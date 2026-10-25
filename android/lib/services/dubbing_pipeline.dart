@@ -65,11 +65,11 @@ class DubbingPipeline {
 
     final unresolved = project.segments.where((s) =>
         s.speakerId.trim().isEmpty || s.speakerId == 'unknown').toList();
-    const CharacterIdentityFusion().record(project);
     // Cast every acoustically identified speaker before handling exceptions.
     // Scene metadata is advisory, never an invented acoustic identity or role.
     _caster.assign(project);
-    await repository.save(project); // preserve partial automatic casting
+    const CharacterIdentityFusion().record(project);
+    await repository.save(project); // preserve partial automatic casting and evidence
 
     if (unresolved.isNotEmpty) {
       final preview = unresolved.take(8).map((s) =>
