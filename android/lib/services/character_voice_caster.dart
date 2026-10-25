@@ -25,6 +25,23 @@ class CharacterVoiceCaster {
       );
     }
 
+    // Evidence-derived preferences are usable only after independent visual
+    // and reference speaker links have been verified by their producers.
+    // An OtakuMind suggestion or scene match alone must not force a role.
+    final verifiedPreferences = <String, VoiceRole>{};
+    for (final entry in project.speakerIdentityEvidence.entries) {
+      final evidence = entry.value;
+      if (evidence is! Map ||
+          evidence['visual_speaker_link_verified'] != true ||
+          evidence['reference_speaker_link_verified'] != true ||
+          evidence['identity_status'] != 'verified_character') continue;
+      final role = evidence['verified_voice_role'];
+      if (role == 'male') verifiedPreferences[entry.key] = VoiceRole.male;
+      if (role == 'female') verifiedPreferences[entry.key] = VoiceRole.female;
+      if (role == 'youthful') verifiedPreferences[entry.key] = VoiceRole.youthful;
+    }
+    final roles = <String, VoiceRole>{...verifiedPreferences, ...preferredRoles};
+
     final speakers = <String>{};
     final existingRoles = <String, VoiceRole>{};
     for (final entry in project.characterVoices.entries) {
@@ -48,8 +65,8 @@ class CharacterVoiceCaster {
       (speaker, voice) =>
           !speakers.contains(speaker) ||
           !validIds.contains(voice) ||
-          (preferredRoles.containsKey(speaker) &&
-              VoiceCatalog.byId(voice).role != preferredRoles[speaker]),
+          (roles.containsKey(speaker) &&
+              VoiceCatalog.byId(voice).role != roles[speaker]),
     );
 
     final usedStyles = project.characterVoices.values
@@ -60,7 +77,7 @@ class CharacterVoiceCaster {
         continue;
       }
 
-      final preferredRole = preferredRoles[speaker] ?? existingRoles[speaker];
+      final preferredRole = roles[speaker] ?? existingRoles[speaker];
 
       // Acoustic clustering does not establish gender, age, or character role.
       // Unclassified voices are provisional style choices, not predictions.
