@@ -12,6 +12,21 @@ void main() {
       '"start_seconds":0,"dialogue":["one","two","three"]}]'),
       throwsFormatException);
   });
+  test('unresolved rights and unsupported annotation provenance are rejected', () {
+    const base = '{"anime_id":"a","episode_id":"1","title":"Example",'
+      '"provenance":"submitted","redistribution_license":"unknown",'
+      '"source_id":"record-1","start_seconds":0,'
+      '"dialogue":["one","two","three"]}';
+    expect(() => const VerifiedAnimeCatalog().parse('[$base]'), throwsFormatException);
+    const bad = '{"anime_id":"a","episode_id":"1","title":"Example",'
+      '"provenance":"submitted","redistribution_license":"CC0",'
+      '"source_id":"record-1","start_seconds":0,'
+      '"dialogue":["one","two","three"],'
+      '"speaker_annotations":[{"segment_id":1,"track_id":"track",'
+      '"character_id":"character","reference_id":"different",'
+      '"source_hash":"source"}]}';
+    expect(() => const VerifiedAnimeCatalog().parse('[$bad]'), throwsFormatException);
+  });
   test('visual evidence must beat competing visible track', () {
     const strong = VisualSpeakerEvidence(segmentId: 1, trackId: 'track-1',
       startSeconds: 1, endSeconds: 2, lipSyncScore: .93,
