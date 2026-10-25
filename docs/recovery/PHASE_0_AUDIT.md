@@ -32,5 +32,5 @@ Work branch: `recovery/phase-0-audit`. Do not treat a successful APK build as ev
 4. Establish a fixed, lawful 30-second reference fixture and expected transcript, speaker and translation annotations.
 5. Preserve the baseline and do not merge until CI/tests and actual device regression checks pass.
 
-## Follow-up issue discovered during inspection
-In `android/lib/main.dart`, the error-to-manual-review UX recognizes the messages 'no verified voice role' or 'Speaker identification is incomplete', whereas `dubbing_pipeline.dart` can throw 'ECAPA could not establish an acoustic identity...' for the unresolved-speaker case. Align error types rather than matching fragile prose.
+## Additional recovery fix
+The UI now also recognizes the unresolved ECAPA message and guides users to manual casting. Structured error codes remain preferable to string matching and should be implemented in a subsequent change.
