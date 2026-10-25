@@ -5,6 +5,8 @@ import '../models/dub_project.dart';
 class CharacterIdentityFusion {
   const CharacterIdentityFusion();
 
+  /// Internal evidence record only: nonempty identifiers are NOT independent
+  /// verification. Callers must authenticate source material before invoking.
   /// Apply independently verified, segment-scoped links only. The producer of
   /// these links must provide acoustic, visual and licensed-reference proof;
   /// a scene candidate or language-model suggestion is never sufficient.
@@ -34,15 +36,15 @@ class CharacterIdentityFusion {
     if (previous != null && previous != characterId) return false;
     project.speakerIdentityEvidence[speakerId] = <String, dynamic>{
       ...Map<String, dynamic>.from(existing),
-      'identity': 'verified_character',
-      'identity_status': 'verified_multimodal',
+      'identity': 'evidence_linked_character',
+      'identity_status': 'evidence_submitted_unverified',
       'character_id': characterId,
       'linked_segment_ids': List<int>.of(segmentIds)..sort(),
       'reference_evidence_id': referenceId,
       'visual_evidence_id': visualEvidenceId,
       'acoustic_evidence_id': acousticEvidenceId,
-      'visual_speaker_link_verified': true,
-      'reference_speaker_link_verified': true,
+      'visual_speaker_link_verified': false,
+      'reference_speaker_link_verified': false,
     };
     return true;
   }
@@ -81,7 +83,7 @@ class CharacterIdentityFusion {
     // belongs to the same acoustic speaker; do not retain stale evidence.
     for (final entry in result.entries) {
       final previous = project.speakerIdentityEvidence[entry.key];
-      if (previous is! Map || previous['identity'] != 'verified_character' ||
+      if (previous is! Map || previous['identity'] != 'evidence_linked_character' ||
           previous['linked_segment_ids'] is! List) continue;
       final linked = previous['linked_segment_ids'] as List;
       final current = (entry.value as Map)['segment_ids'] as List;
