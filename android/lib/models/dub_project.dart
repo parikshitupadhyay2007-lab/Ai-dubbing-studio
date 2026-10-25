@@ -83,6 +83,7 @@ class DubProject {
   final Map<String, String> characterVoices;
   final Set<int> refinedSegmentIds;
   Map<String, dynamic>? animeSceneContext;
+  Map<String, dynamic> speakerIdentityEvidence;
 
   DubProject({
     required this.id,
@@ -97,9 +98,11 @@ class DubProject {
     Map<String, String>? characterVoices,
     Set<int>? refinedSegmentIds,
     this.animeSceneContext,
+    Map<String, dynamic>? speakerIdentityEvidence,
   })  : segments = segments ?? [],
         characterVoices = characterVoices ?? {},
-        refinedSegmentIds = refinedSegmentIds ?? <int>{};
+        refinedSegmentIds = refinedSegmentIds ?? <int>{},
+        speakerIdentityEvidence = speakerIdentityEvidence ?? <String, dynamic>{};
 
   Map<String, dynamic> toJson() => {
         'schema': 'otakudub.offline.v5',
@@ -115,6 +118,7 @@ class DubProject {
         'character_voices': characterVoices,
         'refined_segment_ids': refinedSegmentIds.toList()..sort(),
         'anime_scene_context': animeSceneContext,
+        'speaker_identity_evidence': speakerIdentityEvidence,
       };
 
   factory DubProject.fromJson(Map<String, dynamic> json) {
@@ -139,6 +143,9 @@ class DubProject {
       ),
       animeSceneContext: json['anime_scene_context'] is Map
           ? Map<String, dynamic>.from(json['anime_scene_context'] as Map) : null,
+      speakerIdentityEvidence: json['speaker_identity_evidence'] is Map
+          ? Map<String, dynamic>.from(json['speaker_identity_evidence'] as Map)
+          : <String, dynamic>{},
       refinedSegmentIds: (json['refined_segment_ids'] as List? ?? [])
           .map((value) => (value as num).toInt()).toSet(),
     );
