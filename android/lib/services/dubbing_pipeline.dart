@@ -10,7 +10,7 @@ import 'dialogue_quality_gate.dart';
 import 'offline_engine.dart';
 import 'otakumind_director.dart';
 import 'anime_scene_matcher.dart';
-import 'verified_anime_catalog.dart';
+import 'anime_reference_store.dart';
 import 'active_speaker_evidence_gate.dart';
 import 'visual_speaker_evidence.dart';
 import 'character_evidence_matcher.dart';
@@ -185,9 +185,7 @@ class DubbingPipeline {
       // supplied reference corpus. An empty catalog leaves identity unknown
       // and never blocks acoustic diarization or alters speaker IDs.
       if (project.animeSceneContext == null && project.segments.isNotEmpty) {
-        final catalogText = await rootBundle.loadString(
-            'assets/anime_scene_catalog.json');
-        final entries = const VerifiedAnimeCatalog().parse(catalogText);
+        final entries = await const AnimeReferenceStore().load();
         final references = entries.map((entry) =>
             AnimeSceneReference.fromJson(Map<String, dynamic>.from(entry as Map)))
             .toList();
@@ -267,8 +265,7 @@ class DubbingPipeline {
           // eligible. The native source hash must agree with the annotation.
           // These are proposals, never self-certified character identities.
           final scene = project.animeSceneContext!;
-          final catalogRaw = await rootBundle.loadString('assets/anime_scene_catalog.json');
-          final catalog = const VerifiedAnimeCatalog().parse(catalogRaw);
+          final catalog = await const AnimeReferenceStore().load();
           final matching = catalog.where((e) => e['anime_id'] == scene['anime_id'] &&
               e['episode_id'] == scene['episode_id'] &&
               e['start_seconds'] == scene['reference_start_seconds']).toList();
