@@ -38,6 +38,10 @@ def main():
         candidates = sorted((repo / "weight").glob("*.model"))
         if not candidates:
             raise RuntimeError("Upstream does not contain pretrained .model weights")
+        license_file = repo / "LICENSE"
+        if not license_file.is_file() or "MIT License" not in license_file.read_text(encoding="utf-8"):
+            raise RuntimeError("Upstream MIT license missing or changed; manual review required")
+        shutil.copyfile(license_file, output / "LICENSE.upstream")
         results = []
         for source in candidates:
             if not source.is_file() or source.stat().st_size < 100000:
@@ -49,7 +53,7 @@ def main():
             results.append({"filename": target.name, "size": target.stat().st_size, "sha256": sha256(target),
                             "format": "upstream-pytorch-checkpoint-not-android-onnx"})
         manifest = {"model": "Light-ASD", "upstream_url": URL,
-                    "upstream_revision": args.revision.lower(), "checkpoints": results,
+                    "upstream_revision": args.revision.lower(), "license_file": "LICENSE.upstream", "license_sha256": sha256(output / "LICENSE.upstream"), "checkpoints": results,
                     "status": "acquired; ONNX conversion and native inference NOT VERIFIED"}
         (output / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
         print(json.dumps(manifest, indent=2))
