@@ -529,9 +529,14 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
       return;
     }
     final choices = <String, String?>{
-      for (final speaker in speakers)
+      for (final speaker in candidateSpeakers)
         speaker: voices.any((v) => v.id == project.characterVoices[speaker])
-            ? project.characterVoices[speaker] : null,
+            ? project.characterVoices[speaker]
+            : project.segments.any((s) => s.speakerId == speaker &&
+                voices.any((v) => v.id == s.voiceId))
+                ? project.segments.firstWhere((s) => s.speakerId == speaker &&
+                    voices.any((v) => v.id == s.voiceId)).voiceId
+                : null,
     };
     List<String> activeSpeakers() => <String>{
       ...speakers,
@@ -1183,4 +1188,6 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
     );
   }
 }
+               onPressed: canSaveCasting()
+                   ? () => Navigator.pop(dialogContext, true) : null,
 
