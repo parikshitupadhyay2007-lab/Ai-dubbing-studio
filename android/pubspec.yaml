@@ -28,7 +28,6 @@ flutter:
   assets:
     - assets/anime_scene_catalog.json
     - assets/models/
-    - assets/models/voices/
 
 flutter_launcher_icons:
   android: true
