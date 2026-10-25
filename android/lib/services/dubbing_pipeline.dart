@@ -441,7 +441,7 @@ class DubbingPipeline {
           break;
         } on OfflineEngineException catch (error) {
           final match = RegExp(
-            r'Dialogue for segment (\\d+) requires excessive duration compression',
+            r'Dialogue for segment (\d+) requires excessive duration compression',
           ).firstMatch(error.message);
           if (match == null) rethrow;
           final id = int.parse(match.group(1)!);
