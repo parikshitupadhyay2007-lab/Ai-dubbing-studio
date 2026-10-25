@@ -5,6 +5,7 @@ import '../models/dub_project.dart';
 import 'package:flutter/services.dart';
 
 import 'character_voice_caster.dart';
+import 'character_identity_fusion.dart';
 import 'dialogue_quality_gate.dart';
 import 'offline_engine.dart';
 import 'otakumind_director.dart';
@@ -64,6 +65,7 @@ class DubbingPipeline {
 
     final unresolved = project.segments.where((s) =>
         s.speakerId.trim().isEmpty || s.speakerId == 'unknown').toList();
+    const CharacterIdentityFusion().record(project);
     // Cast every acoustically identified speaker before handling exceptions.
     // Scene metadata is advisory, never an invented acoustic identity or role.
     _caster.assign(project);
