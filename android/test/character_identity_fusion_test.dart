@@ -66,7 +66,9 @@ void main() {
     fusion.record(project);
     final evidence = project.speakerIdentityEvidence['speaker_1'] as Map;
     expect(evidence['character_id'], 'character-a');
-    expect(evidence['identity'], 'verified_character');
+    expect(evidence['identity'], 'evidence_linked_character');
+    expect(evidence['identity_status'], 'evidence_submitted_unverified');
+    expect(evidence['visual_speaker_link_verified'], isFalse);
     expect(project.segments.first.speakerId, 'speaker_1');
     project.segments.first.speakerId = 'speaker_2';
     fusion.record(project);
