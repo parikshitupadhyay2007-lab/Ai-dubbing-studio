@@ -1,0 +1,37 @@
+name: Recovery quality gate
+
+on:
+  push:
+    branches:
+      - 'recovery/**'
+  pull_request:
+    paths:
+      - 'android/lib/**'
+      - 'android/test/**'
+      - '.github/workflows/recovery-quality.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  flutter-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Resolve dependencies
+        working-directory: android
+        run: flutter pub get
+      - name: Format changed Dart files
+        working-directory: android
+        run: dart format --output=none --set-exit-if-changed lib/models/dub_project.dart lib/services/segment_quality_control.dart test/manual_speaker_quality_test.dart
+      - name: Analyze
+        working-directory: android
+        run: flutter analyze
+      - name: Run regression tests
+        working-directory: android
+        run: flutter test
