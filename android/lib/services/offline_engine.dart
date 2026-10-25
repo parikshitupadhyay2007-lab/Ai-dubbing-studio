@@ -173,6 +173,19 @@ class OfflineEngine {
     return List<String>.from(hashes);
   }
 
+  /// Optional native active-speaker inference. A missing model/handler is an
+  /// explicit unsupported capability, never fabricated frame-based evidence.
+  Future<Map<String, dynamic>> analyzeActiveSpeakers(DubProject project) async {
+    final result = await _invoke('analyzeActiveSpeakers', {
+      'source_path': project.sourcePath,
+      'segments': project.segments.map((s) => s.toJson()).toList(),
+    });
+    if (result['model_verified'] != true || result['candidates'] is! List) {
+      throw OfflineEngineException('Native active-speaker model is unverified or returned invalid evidence.');
+    }
+    return result;
+  }
+
   Future<Map<String, dynamic>> transcribe(DubProject project) async {
     final model = await models.path(AiModel.whisper);
     if (model == null) {
