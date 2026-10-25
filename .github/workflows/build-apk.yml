@@ -543,6 +543,23 @@ jobs:
           print("ALL REQUIRED AI ASSETS VERIFIED BEFORE COMPILATION")
           PY
 
+      - name: Verify nested Flutter model asset declarations
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          pubspec = Path("android/pubspec.yaml").read_text()
+          root = Path("android/assets/models")
+          for directory in ("speaker/", "voices/", "supertonic3/",
+                            "supertonic3/onnx/", "supertonic3/voice_styles/"):
+              declaration = "    - assets/models/" + directory
+              if declaration not in pubspec:
+                  raise SystemExit("Missing Flutter asset declaration: " + declaration)
+              if not (root / directory).is_dir():
+                  raise SystemExit("Missing nested asset directory: " + directory)
+          print("All generated model directories are declared for APK packaging")
+          PY
+
       - name: Verify transcription language fix
         shell: bash
         run: |
