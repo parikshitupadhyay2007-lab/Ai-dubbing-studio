@@ -538,6 +538,33 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
                     voices.any((v) => v.id == s.voiceId)).voiceId
                 : null,
     };
+    // Previously identified speakers are already eligible for provisional
+    // automatic casting. Only unknown lines require a manual speaker decision.
+    final reservedStyles = <String>{};
+    for (final speaker in speakers) {
+      final previous = choices[speaker];
+      if (previous != null) {
+        final style = VoiceCatalog.supertonicStyle(previous);
+        if (style != null) reservedStyles.add(style);
+      }
+    }
+    for (final speaker in speakers) {
+      if (choices[speaker] != null) continue;
+      final preferred = voices.where((v) =>
+          !reservedStyles.contains(VoiceCatalog.supertonicStyle(v.id)));
+      final voice = preferred.isNotEmpty ? preferred.first : voices.first;
+      choices[speaker] = voice.id;
+      final style = VoiceCatalog.supertonicStyle(voice.id);
+      if (style != null) reservedStyles.add(style);
+    }
+    void proposeVoice(String speaker) {
+      if (choices[speaker] != null) return;
+      final used = choices.values.whereType<String>()
+          .map(VoiceCatalog.supertonicStyle).whereType<String>().toSet();
+      final available = voices.where((v) =>
+          !used.contains(VoiceCatalog.supertonicStyle(v.id)));
+      choices[speaker] = (available.isNotEmpty ? available.first : voices.first).id;
+    }
     List<String> activeSpeakers() => <String>{
       ...speakers,
       ...speakerChoices.values.whereType<String>(),
@@ -591,7 +618,10 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
                       for (final speaker in candidateSpeakers)
                         DropdownMenuItem(value: speaker, child: Text(speaker)),
                     ],
-                    onChanged: (value) => update(() => speakerChoices[segment.id] = value),
+                    onChanged: (value) => update(() {
+                      speakerChoices[segment.id] = value;
+                      if (value != null) proposeVoice(value);
+                    }),
                   ),
                 for (final speaker in activeSpeakers())
                   DropdownButtonFormField<String>(
