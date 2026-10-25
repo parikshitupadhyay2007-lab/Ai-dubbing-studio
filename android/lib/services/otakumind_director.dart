@@ -105,6 +105,27 @@ class OtakuMindDirector {
     return accepted;
   }
 
+  /// Targeted duration recovery: the native model receives an explicit short-line
+  /// contract. Never mutate the original segment until the candidate passes.
+  Future<String?> shortenForTiming(DubProject project, DubSegment line) async {
+    final request = DubProject(
+      id: project.id,
+      title: project.title,
+      sourcePath: project.sourcePath,
+      targetLanguage: project.targetLanguage,
+      sourceLanguage: project.sourceLanguage,
+      segments: [line],
+      characterVoices: project.characterVoices,
+    );
+    final result = await engine.refineDialogue(request, fitForDuration: true);
+    final candidate = _checked(result['segments'], [line], 'Duration fit')
+        .single.translation.trim();
+    if (candidate.length >= line.translation.trim().length ||
+        !DialogueQualityGate.acceptableTranslation(candidate, line.original,
+            project.sourceLanguage, project.targetLanguage)) return null;
+    return candidate;
+  }
+
   /// Director output is a verifiable readiness decision, not guessed metadata.
   void verifyBeforeSynthesis(DubProject project) {
     if (project.segments.isEmpty) {
