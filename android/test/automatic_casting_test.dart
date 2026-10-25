@@ -4,7 +4,7 @@ import 'package:ai_dubbing_studio/services/character_voice_caster.dart';
 import 'package:ai_dubbing_studio/services/voice_catalog.dart';
 
 DubSegment line(int id, String speaker) => DubSegment(
-  id: id, start: id.toDouble(), end: id + 0.8,
+  id: id, start: id.toDouble(), end: id.toDouble() + 0.8,
   original: 'Original dialogue $id', speakerId: speaker,
   speakerConfidence: speaker == 'unknown' ? 0 : 0.9,
 );
