@@ -29,6 +29,26 @@ void main() {
     expect(gate.evaluate(project, [sample('a', start: .8)]), isEmpty);
     expect(gate.evaluate(project, [sample('a', end: 2.2)]), isEmpty);
   });
+  test('expression requires measured high-confidence supported delivery', () {
+    const supported = VisualSpeakerEvidence(segmentId: 1, trackId: 'a',
+      startSeconds: 1, endSeconds: 2, lipSyncScore: .95,
+      competingTrackScore: .50, modelId: 'native-model',
+      sourceHash: 'measured-source', delivery: 'shouting',
+      deliveryConfidence: .93);
+    expect(supported.verifiedDelivery, isTrue);
+    const uncertain = VisualSpeakerEvidence(segmentId: 1, trackId: 'a',
+      startSeconds: 1, endSeconds: 2, lipSyncScore: .95,
+      competingTrackScore: .50, modelId: 'native-model',
+      sourceHash: 'measured-source', delivery: 'shouting',
+      deliveryConfidence: .65);
+    expect(uncertain.verifiedDelivery, isFalse);
+    const unsupported = VisualSpeakerEvidence(segmentId: 1, trackId: 'a',
+      startSeconds: 1, endSeconds: 2, lipSyncScore: .95,
+      competingTrackScore: .50, modelId: 'native-model',
+      sourceHash: 'measured-source', delivery: 'invented',
+      deliveryConfidence: .99);
+    expect(unsupported.verifiedDelivery, isFalse);
+  });
   test('non-covering time range is withheld', () {
     final result = const ActiveSpeakerEvidenceGate().evaluate(
       project, [sample('a', start: 1.4)]);
