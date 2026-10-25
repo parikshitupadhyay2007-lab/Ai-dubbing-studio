@@ -596,7 +596,8 @@ class MainActivity : FlutterActivity() {
                         call.argument<String>("target_language")
                             ?: "hi",
                         true,
-                        result
+                        result,
+                        call.argument<Boolean>("fit_for_duration") == true
                     )
                 }
 
@@ -885,7 +886,8 @@ class MainActivity : FlutterActivity() {
         sourceLanguage: String,
         targetLanguage: String,
         refine: Boolean,
-        result: MethodChannel.Result
+        result: MethodChannel.Result,
+        fitForDuration: Boolean = false
     ) {
         if (
             !nativeAvailable ||
@@ -941,7 +943,8 @@ class MainActivity : FlutterActivity() {
                                 input,
                                 original,
                                 targetLanguage,
-                                segment
+                                segment,
+                                fitForDuration
                             )
                         } else {
                             translationPrompt(
@@ -963,7 +966,7 @@ class MainActivity : FlutterActivity() {
                             // the meaning-preservation instructions.
                             // A compact retry avoids exhausting small-model output
                             // budgets on the original verbose prompt.
-                            val request = if (attempt == 0) prompt else if (refine) {
+                            val request = if (attempt == 0 || (refine && fitForDuration)) prompt else if (refine) {
                                 "/no_think\nRewrite this $targetLanguage spoken dialogue naturally " +
                                     "without changing its meaning. Output only the spoken line.\n" +
                                     "Dialogue: $input\nAnswer:"
@@ -1066,7 +1069,8 @@ class MainActivity : FlutterActivity() {
         translation: String,
         original: String,
         targetLanguage: String,
-        segment: Map<String, Any?>
+        segment: Map<String, Any?>,
+        fitForDuration: Boolean = false
     ): String {
 
         val target =
@@ -1087,6 +1091,8 @@ class MainActivity : FlutterActivity() {
         val duration =
             (end - start).coerceAtLeast(0.0)
 
+        val timingRule = if (fitForDuration) "The previous synthesis was too long. Produce a substantially shorter line than the existing translation, aiming for half its spoken length; preserve all essential meaning, names and facts. Never merely rephrase at the same length." else "Keep the line concise."
+
         return """
             /no_think
             You are OtakuMind, an anime dubbing dialogue editor.
@@ -1098,6 +1104,7 @@ class MainActivity : FlutterActivity() {
             - Keep names and important story details unchanged.
             - Make the dialogue natural and emotionally appropriate.
             - Keep it concise for approximately $duration seconds.
+            - $timingRule
             - Do not invent dialogue.
             - Do not add explanations, labels or quotation marks.
             - Output only one refined dialogue line.
