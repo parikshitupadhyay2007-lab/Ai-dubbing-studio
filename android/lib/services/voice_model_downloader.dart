@@ -127,7 +127,7 @@ class VoiceModelDownloader {
       await temporaryModel.rename(model.path);
       await temporaryConfig.rename(config.path);
 
-      return VoiceModelConfig.load(
+      return await VoiceModelConfig.load(
         modelPath: model.path,
         configPath: config.path,
         expectedLanguage: language,
