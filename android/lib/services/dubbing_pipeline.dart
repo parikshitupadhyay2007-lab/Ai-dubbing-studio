@@ -13,6 +13,7 @@ import 'anime_scene_matcher.dart';
 import 'verified_anime_catalog.dart';
 import 'active_speaker_evidence_gate.dart';
 import 'visual_speaker_evidence.dart';
+import 'character_evidence_matcher.dart';
 import 'project_repository.dart';
 import 'separation_installation.dart';
 import 'segment_quality_control.dart';
@@ -262,6 +263,42 @@ class DubbingPipeline {
           final accepted = const ActiveSpeakerEvidenceGate()
               .evaluate(project, candidates);
           project.animeSceneContext ??= <String, dynamic>{};
+          // Only annotations from the uniquely selected reference scene are
+          // eligible. The native source hash must agree with the annotation.
+          // These are proposals, never self-certified character identities.
+          final scene = project.animeSceneContext!;
+          final catalogRaw = await rootBundle.loadString('assets/anime_scene_catalog.json');
+          final catalog = const VerifiedAnimeCatalog().parse(catalogRaw);
+          final matching = catalog.where((e) => e['anime_id'] == scene['anime_id'] &&
+              e['episode_id'] == scene['episode_id'] &&
+              e['start_seconds'] == scene['reference_start_seconds']).toList();
+          final annotations = <Map<String, dynamic>>[];
+          for (final reference in matching) {
+            final rows = reference['speaker_annotations'];
+            if (rows is! List) continue;
+            for (final rawRow in rows) {
+              if (rawRow is! Map) continue;
+              final row = Map<String, dynamic>.from(rawRow);
+              final segment = row['segment_id'];
+              final evidence = accepted[segment];
+              if (evidence == null || row['source_hash'] != evidence.sourceHash ||
+                  row['reference_id'] != reference['source_id']) continue;
+              annotations.add(row);
+            }
+          }
+          final proposals = const CharacterEvidenceMatcher()
+              .propose(project, accepted, annotations);
+          scene['character_match_candidates'] = [
+            for (final proposal in proposals) <String, dynamic>{
+              'speaker_id': proposal.speakerId,
+              'segment_id': proposal.segmentId,
+              'track_id': proposal.trackId,
+              'character_id': proposal.characterId,
+              'reference_id': proposal.referenceId,
+              'visual_score': proposal.visualScore,
+              'status': 'candidate_requires_independent_validation',
+            },
+          ];
           project.animeSceneContext!['active_speaker_evidence'] = [
             for (final entry in accepted.entries)
               <String, dynamic>{
