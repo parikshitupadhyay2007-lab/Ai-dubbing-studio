@@ -17,3 +17,10 @@ Branch: `recovery/phase-0-audit`. Stage 3 (APK/device acceptance) remains reserv
 
 ## Acceptance boundaries
 Stage 2 is complete only when code, licensed model assets, corpus ingestion, and automated source/build checks are in place. Stage 3 is the owner's real-device audiovisual and end-to-end acceptance testing. An empty catalog must yield unknown identity rather than fabricated title/episode/character; absence of a visual model must not masquerade as verified lip evidence.
+
+## Four requested capabilities — latest review
+- Comprehensive anime data: **not installed**. Empty bundled catalog remains intentional; metadata APIs alone do not supply licensed complete scripts, reference frames, expression annotations or alignment.
+- Evidence-based casting: added a conservative role-preference gate, commit 31d9425. Only an independently verified character identity with both visual and reference speaker links may contribute a voice role; otherwise existing provisional casting persists. No trained identity producer is falsely asserted.
+- Trained Android visual speaker inference: **not complete**. Existing Light-ASD acquisition is upstream PyTorch only. ONNX conversion, correct temporal audiovisual preprocessing, Android inference and device calibration remain necessary.
+- Expression/lip-sync: **not complete**. Source-grounded timeline/expression schema validation is implemented; trained inference, actual speaking-window optimization and perceptual verification are not.
+- No build/test or real-device success has been observed for these newest commits.
