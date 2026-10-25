@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ai_dubbing_studio/models/dub_project.dart';
 import 'package:ai_dubbing_studio/services/character_identity_fusion.dart';
+import 'package:ai_dubbing_studio/services/character_voice_caster.dart';
 
 void main() {
   test('scene candidate never becomes an asserted speaker-to-character link', () {
@@ -15,11 +16,13 @@ void main() {
       animeSceneContext: {'anime_id': 'reference-a', 'episode_id': '1',
         'evidence': 'dialogue_and_visual',
         'possible_characters': [{'name': 'Candidate A'}]});
+    const CharacterVoiceCaster().assign(project);
     const CharacterIdentityFusion().record(project);
     expect(project.speakerIdentityEvidence.keys.toList(), ['speaker_1']);
     final evidence = project.speakerIdentityEvidence['speaker_1'] as Map;
     expect(evidence['identity'], 'provisional_speaker');
     expect(evidence['character_id'], isNull);
+    expect(evidence['voice_casting_status'], 'assigned');
     expect(evidence['scene_candidate'], 'reference-a');
     expect(evidence['visual_speaker_link_verified'], isFalse);
     expect(project.segments.last.speakerId, 'unknown');
