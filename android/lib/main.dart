@@ -9,6 +9,7 @@ import 'package:open_filex/open_filex.dart';
 import 'models/dub_project.dart';
 import 'services/dubbing_pipeline.dart';
 import 'services/character_identity_fusion.dart';
+import 'services/identity_confidence_gate.dart';
 import 'services/model_manager.dart';
 import 'services/offline_engine.dart';
 import 'services/project_repository.dart';
@@ -511,9 +512,7 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
     final speakers = project.segments.map((s) => s.speakerId)
         .where((id) => id.trim().isNotEmpty && id != 'unknown')
         .toSet().toList()..sort();
-    final unresolved = project.segments.where((segment) =>
-        segment.speakerId.trim().isEmpty || segment.speakerId == 'unknown')
-        .toList();
+    final unresolved = const IdentityConfidenceGate().unresolved(project);
     // Uncertain segments require explicit confirmation. Never invent a
     // speaker identity from timeline proximity or silently cast unknown audio.
     final speakerChoices = <int, String?>{
