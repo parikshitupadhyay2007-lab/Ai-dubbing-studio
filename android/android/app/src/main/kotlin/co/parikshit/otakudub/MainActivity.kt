@@ -452,6 +452,17 @@ class MainActivity : FlutterActivity() {
                     }
                 }
 
+                "analyzeActiveSpeakers" -> {
+                    // Fail closed until an actual synchronized audio/video model,
+                    // verified checkpoint and native inference are installed.
+                    // Returning dummy scores here would falsely identify anime characters.
+                    result.error(
+                        "ACTIVE_SPEAKER_MODEL_NOT_INSTALLED",
+                        "Native synchronized audio/video active-speaker model and verified weights are not installed.",
+                        null
+                    )
+                }
+
                 "identifySpeakers" -> {
                     val source =
                         call.argument<String>("source_path")
