@@ -614,8 +614,7 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
             TextButton(onPressed: () => Navigator.pop(dialogContext, false),
                 child: const Text('Cancel')),
             FilledButton(
-              onPressed: speakerChoices.values.every((value) => value != null) &&
-                  activeSpeakers().every((speaker) => choices[speaker] != null)
+              onPressed: canSaveCasting()
                   ? () => Navigator.pop(dialogContext, true) : null,
               child: const Text('Save casting'),
             ),
@@ -1188,6 +1187,3 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
     );
   }
 }
-               onPressed: canSaveCasting()
-                   ? () => Navigator.pop(dialogContext, true) : null,
-
