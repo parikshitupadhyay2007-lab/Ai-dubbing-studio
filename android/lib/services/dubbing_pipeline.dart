@@ -451,13 +451,7 @@ class DubbingPipeline {
           if (matches.length != 1) rethrow;
           final segment = matches.single;
           final previous = segment.translation.trim();
-          Map<int, String> proposals;
-          try {
-            proposals = await director.refineBatch(project, [segment]);
-          } catch (_) {
-            rethrow;
-          }
-          final candidate = proposals[id]?.trim();
+          final candidate = await director.shortenForTiming(project, segment);
           if (candidate == null || candidate.length >= previous.length ||
               !DialogueQualityGate.acceptableTranslation(
                 candidate, segment.original, project.sourceLanguage,
