@@ -89,7 +89,7 @@ jobs:
           set -euo pipefail
           flutter pub get
           dart analyze --fatal-infos lib test
-          flutter test test/verified_anime_catalog_test.dart test/active_speaker_evidence_gate_test.dart
+          flutter test
 
       - name: Install Android SDK
         shell: bash
