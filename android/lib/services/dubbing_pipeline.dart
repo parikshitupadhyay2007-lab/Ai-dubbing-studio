@@ -1,3 +1,4 @@
+import 'export_file_validator.dart';
 import 'dart:io';
 
 import '../models/dub_project.dart';
@@ -609,9 +610,9 @@ class DubbingPipeline {
       }
 
       final exportedFile = File(output);
-      if (!await exportedFile.exists() || await exportedFile.length() == 0) {
+      if (!await ExportFileValidator.hasMp4Header(exportedFile)) {
         throw OfflineEngineException(
-          'Export reported success but the output MP4 is missing or empty.',
+          'Export reported success but the output is missing or has an invalid MP4 header.',
         );
       }
       project.outputPath = output;
