@@ -489,7 +489,14 @@ class DubbingPipeline {
           if (matches.length != 1) rethrow;
           final segment = matches.single;
           final previous = segment.translation.trim();
-          final candidate = await director.shortenForTiming(project, segment);
+          // A failed optional rewrite must preserve the original duration
+          // failure rather than replacing it with an unrelated model error.
+          String? candidate;
+          try {
+            candidate = await director.shortenForTiming(project, segment);
+          } catch (_) {
+            rethrow;
+          }
           if (candidate == null || candidate.length >= previous.length ||
               !DialogueQualityGate.acceptableTranslation(
                 candidate, segment.original, project.sourceLanguage,
