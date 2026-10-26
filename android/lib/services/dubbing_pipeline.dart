@@ -536,6 +536,16 @@ class DubbingPipeline {
         if (segment == null) {
           throw OfflineEngineException('Synthesis returned an unknown segment.');
         }
+        final clipPath = item['wav_path'];
+        final sampleRate = item['sample_rate'];
+        if (clipPath is! String || clipPath.trim().isEmpty ||
+            sampleRate is! int || sampleRate <= 0 ||
+            !await File(clipPath).exists() ||
+            await File(clipPath).length() <= 44) {
+          throw OfflineEngineException(
+            'Synthesis returned missing or invalid audio for segment ${segment.id}.',
+          );
+        }
         if (item['speaker_id'] != segment.speakerId ||
             item['voice_id'] != segment.voiceId ||
             item['start'] is! num || item['end'] is! num ||
