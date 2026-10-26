@@ -477,7 +477,7 @@ class DubbingPipeline {
         try {
           synthesis = await engine.synthesize(project);
           break;
-        } on OfflineEngineException catch (error) {
+        } on OfflineEngineException catch (error, stackTrace) {
           final match = RegExp(
             r'Dialogue for segment (\d+) requires excessive duration compression',
           ).firstMatch(error.message);
@@ -495,7 +495,7 @@ class DubbingPipeline {
           try {
             candidate = await director.shortenForTiming(project, segment);
           } catch (_) {
-            rethrow;
+            Error.throwWithStackTrace(error, stackTrace);
           }
           if (candidate == null || candidate.length >= previous.length ||
               !DialogueQualityGate.acceptableTranslation(
