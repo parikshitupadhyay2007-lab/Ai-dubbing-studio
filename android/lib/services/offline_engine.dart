@@ -301,6 +301,22 @@ class OfflineEngine {
     });
   }
 
+  /// Dedicated LipFit task using the verified installed offline language model.
+  /// Separate adaptation contract, not a claim of separately trained weights.
+  Future<Map<String, dynamic>> adaptDialogue(DubProject project,
+      {required int attempt}) async {
+    final model = await models.path(AiModel.otakuMind);
+    if (model == null) {
+      throw OfflineEngineException('Offline LipFit language model is missing.');
+    }
+    return _invoke('adaptDialogue', {
+      'model_path': model,
+      'target_language': project.targetLanguage,
+      'fit_attempt': attempt.clamp(0, 3),
+      'segments': project.segments.map((segment) => segment.toJson()).toList(),
+    });
+  }
+
   Future<void> _installSupertonic() async {
     final manifestText = await rootBundle.loadString('assets/models/supertonic3/asset_manifest.json');
     final manifest = jsonDecode(manifestText) as Map<String, dynamic>;
