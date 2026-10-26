@@ -68,26 +68,32 @@ class DubbingPipeline {
       );
     }
 
+    // Keep automatic dubbing possible when ECAPA abstains. Each unresolved
+    // line gets its own provisional voice identity: never falsely merge it
+    // into a known character or claim that a scene lookup proves identity.
     final unresolved = const IdentityConfidenceGate().unresolved(project);
-    // Cast every acoustically identified speaker before handling exceptions.
-    // Scene metadata is advisory, never an invented acoustic identity or role.
+    for (final segment in unresolved) {
+      segment.speakerId = 'unresolved_segment_${segment.id}';
+      segment.speakerConfidence = 0.01; // Explicitly low confidence, not verified.
+      segment.speakerManuallyVerified = false;
+    }
     _caster.assign(project);
     const CharacterIdentityFusion().record(project);
-    await repository.save(project); // preserve partial automatic casting and evidence
-
-    if (unresolved.isNotEmpty) {
-      final preview = unresolved.take(8).map((s) =>
-          '#${s.id} (${(s.end - s.start).toStringAsFixed(2)}s)').join(', ');
-      throw OfflineEngineException(
-        'ECAPA could not establish an acoustic identity for '
-        '${unresolved.length} of ${project.segments.length} lines: $preview. '
-        'The transcript and successful speaker matches are saved. '
-        'Verified speakers have already received provisional, consistent '
-        'voices. Review only unresolved lines in Assign Character Voices; '
-        'Resume preserves confirmed assignments. An anime scene match cannot '
-        'safely identify an audible speaker.',
-      );
+    for (final segment in unresolved) {
+      project.speakerIdentityEvidence[segment.speakerId] =
+          <String, dynamic>{
+        'identity': 'unresolved_acoustic_segment',
+        'identity_status': 'automatic_provisional_fallback',
+        'acoustic_speaker_id': segment.speakerId,
+        'acoustic_confidence': 0.0,
+        'segment_ids': [segment.id],
+        'character_id': null,
+        'visual_speaker_link_verified': false,
+        'reference_speaker_link_verified': false,
+        'voice_casting_status': 'assigned_provisionally',
+      };
     }
+    await repository.save(project);
 
     for (final segment in project.segments) {
       if (segment.speakerId.trim().isEmpty ||
@@ -485,7 +491,7 @@ class DubbingPipeline {
           if (match == null) rethrow;
           final id = int.parse(match.group(1)!);
           final attempts = timingRetries[id] ?? 0;
-          if (attempts >= 2) rethrow;
+          if (attempts >= 4) rethrow;
           final matches = project.segments.where((s) => s.id == id).toList();
           if (matches.length != 1) rethrow;
           final segment = matches.single;
