@@ -1,6 +1,5 @@
 package co.parikshit.otakudub
 
-import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -18,7 +17,7 @@ internal object WsolaTimeStretch {
         if (input.size <= outputSamples) return input.copyOf()
         val ratio = input.size.toDouble() / outputSamples
         require(ratio <= 1.50) { "Unsafe WSOLA compression ratio" }
-        val frame = (sampleRate * 0.040).roundToInt().coerceIn(32, min(input.size, outputSamples))
+        val frame = (sampleRate * 0.040).roundToInt().coerceAtLeast(32)
         if (outputSamples < frame * 2 || input.size < frame * 2) {
             throw IllegalArgumentException("Speech window too short for WSOLA")
         }
