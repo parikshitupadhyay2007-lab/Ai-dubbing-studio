@@ -538,6 +538,9 @@ class DubbingPipeline {
         if (item['speaker_id'] != segment.speakerId ||
             item['voice_id'] != segment.voiceId ||
             item['start'] is! num || item['end'] is! num ||
+            !(item['start'] as num).toDouble().isFinite ||
+            !(item['end'] as num).toDouble().isFinite ||
+            (item['end'] as num).toDouble() <= (item['start'] as num).toDouble() ||
             ((item['start'] as num).toDouble() - segment.start).abs() > 0.001 ||
             ((item['end'] as num).toDouble() - segment.end).abs() > 0.001) {
           throw OfflineEngineException('Synthesis changed character or timing for segment ${segment.id}.');
@@ -568,6 +571,10 @@ class DubbingPipeline {
         );
       }
 
+      if (!await File(wavPath).exists() || await File(wavPath).length() <= 44) {
+        throw OfflineEngineException('Dialogue mixer returned a missing or empty WAV file.');
+      }
+      // Avoid running expensive separation after a failed dialogue mix.
       final stems = await engine.separateSoundtrack(
         sourcePath: project.sourcePath,
         modelPath: separation.modelPath,
@@ -575,9 +582,6 @@ class DubbingPipeline {
         inputName: separation.inputName,
         outputName: separation.outputName,
       );
-      if (!await File(wavPath).exists() || await File(wavPath).length() <= 44) {
-        throw OfflineEngineException('Dialogue mixer returned a missing or empty WAV file.');
-      }
       final accompaniment = stems['accompaniment_path'];
       if (accompaniment is! String || accompaniment.trim().isEmpty) {
         throw OfflineEngineException('Instrumental separation produced no accompaniment.');
