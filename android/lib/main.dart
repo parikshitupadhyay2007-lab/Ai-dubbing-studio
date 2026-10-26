@@ -706,14 +706,7 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
       await refreshProjects();
     } catch (e) {
       if (mounted) {
-        final needsCasting = e.toString().contains('no verified voice role') ||
-            e.toString().contains('Speaker identification is incomplete') ||
-            e.toString().contains('ECAPA could not establish an acoustic identity');
-        setState(() => status = needsCasting
-            ? 'Speaker identification needs review. Tap ASSIGN CHARACTER VOICES, '
-              'resolve any unknown segments, choose voices, save, then resume. '
-              'Your transcription is preserved.'
-            : 'Processing stopped: $e');
+        setState(() => status = 'Processing stopped: $e');
       }
     } finally {
       if (backgroundStarted) {
@@ -842,15 +835,6 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
               onTap: () => OpenFilex.open(current!.sourcePath),
             ),
           ),
-          if (current!.segments.any((s) =>
-              s.speakerId.isNotEmpty && s.speakerId != 'unknown')) ...[
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: busy ? null : () => resolveCharacterVoices(current!),
-              icon: const Icon(Icons.record_voice_over_outlined),
-              label: const Text('ASSIGN CHARACTER VOICES'),
-            ),
-          ],
           const SizedBox(height: 12),
           FilledButton.icon(
             onPressed: busy ? null : generate,
