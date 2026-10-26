@@ -560,7 +560,14 @@ class OfflineEngine {
       );
     }
 
-    final exportedFile = File(exportedPath);
+    // Never accept an unrelated pre-existing file as a successful export.
+    // The native engine must write to the exact app-owned destination supplied.
+    if (File(exportedPath).absolute.path != File(outputPath).absolute.path) {
+      throw OfflineEngineException(
+        'Video export returned a different destination than requested.',
+      );
+    }
+    final exportedFile = File(outputPath);
 
     if (!await exportedFile.exists() ||
         await exportedFile.length() == 0) {
