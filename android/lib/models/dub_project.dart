@@ -16,6 +16,8 @@ class DubSegment {
   final int id;
   final double start;
   final double end;
+  // Optional safe synthesis extension; original Whisper boundaries stay immutable.
+  double? synthesisEnd;
 
   String original;
   String translation;
@@ -29,6 +31,7 @@ class DubSegment {
     required this.id,
     required this.start,
     required this.end,
+    this.synthesisEnd,
     required this.original,
     this.translation = '',
     this.speakerId = 'unknown',
@@ -43,6 +46,7 @@ class DubSegment {
       id: (json['id'] as num).toInt(),
       start: (json['start'] as num).toDouble(),
       end: (json['end'] as num).toDouble(),
+      synthesisEnd: (json['synthesis_end'] as num?)?.toDouble(),
       original: json['original'] as String? ?? '',
       translation: json['translation'] as String? ?? '',
       speakerId: json['speaker_id'] as String? ?? 'unknown',
@@ -58,6 +62,7 @@ class DubSegment {
         'id': id,
         'start': start,
         'end': end,
+        if (synthesisEnd != null) 'synthesis_end': synthesisEnd,
         'original': original,
         'translation': translation,
         'speaker_id': speakerId,
