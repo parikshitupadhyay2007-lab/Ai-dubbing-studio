@@ -8,7 +8,9 @@ class ExportFileValidator {
     if (bytes.length < 16) return false;
     final boxSize = (bytes[0] << 24) | (bytes[1] << 16) |
         (bytes[2] << 8) | bytes[3];
-    // Extended-size boxes require a separate 64-bit length field; this\n    // lightweight validator deliberately accepts only complete 32-bit ftyp.\n    if (boxSize < 16 || boxSize > await file.length()) return false;
+    // Extended-size boxes require a separate 64-bit length field; this
+    // lightweight validator deliberately accepts only complete 32-bit ftyp.
+    if (boxSize < 16 || boxSize > await file.length()) return false;
     if (String.fromCharCodes(bytes.sublist(4, 8)) != 'ftyp') return false;
     final brand = String.fromCharCodes(bytes.sublist(8, 12));
     return const {'isom', 'iso2', 'iso4', 'iso5', 'iso6', 'mp41', 'mp42',
