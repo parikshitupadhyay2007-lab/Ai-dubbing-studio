@@ -10,6 +10,7 @@ import 'identity_confidence_gate.dart';
 import 'dialogue_quality_gate.dart';
 import 'offline_engine.dart';
 import 'otakumind_director.dart';
+import 'lip_fit_agent.dart';
 import 'anime_scene_matcher.dart';
 import 'anime_reference_store.dart';
 import 'active_speaker_evidence_gate.dart';
@@ -500,7 +501,7 @@ class DubbingPipeline {
           // failure rather than replacing it with an unrelated model error.
           String? candidate;
           try {
-            candidate = await director.shortenForTiming(project, segment, attempt: attempts);
+            candidate = await LipFitAgent(engine).propose(project, segment, attempt: attempts);
           } catch (_) {
             Error.throwWithStackTrace(error, stackTrace);
           }
