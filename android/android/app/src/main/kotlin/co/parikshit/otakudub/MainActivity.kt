@@ -602,6 +602,21 @@ class MainActivity : FlutterActivity() {
                     )
                 }
 
+                "adaptDialogue" -> {
+                    // Dedicated offline dialogue-adaptation task. Reuses the
+                    // installed local model; no unverified extra checkpoint.
+                    processDialogue(
+                        call.argument("model_path"),
+                        call.argument("segments"),
+                        "auto",
+                        call.argument<String>("target_language") ?: "hi",
+                        true,
+                        result,
+                        true,
+                        (call.argument<Int>("fit_attempt") ?: 0).coerceIn(0, 3)
+                    )
+                }
+
                 "chat" -> {
                     val model =
                         call.argument<String>("model_path")
