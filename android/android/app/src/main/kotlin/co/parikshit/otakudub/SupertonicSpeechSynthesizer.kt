@@ -92,15 +92,11 @@ class SupertonicSpeechSynthesizer(
                 require(compression <= 1.50) {
                     "Dialogue for segment ${segment.id} requires excessive duration compression; shorten the translation."
                 }
-                val fitted = FloatArray(targetSamples)
-                val step = (count - 1).toDouble() / (targetSamples - 1)
-                for (i in fitted.indices) {
-                    val position = i * step
-                    val left = floor(position).toInt().coerceIn(0, count - 1)
-                    val right = (left + 1).coerceAtMost(count - 1)
-                    val fraction = (position - left).toFloat()
-                    fitted[i] = rendered[left] * (1f - fraction) + rendered[right] * fraction
-                }
+                // Preserve pitch through waveform-similarity overlap-add.
+                // Never truncate the final spoken phonemes or change playback rate.
+                val fitted = WsolaTimeStretch.compress(
+                    rendered, targetSamples, engine.sampleRate
+                )
                 // A 10 ms fade avoids a discontinuity at the window boundary.
                 val fade = (engine.sampleRate / 100).coerceAtMost(fitted.size)
                 for (i in 0 until fade) {
