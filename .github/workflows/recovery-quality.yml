@@ -32,3 +32,11 @@ jobs:
       - name: Run regression tests
         working-directory: android
         run: flutter test
+      - name: Produce professional readiness report (non-certifying)
+        run: python3 .github/scripts/professional-readiness.py --output professional-readiness.json
+      - name: Upload professional readiness report
+        uses: actions/upload-artifact@v4
+        with:
+          name: OtakuDub-Professional-Readiness
+          path: professional-readiness.json
+          if-no-files-found: error
