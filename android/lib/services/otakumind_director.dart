@@ -107,7 +107,7 @@ class OtakuMindDirector {
 
   /// Targeted duration recovery: the native model receives an explicit short-line
   /// contract. Never mutate the original segment until the candidate passes.
-  Future<String?> shortenForTiming(DubProject project, DubSegment line) async {
+  Future<String?> shortenForTiming(DubProject project, DubSegment line, {int attempt = 0}) async {
     final request = DubProject(
       id: project.id,
       title: project.title,
@@ -117,7 +117,7 @@ class OtakuMindDirector {
       segments: [line],
       characterVoices: project.characterVoices,
     );
-    final result = await engine.refineDialogue(request, fitForDuration: true);
+    final result = await engine.refineDialogue(request, fitForDuration: true, fitAttempt: attempt);
     final candidate = _checked(result['segments'], [line], 'Duration fit')
         .single.translation.trim();
     if (candidate.length >= line.translation.trim().length ||
