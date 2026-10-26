@@ -88,7 +88,7 @@ jobs:
         run: |
           set -euo pipefail
           flutter pub get
-          dart analyze --fatal-infos lib/services/offline_engine.dart lib/services/voice_catalog.dart lib/services/dubbing_pipeline.dart lib/services/otakumind_director.dart lib/services/character_voice_caster.dart lib/services/verified_anime_catalog.dart
+          dart analyze --fatal-infos lib test
           flutter test test/verified_anime_catalog_test.dart test/active_speaker_evidence_gate_test.dart
 
       - name: Install Android SDK
