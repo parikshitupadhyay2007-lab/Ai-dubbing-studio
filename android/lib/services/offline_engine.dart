@@ -546,6 +546,14 @@ class OfflineEngine {
     final outputPath =
         '${outputDirectory.path}/OtakuDub-${project.id}.mp4';
 
+    // An interrupted prior export may leave a valid-looking but stale file.
+    // Remove it before starting the next attempt so success cannot be inferred
+    // from the previous attempt's bytes.
+    final destination = File(outputPath);
+    if (await destination.exists()) {
+      await destination.delete();
+    }
+
     final response = await _invoke('exportVideo', {
       'source_path': project.sourcePath,
       'dialogue_wav_path': dialogueWavPath,
