@@ -500,7 +500,7 @@ class DubbingPipeline {
           // failure rather than replacing it with an unrelated model error.
           String? candidate;
           try {
-            candidate = await director.shortenForTiming(project, segment);
+            candidate = await director.shortenForTiming(project, segment, attempt: attempts);
           } catch (_) {
             Error.throwWithStackTrace(error, stackTrace);
           }
