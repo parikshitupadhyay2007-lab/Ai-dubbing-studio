@@ -280,7 +280,7 @@ class OfflineEngine {
   }
 
   Future<Map<String, dynamic>> refineDialogue(
-    DubProject project, {bool fitForDuration = false}
+    DubProject project, {bool fitForDuration = false, int fitAttempt = 0}
   ) async {
     final model = await models.path(AiModel.otakuMind);
 
@@ -292,6 +292,7 @@ class OfflineEngine {
 
     return _invoke('refineDialogue', {
       'fit_for_duration': fitForDuration,
+      'fit_attempt': fitAttempt.clamp(0, 3),
       'model_path': model,
       'target_language': project.targetLanguage,
       'segments': project.segments
