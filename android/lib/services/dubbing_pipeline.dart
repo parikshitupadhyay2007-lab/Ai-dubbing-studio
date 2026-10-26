@@ -511,15 +511,23 @@ class DubbingPipeline {
           final previous = segment.translation.trim();
           String? candidate;
           var attempted = attempts;
-          // A rejected AI proposal must not stop the entire project on the
-          // first try. Ask for another independently generated revision.
+          final rejectionReasons = <String>[];
           while (attempted < 4 && candidate == null) {
             try {
               candidate = await LipFitAgent(engine).propose(
                 project, segment, attempt: attempted,
               );
-            } catch (_) {
-              // Do not publish malformed output or change the original line.
+              if (candidate == null) {
+                rejectionReasons.add('proposal not shorter or failed validation');
+              }
+            } catch (error) {
+              final message = error.toString();
+              // Report categories without exposing private dialogue or model output.
+              rejectionReasons.add(message.contains('immutable')
+                  ? 'model changed immutable metadata'
+                  : message.contains('LipFit returned')
+                      ? 'invalid model response shape'
+                      : 'adaptation engine error');
             }
             attempted++;
           }
@@ -535,6 +543,7 @@ class DubbingPipeline {
               '${((segment.synthesisEnd ?? segment.end) - segment.start).toStringAsFixed(2)}s; '
               'current text: ${previous.runes.length} characters. '
               'The original dialogue was preserved. '
+              'Rejections: ${rejectionReasons.join('; ')}. '
               'Supertonic requires a shorter meaning-preserving line.',
             );
           }
