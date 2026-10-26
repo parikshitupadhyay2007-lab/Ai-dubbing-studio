@@ -335,12 +335,22 @@ class DubbingPipeline {
                 'status': 'visual_track_candidate_not_character_identity',
               },
           ];
-        } on OfflineEngineException {
-          // Provisional acoustic casting remains available offline.
+        } on OfflineEngineException catch (error) {
+          // Preserve acoustic-only operation, but make missing or failed
+          // audiovisual inference visible in the durable project checkpoint.
+          project.animeSceneContext ??= <String, dynamic>{};
+          project.animeSceneContext!['visual_inference_status'] =
+              'unavailable_or_failed';
+          project.animeSceneContext!['visual_inference_diagnostic'] =
+              error.message;
         } on FormatException {
-          // Invalid output cannot become character-identification evidence.
+          project.animeSceneContext ??= <String, dynamic>{};
+          project.animeSceneContext!['visual_inference_status'] =
+              'invalid_model_output';
         } on TypeError {
-          // Reject malformed native maps without corrupting the checkpoint.
+          project.animeSceneContext ??= <String, dynamic>{};
+          project.animeSceneContext!['visual_inference_status'] =
+              'invalid_model_output';
         }
         await _assignCharacterVoices(project); // casting checkpoint
       }
