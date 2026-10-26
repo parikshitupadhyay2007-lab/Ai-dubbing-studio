@@ -13,14 +13,29 @@ class AnimeReferenceStore {
     final support = await getApplicationSupportDirectory();
     final privateFile = File('${support.path}/otakudub/private_anime_scene_catalog.json');
     if (!await privateFile.exists()) return bundled;
-    final local = const VerifiedAnimeCatalog().parse(await privateFile.readAsString());
-    final known = <String>{};
-    final combined = <Map<String, dynamic>>[];
-    for (final row in [...bundled, ...local]) {
-      final key = '${row['anime_id']}/${row['episode_id']}/${row['start_seconds']}';
-      if (!known.add(key)) throw const FormatException('Duplicate bundled/private anime reference');
-      combined.add(row);
+    // A malformed private catalog must not prevent offline acoustic dubbing.
+    // Keep the bundled verified corpus intact and fail closed on bad additions.
+    try {
+      final local = const VerifiedAnimeCatalog().parse(
+          await privateFile.readAsString());
+      final known = <String>{
+        for (final row in bundled)
+          "${row['anime_id']}/${row['episode_id']}/${row['start_seconds']}",
+      };
+      final combined = <Map<String, dynamic>>[...bundled];
+      for (final row in local) {
+        final key =
+            "${row['anime_id']}/${row['episode_id']}/${row['start_seconds']}";
+        if (!known.add(key)) {
+          throw const FormatException('Duplicate bundled/private anime reference');
+        }
+        combined.add(row);
+      }
+      return combined;
+    } on FormatException {
+      return bundled;
+    } on FileSystemException {
+      return bundled;
     }
-    return combined;
   }
 }
