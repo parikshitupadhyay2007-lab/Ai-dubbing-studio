@@ -453,7 +453,10 @@ class OfflineEngine {
     return _invoke('synthesize', {
       'target_language': project.targetLanguage,
       'segments': project.segments
-          .map((segment) => segment.toJson())
+          .map((segment) => <String, dynamic>{
+            ...segment.toJson(),
+            if (segment.synthesisEnd != null) 'end': segment.synthesisEnd,
+          })
           .toList(),
       'character_voices':
           Map<String, String>.from(project.characterVoices),
