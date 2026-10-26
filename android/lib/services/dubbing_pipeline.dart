@@ -485,34 +485,47 @@ class DubbingPipeline {
         try {
           synthesis = await engine.synthesize(project);
           break;
-        } on OfflineEngineException catch (error, stackTrace) {
+        } on OfflineEngineException catch (error) {
           final match = RegExp(
             r'Dialogue for segment (\d+) requires excessive duration compression',
           ).firstMatch(error.message);
           if (match == null) rethrow;
           final id = int.parse(match.group(1)!);
           final attempts = timingRetries[id] ?? 0;
-          if (attempts >= 4) rethrow;
           final matches = project.segments.where((s) => s.id == id).toList();
           if (matches.length != 1) rethrow;
           final segment = matches.single;
           final previous = segment.translation.trim();
-          // A failed optional rewrite must preserve the original duration
-          // failure rather than replacing it with an unrelated model error.
           String? candidate;
-          try {
-            candidate = await LipFitAgent(engine).propose(project, segment, attempt: attempts);
-          } catch (_) {
-            Error.throwWithStackTrace(error, stackTrace);
+          var attempted = attempts;
+          // A rejected AI proposal must not stop the entire project on the
+          // first try. Ask for another independently generated revision.
+          while (attempted < 4 && candidate == null) {
+            try {
+              candidate = await LipFitAgent(engine).propose(
+                project, segment, attempt: attempted,
+              );
+            } catch (_) {
+              // Do not publish malformed output or change the original line.
+            }
+            attempted++;
           }
-          if (candidate == null || candidate.length >= previous.length ||
+          timingRetries[id] = attempted;
+          if (candidate == null ||
+              candidate.length >= previous.length ||
               !DialogueQualityGate.acceptableTranslation(
                 candidate, segment.original, project.sourceLanguage,
                 project.targetLanguage)) {
-            rethrow;
+            throw OfflineEngineException(
+              'LipFit could not safely shorten segment $id after '
+              '$attempted adaptation attempt(s). Window: '
+              '${(segment.end - segment.start).toStringAsFixed(2)}s; '
+              'current text: ${previous.runes.length} characters. '
+              'The original dialogue was preserved. '
+              'Supertonic requires a shorter meaning-preserving line.',
+            );
           }
           segment.translation = candidate;
-          timingRetries[id] = attempts + 1;
           project.refinedSegmentIds.add(id);
           await repository.save(project);
         }
