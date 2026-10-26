@@ -11,6 +11,7 @@ import 'dialogue_quality_gate.dart';
 import 'offline_engine.dart';
 import 'otakumind_director.dart';
 import 'lip_fit_agent.dart';
+import 'intelligent_timing_controller.dart';
 import 'anime_scene_matcher.dart';
 import 'anime_reference_store.dart';
 import 'active_speaker_evidence_gate.dart';
@@ -495,6 +496,18 @@ class DubbingPipeline {
           final matches = project.segments.where((s) => s.id == id).toList();
           if (matches.length != 1) rethrow;
           final segment = matches.single;
+          // Try verified adjacent silence before sacrificing dialogue wording.
+          // Persist separately from immutable acoustic timestamps.
+          if (segment.synthesisEnd == null) {
+            final extended = IntelligentTimingController.extendIntoFollowingGap(
+              project, segment,
+            );
+            if (extended != null) {
+              segment.synthesisEnd = extended;
+              await repository.save(project);
+              continue;
+            }
+          }
           final previous = segment.translation.trim();
           String? candidate;
           var attempted = attempts;
@@ -519,7 +532,7 @@ class DubbingPipeline {
             throw OfflineEngineException(
               'LipFit could not safely shorten segment $id after '
               '$attempted adaptation attempt(s). Window: '
-              '${(segment.end - segment.start).toStringAsFixed(2)}s; '
+              '${((segment.synthesisEnd ?? segment.end) - segment.start).toStringAsFixed(2)}s; '
               'current text: ${previous.runes.length} characters. '
               'The original dialogue was preserved. '
               'Supertonic requires a shorter meaning-preserving line.',
@@ -573,7 +586,7 @@ class DubbingPipeline {
             !(item['end'] as num).toDouble().isFinite ||
             (item['end'] as num).toDouble() <= (item['start'] as num).toDouble() ||
             ((item['start'] as num).toDouble() - segment.start).abs() > 0.001 ||
-            ((item['end'] as num).toDouble() - segment.end).abs() > 0.001) {
+            ((item['end'] as num).toDouble() - (segment.synthesisEnd ?? segment.end)).abs() > 0.001) {
           throw OfflineEngineException('Synthesis changed character or timing for segment ${segment.id}.');
         }
       }
