@@ -597,7 +597,8 @@ class MainActivity : FlutterActivity() {
                             ?: "hi",
                         true,
                         result,
-                        call.argument<Boolean>("fit_for_duration") == true
+                        call.argument<Boolean>("fit_for_duration") == true,
+                        (call.argument<Int>("fit_attempt") ?: 0).coerceIn(0, 3)
                     )
                 }
 
@@ -887,7 +888,8 @@ class MainActivity : FlutterActivity() {
         targetLanguage: String,
         refine: Boolean,
         result: MethodChannel.Result,
-        fitForDuration: Boolean = false
+        fitForDuration: Boolean = false,
+        fitAttempt: Int = 0
     ) {
         if (
             !nativeAvailable ||
@@ -944,7 +946,8 @@ class MainActivity : FlutterActivity() {
                                 original,
                                 targetLanguage,
                                 segment,
-                                fitForDuration
+                                fitForDuration,
+                                fitAttempt
                             )
                         } else {
                             translationPrompt(
@@ -1070,7 +1073,8 @@ class MainActivity : FlutterActivity() {
         original: String,
         targetLanguage: String,
         segment: Map<String, Any?>,
-        fitForDuration: Boolean = false
+        fitForDuration: Boolean = false,
+        fitAttempt: Int = 0
     ): String {
 
         val target =
@@ -1091,7 +1095,15 @@ class MainActivity : FlutterActivity() {
         val duration =
             (end - start).coerceAtLeast(0.0)
 
-        val timingRule = if (fitForDuration) "The previous synthesis was too long. Produce a substantially shorter line than the existing translation, aiming for half its spoken length; preserve all essential meaning, names and facts. Never merely rephrase at the same length." else "Keep the line concise."
+        val timingRule = if (fitForDuration) {
+            val targetFraction = when (fitAttempt.coerceIn(0, 3)) {
+                0 -> "one half"
+                1 -> "two fifths"
+                2 -> "one third"
+                else -> "one quarter"
+            }
+            "The previous synthesis was too long. Aim for $targetFraction of the current spoken length. Keep essential meaning, names and facts; remove redundant words and filler. Do not simply rephrase at the same length, invent content or return an incomplete sentence."
+        } else "Keep the line concise."
 
         return """
             /no_think
