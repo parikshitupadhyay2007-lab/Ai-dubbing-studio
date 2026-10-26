@@ -22,7 +22,13 @@ void main() {
       await file.writeAsBytes([0, 0, 0, 16, 102, 116, 121, 112,
         105, 115, 111, 109, 0, 0, 0, 0]);
       expect(await ExportFileValidator.hasMp4Header(file), isTrue);
-      await file.writeAsBytes([0, 0, 0, 32, 102, 116, 121, 112,\n        105, 115, 111, 109, 0, 0, 0, 0]);\n      expect(await ExportFileValidator.hasMp4Header(file), isFalse);\n      await file.writeAsBytes([0, 0, 0, 1, 102, 116, 121, 112,\n        105, 115, 111, 109, 0, 0, 0, 0]);\n      expect(await ExportFileValidator.hasMp4Header(file), isFalse);\n      await file.writeAsBytes(List<int>.filled(32, 0));
+      await file.writeAsBytes([0, 0, 0, 32, 102, 116, 121, 112,
+        105, 115, 111, 109, 0, 0, 0, 0]);
+      expect(await ExportFileValidator.hasMp4Header(file), isFalse);
+      await file.writeAsBytes([0, 0, 0, 1, 102, 116, 121, 112,
+        105, 115, 111, 109, 0, 0, 0, 0]);
+      expect(await ExportFileValidator.hasMp4Header(file), isFalse);
+      await file.writeAsBytes(List<int>.filled(32, 0));
       expect(await ExportFileValidator.hasMp4Header(file), isFalse);
     } finally {
       await dir.delete(recursive: true);
