@@ -512,17 +512,21 @@ class DubbingPipeline {
           String? candidate;
           var attempted = attempts;
           final rejectionReasons = <String>[];
-          while (attempted < 4 && candidate == null) {
+          final alternatives = <String>{};
+          // Collect independent proposals; never commit the first merely
+          // because it is shorter. Evaluate the candidates as a group.
+          while (attempted < 4) {
             try {
-              candidate = await LipFitAgent(engine).propose(
+              final proposal = await LipFitAgent(engine).propose(
                 project, segment, attempt: attempted,
               );
-              if (candidate == null) {
-                rejectionReasons.add('proposal not shorter or failed validation');
+              if (proposal != null && proposal != previous) {
+                alternatives.add(proposal);
+              } else {
+                rejectionReasons.add('no usable alternative');
               }
             } catch (error) {
               final message = error.toString();
-              // Report categories without exposing private dialogue or model output.
               rejectionReasons.add(message.contains('did not reduce')
                   ? 'rewrite not shorter'
                   : message.contains('target-language validation')
@@ -534,6 +538,11 @@ class DubbingPipeline {
                               : 'adaptation engine error');
             }
             attempted++;
+          }
+          if (alternatives.isNotEmpty) {
+            final ranked = alternatives.toList()
+              ..sort((a, b) => a.runes.length.compareTo(b.runes.length));
+            candidate = ranked.first;
           }
           timingRetries[id] = attempted;
           if (candidate == null ||
