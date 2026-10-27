@@ -1111,13 +1111,19 @@ class MainActivity : FlutterActivity() {
             (end - start).coerceAtLeast(0.0)
 
         val timingRule = if (fitForDuration) {
-            val targetFraction = when (fitAttempt.coerceIn(0, 3)) {
-                0 -> "one half"
-                1 -> "two fifths"
-                2 -> "one third"
-                else -> "one quarter"
+            val fraction = when (fitAttempt.coerceIn(0, 3)) {
+                0 -> 0.70
+                1 -> 0.58
+                2 -> 0.46
+                else -> 0.36
             }
-            "The previous synthesis was too long. Aim for $targetFraction of the current spoken length. Keep essential meaning, names and facts; remove redundant words and filler. Do not simply rephrase at the same length, invent content or return an incomplete sentence."
+            val budget = (translation.codePointCount(0, translation.length) * fraction)
+                .toInt().coerceAtLeast(4)
+            "HARD CONSTRAINT: answer with at most $budget Unicode characters " +
+                "(including spaces). Use a DIFFERENT concise spoken formulation, " +
+                "not an explanation or near-copy. Preserve names, negation, " +
+                "core meaning and essential facts. If that is impossible, " +
+                "return the unchanged translation so the safety gate rejects it."
         } else "Keep the line concise."
 
         return """
