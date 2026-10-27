@@ -21,6 +21,12 @@ void main() {
     expect(DialogueQualityGate.acceptable('मुझे घर जाना है।', 'hi'), isTrue);
     expect(DialogueQualityGate.acceptable('We should go home.', 'en'), isTrue);
   });
+  test('Hindi dubbing accepts natural Hindi-English alternate dialogue', () {
+    expect(DialogueQualityGate.acceptableTranslation(
+      'अब stop करो!', 'やめて', 'ja', 'hi'), isTrue);
+    expect(DialogueQualityGate.acceptableTranslation(
+      'Please stop now!', 'やめて', 'ja', 'hi'), isFalse);
+  });
   test('rejects wrong-script output and control tokens', () {
     expect(DialogueQualityGate.acceptable('This is unchanged English.', 'hi'), isFalse);
     expect(DialogueQualityGate.acceptable('こんにちは', 'hi'), isFalse);
