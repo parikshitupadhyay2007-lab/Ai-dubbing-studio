@@ -598,7 +598,11 @@ class OfflineEngine {
     final exportedCanonical = await File(exportedPath).resolveSymbolicLinks();
     if (exportedCanonical != requestedCanonical) {
       throw OfflineEngineException(
-        'Video export returned a different destination than requested.',
+        'Video export destination mismatch. Requested: $outputPath; '
+        'native returned: $exportedPath; '
+        'canonical requested: $requestedCanonical; '
+        'canonical returned: $exportedCanonical. '
+        'Keep this message for diagnosis; do not delete the project.',
       );
     }
     final exportedFile = File(exportedCanonical);
