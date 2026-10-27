@@ -977,14 +977,18 @@ class MainActivity : FlutterActivity() {
                         // publish partial reasoning as dubbed dialogue.
                         var accepted: String? = null
                         var lastFailure: Exception? = null
-                        for (attempt in 0 until 2) {
+                        for (attempt in 0 until if (refine && fitForDuration) 3 else 2) {
                             // Retain the full translation/refinement contract on
                             // retry. Reducing this to "Input: ..." previously
                             // dropped source language, original dialogue and
                             // the meaning-preservation instructions.
                             // A compact retry avoids exhausting small-model output
                             // budgets on the original verbose prompt.
-                            val request = if (attempt == 0 || (refine && fitForDuration)) prompt else if (refine) {
+                            val request = if (refine && fitForDuration && attempt > 0) {
+                                val budget = (input.codePointCount(0, input.length) *
+                                    (if (attempt == 1) 0.60 else 0.45)).toInt().coerceAtLeast(4)
+                                "/no_think\nWrite ONE shorter $targetLanguage spoken line, at most $budget Unicode characters including spaces. Preserve meaning, names and negation. No explanation. Original: $original\nCurrent: $input\nShort line:"
+                            } else if (attempt == 0) prompt else if (refine) {
                                 "/no_think\nRewrite this $targetLanguage spoken dialogue naturally " +
                                     "without changing its meaning. Output only the spoken line.\n" +
                                     "Dialogue: $input\nAnswer:"
@@ -1006,7 +1010,13 @@ class MainActivity : FlutterActivity() {
                                         "OtakuMind generation failed on segment ${segment["id"]}: $response"
                                     )
                                 }
-                                accepted = cleanDialogue(response)
+                                val cleaned = cleanDialogue(response)
+                                if (refine && fitForDuration &&
+                                    cleaned.codePointCount(0, cleaned.length) >=
+                                    input.codePointCount(0, input.length)) {
+                                    throw IllegalStateException("LipFit model returned an unchanged or longer line.")
+                                }
+                                accepted = cleaned
                                 break
                             } catch (error: IllegalStateException) {
                                 lastFailure = error
@@ -1014,7 +1024,7 @@ class MainActivity : FlutterActivity() {
                         }
                         accepted ?: throw IllegalStateException(
                             "OtakuMind could not produce spoken dialogue for " +
-                            "segment ${segment["id"]} after two attempts: " +
+                            "segment ${segment["id"]} after generation retries: " +
                             (lastFailure?.message ?: "invalid output")
                         )
                     }
