@@ -870,6 +870,71 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
     );
   }
 
+  String _stamp(double seconds) {
+    final ms = (seconds * 1000).round();
+    final minutes = ms ~/ 60000;
+    final secs = (ms % 60000) ~/ 1000;
+    final fraction = ms % 1000;
+    return '${minutes.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}.${fraction.toString().padLeft(3, '0')}';
+  }
+
+  void _inspectDialogue(DubProject project) {
+    final segments = [...project.segments]
+      ..sort((a, b) => a.start.compareTo(b.start));
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (context) => Scaffold(
+        appBar: AppBar(title: const Text('Dialogue Inspector'), actions: [
+          IconButton(
+            tooltip: 'Copy dialogue report',
+            icon: const Icon(Icons.copy_all_outlined),
+            onPressed: () {
+              final report = segments.map((s) =>
+                'Segment ${s.id} | Speaker ${s.speakerId}\n'
+                'Original ${_stamp(s.start)}–${_stamp(s.end)}: ${s.original}\n'
+                'Replacement ${_stamp(s.start)}–${_stamp(s.synthesisEnd ?? s.end)}: ${s.translation.isEmpty ? '[Not generated]' : s.translation}\n'
+                'Voice: ${s.voiceId.isEmpty ? '[Not assigned]' : s.voiceId}'
+              ).join('\n\n');
+              Clipboard.setData(ClipboardData(text: report));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Dialogue report copied')),
+              );
+            },
+          ),
+        ]),
+        body: segments.isEmpty
+          ? const Center(child: Text('Transcription has not been saved yet.'))
+          : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: segments.length,
+              itemBuilder: (context, index) {
+                final line = segments[index];
+                final replacementEnd = line.synthesisEnd ?? line.end;
+                return Card(child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('SEGMENT ${line.id} • ${line.speakerId}',
+                      style: const TextStyle(fontWeight: FontWeight.bold, color: violet)),
+                    const SizedBox(height: 12),
+                    const Text('ORIGINAL VOICE', style: TextStyle(fontWeight: FontWeight.bold)),
+                    Text('${_stamp(line.start)} – ${_stamp(line.end)}'),
+                    SelectableText(line.original.isEmpty ? '[Not transcribed]' : line.original),
+                    const Divider(height: 28),
+                    const Text('REPLACEMENT VOICE', style: TextStyle(fontWeight: FontWeight.bold)),
+                    Text('${_stamp(line.start)} – ${_stamp(replacementEnd)} • Target window ${(replacementEnd - line.start).toStringAsFixed(2)}s'),
+                    SelectableText(line.translation.isEmpty ? '[Not generated]' : line.translation),
+                    const SizedBox(height: 8),
+                    Text('Assigned voice: ${line.voiceId.isEmpty ? 'Pending' : line.voiceId}',
+                      style: const TextStyle(color: mutedInk)),
+                    const Text('Actual generated audio duration is not yet saved per segment.',
+                      style: TextStyle(color: mutedInk, fontSize: 12)),
+                  ]),
+                ));
+              },
+            ),
+      ),
+    ));
+  }
+
   Widget projectLibrary() {
     return ListView(
       key: const ValueKey('projects'),
@@ -892,9 +957,11 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
         for (final project in projects)
           Card(
             child: ListTile(
-              leading: const Icon(
-                Icons.video_library_outlined,
-                color: cyan,
+              // Keep project selection separate from inspecting its saved script.
+              leading: IconButton(
+                tooltip: 'Inspect original and replacement dialogue',
+                icon: const Icon(Icons.subtitles_outlined, color: cyan),
+                onPressed: () => _inspectDialogue(project),
               ),
               title: Text(project.title),
               subtitle: Text(
