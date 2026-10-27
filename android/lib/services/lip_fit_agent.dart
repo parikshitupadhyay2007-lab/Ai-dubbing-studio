@@ -33,9 +33,13 @@ class LipFitAgent {
       throw OfflineEngineException('LipFit altered immutable speaker/timeline metadata.');
     }
     final proposed = candidate.translation.trim();
-    if (proposed.length >= current.length ||
-        !DialogueQualityGate.acceptableTranslation(proposed, line.original,
-            project.sourceLanguage, project.targetLanguage)) return null;
+    if (!DialogueQualityGate.acceptableTranslation(proposed, line.original,
+        project.sourceLanguage, project.targetLanguage)) {
+      throw OfflineEngineException('LipFit proposal failed target-language validation.');
+    }
+    if (proposed.runes.length >= current.runes.length) {
+      throw OfflineEngineException('LipFit proposal did not reduce spoken text length.');
+    }
     return proposed;
   }
 }
