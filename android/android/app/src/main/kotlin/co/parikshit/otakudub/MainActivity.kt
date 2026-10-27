@@ -984,10 +984,17 @@ class MainActivity : FlutterActivity() {
                             // the meaning-preservation instructions.
                             // A compact retry avoids exhausting small-model output
                             // budgets on the original verbose prompt.
-                            val request = if (refine && fitForDuration && attempt > 0) {
-                                "/no_think\nWrite a DIFFERENT concise spoken $targetLanguage alternative. " +
-                                    "Prioritize fewer spoken syllables over character count. Hindi-English mixing is allowed for familiar terms. " +
-                                    "Preserve meaning, names and negation. No explanation.\nOriginal: $original\nCurrent: $input\nAlternative:"
+                            val request = if (refine && fitForDuration) {
+                                val strategy = when (fitAttempt.coerceIn(0, 3)) {
+                                    0 -> "Remove filler and use compact colloquial wording."
+                                    1 -> "Use natural short synonyms and familiar Hindi-English code switching."
+                                    2 -> "Rebuild the sentence structure to minimize spoken syllables."
+                                    else -> "Use the shortest natural equivalent; common English words are allowed."
+                                }
+                                "/no_think\nGenerate ONE DIFFERENT spoken $targetLanguage dubbing alternative. " +
+                                    "$strategy Preserve meaning, names, negation, intent and essential facts. " +
+                                    "Optimize actual speaking time, not written character count. " +
+                                    "Do not explain or copy the current line.\nOriginal: $original\nCurrent: $input\nAlternative:"
                             } else if (attempt == 0) prompt else if (refine) {
                                 "/no_think\nRewrite this $targetLanguage spoken dialogue naturally " +
                                     "without changing its meaning. Output only the spoken line.\n" +
