@@ -90,7 +90,7 @@ class SupertonicSpeechSynthesizer(
             val samples = if (count > targetSamples) {
                 val compression = count.toDouble() / targetSamples
                 require(compression <= 1.50) {
-                    "Dialogue for segment ${segment.id} requires excessive duration compression; shorten the translation."
+                    "Dialogue for segment ${segment.id} requires excessive duration compression; rendered_seconds=${count.toDouble() / engine.sampleRate}; window_seconds=$window; required_ratio=$compression; shorten the translation."
                 }
                 // Preserve pitch through waveform-similarity overlap-add.
                 // Never truncate the final spoken phonemes or change playback rate.
