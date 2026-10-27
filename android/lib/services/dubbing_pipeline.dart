@@ -527,8 +527,8 @@ class DubbingPipeline {
               }
             } catch (error) {
               final message = error.toString();
-              rejectionReasons.add(message.contains('did not reduce')
-                  ? 'rewrite not shorter'
+              rejectionReasons.add(message.contains('unchanged dialogue')
+                  ? 'rewrite unchanged'
                   : message.contains('target-language validation')
                       ? 'rewrite failed target-language validation'
                       : message.contains('immutable')
@@ -567,12 +567,12 @@ class DubbingPipeline {
           }
           timingRetries[id] = attempted;
           if (candidate == null ||
-              candidate.length >= previous.length ||
+              candidate.toLowerCase() == previous.toLowerCase() ||
               !DialogueQualityGate.acceptableTranslation(
                 candidate, segment.original, project.sourceLanguage,
                 project.targetLanguage)) {
             throw OfflineEngineException(
-              'LipFit could not safely shorten segment $id after '
+              'LipFit could not find dialogue fitting segment $id after '
               '$attempted adaptation attempt(s). Window: '
               '${((segment.synthesisEnd ?? segment.end) - segment.start).toStringAsFixed(2)}s; '
               'current text: ${previous.runes.length} characters. '
