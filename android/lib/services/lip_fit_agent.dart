@@ -1,3 +1,4 @@
+import 'dart:io';
 import '../models/dub_project.dart';
 import 'dialogue_quality_gate.dart';
 import 'offline_engine.dart';
@@ -8,6 +9,49 @@ import 'offline_engine.dart';
 class LipFitAgent {
   final OfflineEngine engine;
   const LipFitAgent(this.engine);
+
+  /// Probe real Supertonic output with an intentionally generous temporary
+  /// window. This does not mutate the saved acoustic/timeline checkpoint.
+  Future<double> measureSpokenSeconds(
+      DubProject project, DubSegment line, String candidate) async {
+    final probe = DubSegment(
+      id: line.id, start: line.start, end: line.end,
+      original: line.original, translation: candidate,
+      speakerId: line.speakerId, voiceId: line.voiceId,
+      speakerConfidence: line.speakerConfidence,
+      speakerManuallyVerified: line.speakerManuallyVerified,
+      delivery: line.delivery,
+      synthesisEnd: line.start + 30.0,
+    );
+    final isolated = DubProject(
+      id: project.id, title: project.title, sourcePath: project.sourcePath,
+      targetLanguage: project.targetLanguage,
+      sourceLanguage: project.sourceLanguage,
+      segments: [probe], characterVoices: project.characterVoices,
+    );
+    final response = await engine.synthesize(isolated);
+    final clips = response['clips'];
+    if (clips is! List || clips.length != 1 || clips.single is! Map) {
+      throw OfflineEngineException('LipFit measurement returned invalid clips.');
+    }
+    final clip = Map<String, dynamic>.from(clips.single as Map);
+    final path = clip['wav_path'];
+    final rate = clip['sample_rate'];
+    if (path is! String || rate is! int || rate <= 0) {
+      throw OfflineEngineException('LipFit measurement missing WAV metadata.');
+    }
+    final file = File(path);
+    final bytes = await file.length();
+    // Native VoiceWavWriter emits exactly 44 header bytes plus mono PCM16.
+    if (bytes <= 44 || (bytes - 44).isOdd) {
+      throw OfflineEngineException('LipFit measurement returned invalid WAV.');
+    }
+    final seconds = (bytes - 44) / (rate * 2);
+    if (!seconds.isFinite || seconds <= 0 || seconds > 30) {
+      throw OfflineEngineException('LipFit measurement duration is invalid.');
+    }
+    return seconds;
+  }
 
   Future<String?> propose(DubProject project, DubSegment line,
       {required int attempt}) async {
