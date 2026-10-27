@@ -590,12 +590,18 @@ class OfflineEngine {
 
     // Never accept an unrelated pre-existing file as a successful export.
     // The native engine must write to the exact app-owned destination supplied.
-    if (File(exportedPath).absolute.path != File(outputPath).absolute.path) {
+    // Android's native request parser canonicalizes the destination before
+    // exporting. On devices where /data/user/0 and /data/data are aliases,
+    // comparing raw absolute strings incorrectly rejects the correct MP4.
+    // Compare canonical filesystem identities, not path spellings.
+    final requestedCanonical = await File(outputPath).resolveSymbolicLinks();
+    final exportedCanonical = await File(exportedPath).resolveSymbolicLinks();
+    if (exportedCanonical != requestedCanonical) {
       throw OfflineEngineException(
         'Video export returned a different destination than requested.',
       );
     }
-    final exportedFile = File(outputPath);
+    final exportedFile = File(exportedCanonical);
 
     if (!await exportedFile.exists() ||
         await exportedFile.length() == 0) {
