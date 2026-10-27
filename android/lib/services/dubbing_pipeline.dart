@@ -523,11 +523,15 @@ class DubbingPipeline {
             } catch (error) {
               final message = error.toString();
               // Report categories without exposing private dialogue or model output.
-              rejectionReasons.add(message.contains('immutable')
-                  ? 'model changed immutable metadata'
-                  : message.contains('LipFit returned')
-                      ? 'invalid model response shape'
-                      : 'adaptation engine error');
+              rejectionReasons.add(message.contains('did not reduce')
+                  ? 'rewrite not shorter'
+                  : message.contains('target-language validation')
+                      ? 'rewrite failed target-language validation'
+                      : message.contains('immutable')
+                          ? 'model changed immutable metadata'
+                          : message.contains('LipFit returned')
+                              ? 'invalid model response shape'
+                              : 'adaptation engine error');
             }
             attempted++;
           }
