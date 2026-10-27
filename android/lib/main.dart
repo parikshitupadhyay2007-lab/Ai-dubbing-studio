@@ -8,6 +8,7 @@ import 'package:open_filex/open_filex.dart';
 
 import 'models/dub_project.dart';
 import 'services/dubbing_pipeline.dart';
+import 'services/dialogue_quality_gate.dart';
 import 'services/character_identity_fusion.dart';
 import 'services/identity_confidence_gate.dart';
 import 'services/model_manager.dart';
@@ -878,6 +879,70 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
     return '${minutes.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}.${fraction.toString().padLeft(3, '0')}';
   }
 
+  Future<void> _editReplacement(DubProject project, DubSegment line) async {
+    final controller = TextEditingController(text: line.translation);
+    final replacement = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Edit replacement • Segment ${line.id}'),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Original: ${line.original}'),
+          const SizedBox(height: 8),
+          Text('Target: ${_stamp(line.start)} – ${_stamp(line.synthesisEnd ?? line.end)}'),
+          const SizedBox(height: 12),
+          TextField(
+            controller: controller,
+            autofocus: true,
+            maxLines: 4,
+            minLines: 2,
+            decoration: const InputDecoration(
+              labelText: 'Replacement dialogue',
+              hintText: 'Paste a meaning-preserving Hindi or Hindi-English alternative',
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text('Saving changes only this segment. Resume My Dub will synthesize and check its actual duration.',
+            style: TextStyle(fontSize: 12, color: mutedInk)),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, controller.text.trim()),
+            child: const Text('Save dialogue')),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (replacement == null || !mounted) return;
+    if (!DialogueQualityGate.acceptableTranslation(
+      replacement, line.original, project.sourceLanguage, project.targetLanguage,
+    )) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Dialogue rejected by language/quality validation. Preserve meaning and use the selected target language.'),
+      ));
+      return;
+    }
+    final previous = line.translation;
+    final wasRefined = project.refinedSegmentIds.contains(line.id);
+    line.translation = replacement;
+    project.refinedSegmentIds.add(line.id); // Do not overwrite user edit during optional refinement.
+    try {
+      await repository.save(project);
+      if (!mounted) return;
+      setState(() {
+        current = current?.id == project.id ? project : current;
+        projects = [...projects];
+      });
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Replacement saved. Resume My Dub to test the generated voice.'),
+      ));
+    } catch (error) {
+      line.translation = previous;
+      if (!wasRefined) project.refinedSegmentIds.remove(line.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Save failed: $error')));
+    }
+  }
+
   void _inspectDialogue(DubProject project) {
     final segments = [...project.segments]
       ..sort((a, b) => a.start.compareTo(b.start));
@@ -922,6 +987,14 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
                     const Text('REPLACEMENT VOICE', style: TextStyle(fontWeight: FontWeight.bold)),
                     Text('${_stamp(line.start)} – ${_stamp(replacementEnd)} • Target window ${(replacementEnd - line.start).toStringAsFixed(2)}s'),
                     SelectableText(line.translation.isEmpty ? '[Not generated]' : line.translation),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        onPressed: busy ? null : () => _editReplacement(project, line),
+                        icon: const Icon(Icons.edit_outlined),
+                        label: const Text('Edit / Paste replacement'),
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     Text('Assigned voice: ${line.voiceId.isEmpty ? 'Pending' : line.voiceId}',
                       style: const TextStyle(color: mutedInk)),
