@@ -539,10 +539,31 @@ class DubbingPipeline {
             }
             attempted++;
           }
-          if (alternatives.isNotEmpty) {
-            final ranked = alternatives.toList()
-              ..sort((a, b) => a.runes.length.compareTo(b.runes.length));
-            candidate = ranked.first;
+          final measured = <String, double>{};
+          final window = (segment.synthesisEnd ?? segment.end) - segment.start;
+          for (final alternative in alternatives) {
+            try {
+              measured[alternative] = await LipFitAgent(engine)
+                  .measureSpokenSeconds(project, segment, alternative);
+            } catch (_) {
+              rejectionReasons.add('candidate duration measurement failed');
+            }
+          }
+          if (measured.isNotEmpty) {
+            final ranked = measured.entries.toList()
+              ..sort((a, b) => a.value.compareTo(b.value));
+            // Choose by actual generated speech length, never character count.
+            // If no alternative fits the bounded 1.5x WSOLA limit, retain
+            // the original translation and report the measured minimum.
+            final fitting = ranked.where((entry) => entry.value <= window * 1.50);
+            if (fitting.isNotEmpty) {
+              candidate = fitting.first.key;
+            } else {
+              rejectionReasons.add(
+                'shortest measured speech ${ranked.first.value.toStringAsFixed(2)}s '
+                'exceeds safe fit for ${window.toStringAsFixed(2)}s window',
+              );
+            }
           }
           timingRetries[id] = attempted;
           if (candidate == null ||
