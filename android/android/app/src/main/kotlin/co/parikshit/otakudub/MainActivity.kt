@@ -985,9 +985,9 @@ class MainActivity : FlutterActivity() {
                             // A compact retry avoids exhausting small-model output
                             // budgets on the original verbose prompt.
                             val request = if (refine && fitForDuration && attempt > 0) {
-                                val budget = (input.codePointCount(0, input.length) *
-                                    (if (attempt == 1) 0.60 else 0.45)).toInt().coerceAtLeast(4)
-                                "/no_think\nWrite ONE shorter $targetLanguage spoken line, at most $budget Unicode characters including spaces. Preserve meaning, names and negation. No explanation. Original: $original\nCurrent: $input\nShort line:"
+                                "/no_think\nWrite a DIFFERENT concise spoken $targetLanguage alternative. " +
+                                    "Prioritize fewer spoken syllables over character count. Hindi-English mixing is allowed for familiar terms. " +
+                                    "Preserve meaning, names and negation. No explanation.\nOriginal: $original\nCurrent: $input\nAlternative:"
                             } else if (attempt == 0) prompt else if (refine) {
                                 "/no_think\nRewrite this $targetLanguage spoken dialogue naturally " +
                                     "without changing its meaning. Output only the spoken line.\n" +
@@ -1012,9 +1012,8 @@ class MainActivity : FlutterActivity() {
                                 }
                                 val cleaned = cleanDialogue(response)
                                 if (refine && fitForDuration &&
-                                    cleaned.codePointCount(0, cleaned.length) >=
-                                    input.codePointCount(0, input.length)) {
-                                    throw IllegalStateException("LipFit model returned an unchanged or longer line.")
+                                    cleaned.equals(input, ignoreCase = true)) {
+                                    throw IllegalStateException("LipFit model returned unchanged dialogue.")
                                 }
                                 accepted = cleaned
                                 break
@@ -1121,19 +1120,16 @@ class MainActivity : FlutterActivity() {
             (end - start).coerceAtLeast(0.0)
 
         val timingRule = if (fitForDuration) {
-            val fraction = when (fitAttempt.coerceIn(0, 3)) {
-                0 -> 0.70
-                1 -> 0.58
-                2 -> 0.46
-                else -> 0.36
+            val strategy = when (fitAttempt.coerceIn(0, 3)) {
+                0 -> "Use compact colloquial $target wording and remove filler."
+                1 -> "Replace long phrases with natural short synonyms; Hindi-English code switching is permitted for common spoken words."
+                2 -> "Rebuild the sentence in a different concise spoken structure; minimize spoken syllables, not written letters."
+                else -> "Find the shortest natural equivalent, including familiar English words where appropriate; preserve every essential meaning."
             }
-            val budget = (translation.codePointCount(0, translation.length) * fraction)
-                .toInt().coerceAtLeast(4)
-            "HARD CONSTRAINT: answer with at most $budget Unicode characters " +
-                "(including spaces). Use a DIFFERENT concise spoken formulation, " +
-                "not an explanation or near-copy. Preserve names, negation, " +
-                "core meaning and essential facts. If that is impossible, " +
-                "return the unchanged translation so the safety gate rejects it."
+            "The synthesized audio exceeded its dialogue window. $strategy " +
+                "For Hindi dubbing, prefer Hindi but allow common English words in a natural Hindi-English mix. " +
+                "Optimize SPOKEN duration, not character count. Do not translate everything into English. " +
+                "Preserve negation, names, intent, and essential facts. Never invent or omit plot information."
         } else "Keep the line concise."
 
         return """
