@@ -81,8 +81,10 @@ class LipFitAgent {
         project.sourceLanguage, project.targetLanguage)) {
       throw OfflineEngineException('LipFit proposal failed target-language validation.');
     }
-    if (proposed.runes.length >= current.runes.length) {
-      throw OfflineEngineException('LipFit proposal did not reduce spoken text length.');
+    // Orthographic length is not speech duration, especially with mixed
+    // Hindi/English wording. Native Supertonic measurement decides the fit.
+    if (proposed.toLowerCase() == current.toLowerCase()) {
+      throw OfflineEngineException('LipFit returned unchanged dialogue.');
     }
     return proposed;
   }
