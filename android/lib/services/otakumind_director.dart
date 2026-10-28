@@ -2,6 +2,7 @@ import '../models/dub_project.dart';
 import 'dialogue_quality_gate.dart';
 import 'anime_scene_matcher.dart';
 import 'offline_engine.dart';
+import 'otakumind_script_verifier.dart';
 
 /// OtakuMind is the offline dubbing director, never an interactive chatbot.
 ///
@@ -23,7 +24,7 @@ class OtakuMindDirector {
     return candidate;
   }
 
-  List<DubSegment> _checked(
+  /// Only corroborated original scripts can be attached as reference evidence.\n  /// Source dialogue and timestamps remain untouched on a failed match.\n  ScriptVerification verifyOriginalScript(DubProject project,\n      OriginalScriptReference reference) {\n    final result = const OtakuMindScriptVerifier()\n        .verify(project.segments, reference);\n    if (result.accepted) {\n      project.animeSceneContext = <String, dynamic>{\n        ...?project.animeSceneContext,\n        'script_source_id': reference.sourceId,\n        'script_anime_id': reference.animeId,\n        'script_episode_id': reference.episodeId,\n        'script_verification': result.reason,\n        'verified_original_lines': result.verifiedLines.map(\n            (id, line) => MapEntry(id.toString(), line)),\n      };\n    }\n    return result;\n  }\n\n  List<DubSegment> _checked(
       dynamic raw, List<DubSegment> source, String stage) {
     if (raw is! List || raw.length != source.length) {
       throw OfflineEngineException('$stage changed dialogue segment count.');
