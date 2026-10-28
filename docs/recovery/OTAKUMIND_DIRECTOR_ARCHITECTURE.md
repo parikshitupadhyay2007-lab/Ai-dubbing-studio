@@ -45,3 +45,6 @@ P0: duration rewrite/retry and regression/device verification.
 P1: typed evidence/decision interfaces, stable OtakuMind casting orchestration, genuine anime catalog ingestion, Light-ASD conversion and synchronized Android inference.
 P2: expression and lip-timing director, source-grounded reference retrieval and selective perceptual QC.
 P3: expanded verified reference coverage, long-video reliability, performance and release acceptance.
+
+## Hybrid direction update
+OtakuMind coordinates optional online reference lookup, original dialogue verification, character attribution, and expression/acting direction. Translation and speech synthesis remain separate local engines. A reference match must be checked against the imported clip. Unknown identities remain unknown. This is a target design, not verified model functionality.
