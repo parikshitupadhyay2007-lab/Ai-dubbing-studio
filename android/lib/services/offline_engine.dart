@@ -175,6 +175,16 @@ class OfflineEngine {
 
   /// Optional native active-speaker inference. A missing model/handler is an
   /// explicit unsupported capability, never fabricated frame-based evidence.
+  /// Future native audiovisual inference endpoint. Missing model is explicit;
+  /// callers must never manufacture mouth timing from scene hashes.
+  Future<Map<String, dynamic>> analyzeDubLipSync({
+    required String sourcePath,
+    required List<Map<String, dynamic>> clips,
+  }) async => _invoke('analyzeDubLipSync', {
+    'source_path': sourcePath,
+    'clips': clips,
+  });
+
   Future<Map<String, dynamic>> analyzeActiveSpeakers(DubProject project) async {
     final result = await _invoke('analyzeActiveSpeakers', {
       'source_path': project.sourcePath,
