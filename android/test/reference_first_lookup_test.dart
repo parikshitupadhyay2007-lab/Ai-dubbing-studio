@@ -14,9 +14,9 @@ void main() {
     'dialogue': ['First line', 'Second line', 'Third line'],
     'timeline': [
       {'start_seconds': 0, 'end_seconds': 1, 'dialogue': 'First line',
-       'speaker_id': 'speaker-a', 'source_id': 'source-1'},
+       'speaker_id': 'speaker-a', 'voice_role': 'female', 'source_id': 'source-1'},
       {'start_seconds': 2, 'end_seconds': 3, 'dialogue': 'Second line',
-       'speaker_id': 'speaker-b', 'source_id': 'source-1'},
+       'speaker_id': 'speaker-b', 'voice_role': 'male', 'source_id': 'source-1'},
       {'start_seconds': 4, 'end_seconds': 5, 'dialogue': 'Third line',
        'speaker_id': 'speaker-a', 'source_id': 'source-1'},
     ],
@@ -32,7 +32,8 @@ void main() {
     expect(lines.length, 3);
     expect(lines.first.original, 'First line');
     expect(lines.last.start, 4);
-    expect(lines.first.speakerId, 'unknown'); // not fabricated casting
+    expect(lines.first.speakerId, 'speaker-a');
+    expect(match['context']['speaker_roles']['speaker-a'], 'female');
   });
   test('unregistered digest and ambiguous duplicate source abstain', () {
     final entry = fixture();
