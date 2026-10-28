@@ -30,188 +30,11 @@ class VerifiedAnimeCatalog {
         throw const FormatException('Reference usage rights are not established');
       }
       final sourceId = required('source_id');
-      // An optional byte-exact asset record may bypass ASR. It must carry
-      // a complete provenance-bound script, language and media duration.
       if (entry.containsKey('asset_sha256')) {
         final digest = required('asset_sha256');
-        if (!RegExp(r'^[a-fA-F0-9]{64}
-      final lines = entry['dialogue'];
-      if (lines is! List || lines.length < 3 ||
-          lines.any((line) => line is! String || line.trim().isEmpty)) {
-        throw const FormatException('Catalog needs at least three actual dialogue lines');
-      }
-      final start = entry['start_seconds'];
-      if (start is! num || !start.toDouble().isFinite || start < 0) {
-        throw const FormatException('Invalid reference timeline');
-      }
-      final season = entry['season'];
-      if (season != null && (season is! int || season < 0)) {
-        throw const FormatException('Invalid anime season');
-      }
-      final end = entry['end_seconds'];
-      if (end != null && (end is! num || !end.toDouble().isFinite || end <= start)) {
-        throw const FormatException('Invalid scene end timestamp');
-      }
-      final hashes = entry['frame_hashes'];
-      if (hashes != null && (hashes is! List || hashes.any((h) =>
-          h is! String || !RegExp(r'^[0-9a-fA-F]{16}$').hasMatch(h)))) {
-        throw const FormatException('Invalid visual reference hash');
-      }
-      final timeline = entry['timeline'];
-      if (timeline != null) {
-        if (timeline is! List || timeline.isEmpty) {
-          throw const FormatException('Invalid scene timeline');
-        }
-        var previous = start.toDouble();
-        for (final rawLine in timeline) {
-          if (rawLine is! Map) throw const FormatException('Invalid timeline row');
-          final row = Map<String, dynamic>.from(rawLine);
-          final from = row['start_seconds'];
-          final until = row['end_seconds'];
-          if (from is! num || until is! num || !from.toDouble().isFinite ||
-              !until.toDouble().isFinite || from < previous || until <= from ||
-              (end is num && until > end)) {
-            throw const FormatException('Invalid or unordered timeline interval');
-          }
-          for (final field in ['dialogue', 'speaker_id', 'source_id']) {
-            if (row[field] is! String || (row[field] as String).trim().isEmpty) {
-              throw FormatException('Missing verified timeline field: $field');
-            }
-          }
-          if (row['source_id'] != sourceId || !lines.contains(row['dialogue'])) {
-            throw const FormatException('Timeline provenance or dialogue mismatch');
-          }
-          final expression = row['expression'];
-          if (expression != null && (expression is! Map ||
-              expression['source_id'] != sourceId ||
-              expression['delivery'] is! String ||
-              (expression['delivery'] as String).trim().isEmpty)) {
-            throw const FormatException('Unverified expression annotation');
-          }
-          previous = until.toDouble();
-        }
-      }
-      final annotations = entry['speaker_annotations'];
-      if (annotations != null) {
-        if (annotations is! List) throw const FormatException('Invalid speaker annotations');
-        final seen = <String>{};
-        for (final rawRow in annotations) {
-          if (rawRow is! Map) throw const FormatException('Invalid speaker annotation row');
-          final row = Map<String, dynamic>.from(rawRow);
-          for (final field in ['track_id', 'character_id', 'reference_id', 'source_hash']) {
-            if (row[field] is! String || (row[field] as String).trim().isEmpty) {
-              throw FormatException('Missing speaker annotation field: $field');
-            }
-          }
-          if (row['reference_id'] != sourceId || row['segment_id'] is! int ||
-              (row['segment_id'] as int) < 0 ||
-              !seen.add("${row['segment_id']}/${row['track_id']}")) {
-            throw const FormatException('Inconsistent or duplicate speaker annotation');
-          }
-        }
-      }
-      if (entry.containsKey('asset_sha256')) {
-        final timelineRows = entry['timeline'] as List;
-        // Every published dialogue item must occur exactly once and in order.
-        if (timelineRows.length != lines.length ||
-            timelineRows.asMap().entries.any((item) =>
-                (item.value as Map)['dialogue'] != lines[item.key])) {
-          throw const FormatException('Exact asset must have a complete ordered script');
-        }
-      }
-      final key = '$anime/$episode/$start';
-      if (!unique.add(key)) throw const FormatException('Duplicated reference');
-      entries.add(entry);
-    }
-    return entries;
-  }
-}
-).hasMatch(digest) ||
+        if (!RegExp(r'^[a-fA-F0-9]{64}$').hasMatch(digest) ||
             entry['source_language'] is! String ||
-            !RegExp(r'^[a-z]{2,3}
-      final lines = entry['dialogue'];
-      if (lines is! List || lines.length < 3 ||
-          lines.any((line) => line is! String || line.trim().isEmpty)) {
-        throw const FormatException('Catalog needs at least three actual dialogue lines');
-      }
-      final start = entry['start_seconds'];
-      if (start is! num || !start.toDouble().isFinite || start < 0) {
-        throw const FormatException('Invalid reference timeline');
-      }
-      final season = entry['season'];
-      if (season != null && (season is! int || season < 0)) {
-        throw const FormatException('Invalid anime season');
-      }
-      final end = entry['end_seconds'];
-      if (end != null && (end is! num || !end.toDouble().isFinite || end <= start)) {
-        throw const FormatException('Invalid scene end timestamp');
-      }
-      final hashes = entry['frame_hashes'];
-      if (hashes != null && (hashes is! List || hashes.any((h) =>
-          h is! String || !RegExp(r'^[0-9a-fA-F]{16}$').hasMatch(h)))) {
-        throw const FormatException('Invalid visual reference hash');
-      }
-      final timeline = entry['timeline'];
-      if (timeline != null) {
-        if (timeline is! List || timeline.isEmpty) {
-          throw const FormatException('Invalid scene timeline');
-        }
-        var previous = start.toDouble();
-        for (final rawLine in timeline) {
-          if (rawLine is! Map) throw const FormatException('Invalid timeline row');
-          final row = Map<String, dynamic>.from(rawLine);
-          final from = row['start_seconds'];
-          final until = row['end_seconds'];
-          if (from is! num || until is! num || !from.toDouble().isFinite ||
-              !until.toDouble().isFinite || from < previous || until <= from ||
-              (end is num && until > end)) {
-            throw const FormatException('Invalid or unordered timeline interval');
-          }
-          for (final field in ['dialogue', 'speaker_id', 'source_id']) {
-            if (row[field] is! String || (row[field] as String).trim().isEmpty) {
-              throw FormatException('Missing verified timeline field: $field');
-            }
-          }
-          if (row['source_id'] != sourceId || !lines.contains(row['dialogue'])) {
-            throw const FormatException('Timeline provenance or dialogue mismatch');
-          }
-          final expression = row['expression'];
-          if (expression != null && (expression is! Map ||
-              expression['source_id'] != sourceId ||
-              expression['delivery'] is! String ||
-              (expression['delivery'] as String).trim().isEmpty)) {
-            throw const FormatException('Unverified expression annotation');
-          }
-          previous = until.toDouble();
-        }
-      }
-      final annotations = entry['speaker_annotations'];
-      if (annotations != null) {
-        if (annotations is! List) throw const FormatException('Invalid speaker annotations');
-        final seen = <String>{};
-        for (final rawRow in annotations) {
-          if (rawRow is! Map) throw const FormatException('Invalid speaker annotation row');
-          final row = Map<String, dynamic>.from(rawRow);
-          for (final field in ['track_id', 'character_id', 'reference_id', 'source_hash']) {
-            if (row[field] is! String || (row[field] as String).trim().isEmpty) {
-              throw FormatException('Missing speaker annotation field: $field');
-            }
-          }
-          if (row['reference_id'] != sourceId || row['segment_id'] is! int ||
-              (row['segment_id'] as int) < 0 ||
-              !seen.add("${row['segment_id']}/${row['track_id']}")) {
-            throw const FormatException('Inconsistent or duplicate speaker annotation');
-          }
-        }
-      }
-      final key = '$anime/$episode/$start';
-      if (!unique.add(key)) throw const FormatException('Duplicated reference');
-      entries.add(entry);
-    }
-    return entries;
-  }
-}
-).hasMatch(entry['source_language'] as String) ||
+            !RegExp(r'^[a-z]{2,3}$').hasMatch(entry['source_language'] as String) ||
             entry['start_seconds'] != 0 ||
             entry['end_seconds'] is! num ||
             entry['timeline'] is! List ||
@@ -292,6 +115,14 @@ class VerifiedAnimeCatalog {
               !seen.add("${row['segment_id']}/${row['track_id']}")) {
             throw const FormatException('Inconsistent or duplicate speaker annotation');
           }
+        }
+      }
+      if (entry.containsKey('asset_sha256')) {
+        final rows = entry['timeline'] as List;
+        if (rows.length != lines.length ||
+            rows.asMap().entries.any((item) =>
+                (item.value as Map)['dialogue'] != lines[item.key])) {
+          throw const FormatException('Exact asset must have a complete ordered script');
         }
       }
       final key = '$anime/$episode/$start';
