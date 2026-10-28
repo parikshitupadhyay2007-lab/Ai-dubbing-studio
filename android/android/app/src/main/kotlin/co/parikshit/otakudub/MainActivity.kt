@@ -452,6 +452,18 @@ class MainActivity : FlutterActivity() {
                     }
                 }
 
+                "analyzeDubLipSync" -> {
+                    // No ONNX checkpoint, synchronized frame/audio feature
+                    // extractor or calibrated model is bundled yet. Refuse
+                    // claims of measured mouth synchronization until all
+                    // three are installed and validated on a real device.
+                    result.error(
+                        "AV_ALIGNMENT_MODEL_NOT_INSTALLED",
+                        "Verified audiovisual alignment inference is unavailable; no synthetic sync scores are returned.",
+                        null
+                    )
+                }
+
                 "analyzeActiveSpeakers" -> {
                     // Fail closed until an actual synchronized audio/video model,
                     // verified checkpoint and native inference are installed.
