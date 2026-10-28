@@ -81,7 +81,23 @@ class DubbingPipeline {
       segment.speakerConfidence = 0.01; // Explicitly low confidence, not verified.
       segment.speakerManuallyVerified = false;
     }
-    _caster.assign(project);
+    final roles = <String, VoiceRole>{};
+    if (project.animeSceneContext?['identity_status'] == 'exact_registered_asset' &&
+        project.animeSceneContext?['reference_dialogue_status'] ==
+            'exact_asset_script_applied') {
+      final referenceRoles = project.animeSceneContext?['speaker_roles'];
+      if (referenceRoles is Map) {
+        for (final entry in referenceRoles.entries) {
+          if (entry.key is! String) continue;
+          switch (entry.value) {
+            case 'male': roles[entry.key as String] = VoiceRole.male; break;
+            case 'female': roles[entry.key as String] = VoiceRole.female; break;
+            case 'youthful': roles[entry.key as String] = VoiceRole.youthful; break;
+          }
+        }
+      }
+    }
+    _caster.assign(project, preferredRoles: roles);
     const CharacterIdentityFusion().record(project);
     for (final segment in unresolved) {
       project.speakerIdentityEvidence[segment.speakerId] =
@@ -270,7 +286,9 @@ class DubbingPipeline {
             project.segments.any((s) =>
                 s.speakerId.trim().isNotEmpty && s.speakerId != 'unknown') &&
             project.characterVoices.isNotEmpty;
-        if (!hasIdentifiedSpeakers) {
+        if (!hasIdentifiedSpeakers &&
+            project.animeSceneContext?['identity_status'] !=
+                'exact_registered_asset') {
         final casting = await engine.identifySpeakers(project);
       final beforeCasting = List<DubSegment>.from(project.segments);
       final identifiedSegments = _parseSegments(casting['segments']);
