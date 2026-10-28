@@ -27,7 +27,7 @@ class SubprocessVisionEngine:
         image=Path(image_path).resolve(strict=True)
         if not image.is_file() or image.stat().st_size==0:
             raise HandoffError("Invalid inference frame")
-        request={"schema_version":1,"model_path":str(self.model),
+        if digest_file(self.model)!=self.model_digest:\n            raise HandoffError("Local vision model changed after initialization")\n        request={"schema_version":1,"model_path":str(self.model),
                  "image_path":str(image),"task":"describe_visible_scene_without_identity_guessing"}
         try:
             completed=subprocess.run([str(self.executable)],input=json.dumps(request),
