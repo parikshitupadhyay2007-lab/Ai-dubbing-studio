@@ -14,6 +14,7 @@ import 'lip_fit_agent.dart';
 import 'intelligent_timing_controller.dart';
 import 'anime_scene_matcher.dart';
 import 'anime_reference_store.dart';
+import 'reference_first_lookup.dart';
 import 'active_speaker_evidence_gate.dart';
 import 'visual_speaker_evidence.dart';
 import 'character_evidence_matcher.dart';
@@ -157,6 +158,27 @@ class DubbingPipeline {
               s.speakerId != 'unknown' && s.voiceId.isNotEmpty &&
               project.characterVoices[s.speakerId] == s.voiceId);
       if (!hasTranscript) {
+        // Reference-first discovery runs before Whisper. Ordered visual
+        // fingerprints are retrieval evidence only: an exact timeline/asset
+        // verifier is still required before substituting catalog dialogue.
+        // Preserve an earlier checkpoint if discovery is unavailable.
+        if (project.animeSceneContext == null) {
+          final entries = await const AnimeReferenceStore().load();
+          if (entries.any((entry) => entry['frame_hashes'] is List &&
+              (entry['frame_hashes'] as List).length >= 3 &&
+              entry['timeline'] is List)) {
+            try {
+              final hashes = await engine.sampleSceneFrameHashes(project.sourcePath);
+              final match = const ReferenceFirstLookup().candidate(entries, hashes);
+              if (match != null) {
+                project.animeSceneContext = match;
+                await repository.save(project);
+              }
+            } catch (_) {
+              // Missing native sampler or unsupported video: Whisper fallback.
+            }
+          }
+        }
         await _stage(project, ProjectStage.transcribing, onProgress);
         final transcript = await engine.transcribe(project);
         final detectedLanguage = (transcript['language'] as String? ?? '')
