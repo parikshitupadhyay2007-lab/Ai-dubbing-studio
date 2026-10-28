@@ -28,6 +28,38 @@ def audit(root: Path):
         "end_to_end_device": {"passed": False, "evidence": "Requires signed device acceptance with playable final MP4 and resume test"},
         "professional_quality": {"passed": False, "evidence": "Requires held-out annotated dataset, objective metrics and blinded listening results"},
     }
+    # The seven P0 deliverables are separate release gates. A static source
+    # presence check is NOT evidence of accuracy or successful inference.
+    p0 = {
+        "audiovisual_ai": (
+            "AV_ALIGNMENT_MODEL_NOT_INSTALLED" not in native and
+            "ACTIVE_SPEAKER_MODEL_NOT_INSTALLED" not in native,
+            "Requires verified compatible checkpoint, native inference, calibrated on-device run"),
+        "anime_reference_database": (
+            catalog_ok,
+            "Requires rights-cleared scripts, provenance, timestamp and speaker coverage audit"),
+        "character_recognition": (
+            False,
+            "Requires held-out line-level named character accuracy with offscreen/overlap cases"),
+        "dialogue_accuracy": (
+            False,
+            "Requires bilingual Japanese-to-Hindi and Japanese-to-English semantic human review"),
+        "lip_synchronization": (
+            False,
+            "Requires actual source/clip-bound visual inference and measured per-line drift"),
+        "professional_voices": (
+            False,
+            "Requires human-rated intelligibility, pronunciation, delivery and cross-scene consistency"),
+        "real_device_validation": (
+            False,
+            "Requires signed device evidence: export, playback, resume, resources and long-video run"),
+    }
+    for name, (static_candidate, requirement) in p0.items():
+        checks["p0_" + name] = {
+            "passed": False,
+            "static_candidate": static_candidate,
+            "evidence": requirement,
+        }
     # A source scan cannot prove model inference, even when no placeholder remains.
     checks["native_visual_inference"]["passed"] = False
     return {"schema_version": 1, "project": "OtakuDub", "certified_professional": all(v["passed"] for v in checks.values()),
