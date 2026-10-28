@@ -11,6 +11,7 @@ from department_adapters import LegacyBackendAdapters
 from departmental_pipeline import Artifact, Review, DEPARTMENTS, REQUIRED_CHECKS, HandoffError
 from production_controller import Assignment, ProductionController, Pipeline
 from intake_department import IntakeProducer, IntakeReviewer
+from continuity_department import ContinuityProducer, ContinuityReviewer
 
 @dataclass
 class LegacyProducer:
@@ -60,7 +61,7 @@ class EvidenceReviewer:
         return Review(reviewer, artifact.content_digest, checks, issues)
 
 def migration_probe(project_dir: str | Path, job_id: str, target_language: str = "hi",
-                    max_attempts: int = 1, verified_intake: bool = False) -> ProductionController:
+                    max_attempts: int = 1, verified_intake: bool = False, continuity_probe: bool = False) -> ProductionController:
     """Construct real-data pipeline; intentionally blocks at unverified quality gates."""
     directory = Path(project_dir)
     assignments = {department: Assignment(LegacyProducer(directory, index),
@@ -68,4 +69,8 @@ def migration_probe(project_dir: str | Path, job_id: str, target_language: str =
                    for index, department in enumerate(DEPARTMENTS)}
     if verified_intake:
         assignments[DEPARTMENTS[0]] = Assignment(IntakeProducer(directory), IntakeReviewer(directory), max_attempts)
+    if continuity_probe:
+        if not verified_intake:
+            raise HandoffError("Continuity probe requires verified intake")
+        assignments[DEPARTMENTS[1]] = Assignment(ContinuityProducer(directory), ContinuityReviewer(directory), max_attempts)
     return ProductionController(Pipeline(job_id), assignments)
