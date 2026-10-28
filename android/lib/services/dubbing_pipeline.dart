@@ -1,5 +1,6 @@
 import 'export_file_validator.dart';
 import 'dart:io';
+import 'package:crypto/crypto.dart';
 
 import '../models/dub_project.dart';
 import 'package:flutter/services.dart';
@@ -158,6 +159,25 @@ class DubbingPipeline {
               s.speakerId != 'unknown' && s.voiceId.isNotEmpty &&
               project.characterVoices[s.speakerId] == s.voiceId);
       if (!hasTranscript) {
+        // A byte-identical licensed/local registered asset can use its
+        // complete reference script without running Whisper. No visual
+        // similarity score is sufficient to enter this path.
+        final entries = await const AnimeReferenceStore().load();
+        if (entries.any((entry) => entry['asset_sha256'] is String)) {
+          final digest = (await sha256.bind(source.openRead()).first).toString();
+          final exact = const ExactReferenceDialogue().match(entries, digest);
+          if (exact != null) {
+            project.sourceLanguage = exact['source_language'] as String;
+            project.segments
+              ..clear()
+              ..addAll(exact['segments'] as List<DubSegment>);
+            project.animeSceneContext =
+                Map<String, dynamic>.from(exact['context'] as Map);
+            await repository.save(project);
+          }
+        }
+      }
+      if (project.segments.isEmpty) {
         // Reference-first discovery runs before Whisper. Ordered visual
         // fingerprints are retrieval evidence only: an exact timeline/asset
         // verifier is still required before substituting catalog dialogue.
