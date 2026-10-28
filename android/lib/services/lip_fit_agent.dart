@@ -81,6 +81,9 @@ class LipFitAgent {
         project.sourceLanguage, project.targetLanguage)) {
       throw OfflineEngineException('LipFit proposal failed target-language validation.');
     }
+    if (!DialogueQualityGate.preservesRevisionAnchors(current, proposed)) {
+      throw OfflineEngineException('LipFit proposal changed protected meaning anchors.');
+    }
     // Orthographic length is not speech duration, especially with mixed
     // Hindi/English wording. Native Supertonic measurement decides the fit.
     if (proposed.toLowerCase() == current.toLowerCase()) {
