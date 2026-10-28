@@ -1,5 +1,6 @@
 import '../models/dub_project.dart';
 import 'dialogue_quality_gate.dart';
+import 'studio_departments.dart';
 import 'anime_scene_matcher.dart';
 import 'offline_engine.dart';
 import 'otakumind_script_verifier.dart';
@@ -125,13 +126,16 @@ class OtakuMindDirector {
     for (var i = 0; i < batch.length; i++) {
       final candidate = checked[i].translation.trim();
       final previous = batch[i].translation.trim();
-      if (DialogueQualityGate.acceptableTranslation(
-          candidate, batch[i].original,
-          project.sourceLanguage, project.targetLanguage) &&
-          DialogueQualityGate.preservesRevisionAnchors(previous, candidate) &&
-          DialogueQualityGate.preservesRevisionAnchors(batch[i].original, candidate)) {
-        accepted[batch[i].id] = candidate;
-      }
+      final review = const ScriptSupervisionDepartment().reviewRevision(
+        original: batch[i].original,
+        previous: previous,
+        candidate: candidate,
+        sourceLanguage: project.sourceLanguage,
+        targetLanguage: project.targetLanguage,
+      );
+      // A distinct rewrite must receive genuine independent semantic review.
+      // Static anchor checks alone cannot certify equivalence.
+      if (review.approved) accepted[batch[i].id] = candidate;
     }
     return accepted;
   }
