@@ -27,4 +27,34 @@ class Gates(unittest.TestCase):
         r=Review(DEPARTMENTS[1],"old",dict.fromkeys(REQUIRED_CHECKS[0],True))
         with self.assertRaises(HandoffError):p.submit_and_review(a,r)
 
+    def test_tampered_payload_rejected(self):
+        p=Pipeline("job")
+        a=Artifact.build("job",DEPARTMENTS[0],{"data":{"value":1}},{"proof":1},{})
+        a.payload["data"]["value"]=2
+        r=Review(DEPARTMENTS[1],a.content_digest,dict.fromkeys(REQUIRED_CHECKS[0],True))
+        with self.assertRaises(HandoffError): p.submit_and_review(a,r)
+
+    def test_tampered_evidence_rejected(self):
+        p=Pipeline("job")
+        a=Artifact.build("job",DEPARTMENTS[0],{"data":1},{"proof":1},{})
+        a.evidence["proof"]=False
+        r=Review(DEPARTMENTS[1],a.content_digest,dict.fromkeys(REQUIRED_CHECKS[0],True))
+        with self.assertRaises(HandoffError): p.submit_and_review(a,r)
+
+    def test_snapshot_independent_of_original_input(self):
+        payload={"data":[1]}
+        a=Artifact.build("job",DEPARTMENTS[0],payload,{"proof":1},{})
+        payload["data"].append(2)
+        self.assertTrue(a.verify_integrity())
+
+    def test_truthy_check_does_not_pass(self):
+        p=Pipeline("job")
+        a=Artifact.build("job",DEPARTMENTS[0],{"data":1},{"proof":1},{})
+        r=Review(DEPARTMENTS[1],a.content_digest,dict.fromkeys(REQUIRED_CHECKS[0],"passed"))
+        with self.assertRaises(HandoffError): p.submit_and_review(a,r)
+
+    def test_nan_rejected(self):
+        with self.assertRaises(HandoffError):
+            Artifact.build("job",DEPARTMENTS[0],{"data":float("nan")},{"proof":1},{})
+
 if __name__ == "__main__": unittest.main()
