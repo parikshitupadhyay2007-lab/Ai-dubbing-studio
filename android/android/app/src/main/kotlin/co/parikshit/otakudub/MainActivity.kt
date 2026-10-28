@@ -1010,9 +1010,11 @@ class MainActivity : FlutterActivity() {
                                     "Variant ${fitAttempt + 1}.${attempt + 1}: use a distinct concise construction. " +
                                     "Do not explain or copy the current line.\nOriginal: $original\nCurrent: $input\nAlternative:"
                             } else if (attempt == 0) prompt else if (refine) {
-                                "/no_think\nRewrite this $targetLanguage spoken dialogue naturally " +
-                                    "without changing its meaning. Output only the spoken line.\n" +
-                                    "Dialogue: $input\nAnswer:"
+                                "/no_think\nYou are a professional spoken-dialogue writer. " +
+                                    "Rewrite into idiomatic, natural $targetLanguage that a human voice actor would actually say. " +
+                                    "Keep the ORIGINAL meaning, negation, facts, character intent, and names; invent nothing. " +
+                                    "Avoid stiff word-for-word translation. Output one spoken line only.\n" +
+                                    "Original: $original\nCurrent: $input\nAnswer:"
                             } else {
                                 "/no_think\nTranslate this dialogue from $sourceLanguage to " +
                                     "$targetLanguage. Preserve negation, quantities, names, speaker intent and all essential facts. Do not invent events. Output only the translation.\\n" +
@@ -1106,7 +1108,11 @@ class MainActivity : FlutterActivity() {
             Do not guess missing context, invent plot details, omit qualifying clauses,
             reverse a speaker's intent, or substitute a plausible but different line.
             If ambiguous, translate conservatively without adding unsupported facts.
-            Use natural spoken language.
+            Write like a professional dubbing dialogue writer, not a literal
+            word-by-word translator. Make the line conversational, idiomatic,
+            speakable aloud, and appropriate to its meaning; avoid robotic
+            calques, unnecessary formality, and invented dramatic emphasis.
+            Meaning fidelity and human conversational quality are BOTH required.
             Do not explain anything.
             Return only the translated dialogue.
 
@@ -1166,7 +1172,9 @@ class MainActivity : FlutterActivity() {
             Rules:
             - Preserve the original meaning.
             - Keep names and important story details unchanged.
-            - Make the dialogue natural and emotionally appropriate.
+            - Write idiomatic human conversation a real voice actor can perform.
+            - Avoid robotic literal translations, stiff formal constructions and filler.
+            - Keep the character's intent and emotional emphasis supported by the original.
             - Keep it concise for approximately $duration seconds.
             - $timingRule
             - Do not invent dialogue.
