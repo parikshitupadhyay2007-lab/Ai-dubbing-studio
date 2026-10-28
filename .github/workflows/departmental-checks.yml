@@ -15,4 +15,4 @@ jobs:
           python-version: '3.11'
       - name: Validate departmental contracts and legacy adapters
         working-directory: backend
-        run: python -m unittest discover -s tests -p 'test_department*.py' -v
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
