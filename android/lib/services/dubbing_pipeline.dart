@@ -14,6 +14,7 @@ import 'otakumind_director.dart';
 import 'lip_fit_agent.dart';
 import 'intelligent_timing_controller.dart';
 import 'dialogue_alignment_gate.dart';
+import 'audiovisual_alignment_evidence.dart';
 import 'anime_scene_matcher.dart';
 import 'anime_reference_store.dart';
 import 'reference_first_lookup.dart';
@@ -717,6 +718,74 @@ class DubbingPipeline {
       if (returnedIds.length != expectedIds.length ||
           !returnedIds.containsAll(expectedIds)) {
         throw OfflineEngineException('Synthesis omitted dialogue segments.');
+      }
+
+      // A real lip-sync model is optional until verified weights are bundled.
+      // When available, every measured line must pass provenance and timing
+      // checks; a missing model is persisted as unavailable, never a pass.
+      try {
+        final measured = await engine.analyzeDubLipSync(
+          sourcePath: project.sourcePath,
+          clips: [for (final clip in clips) Map<String, dynamic>.from(clip as Map)],
+        );
+        if (measured['model_verified'] != true ||
+            measured['measurements'] is! List) {
+          throw OfflineEngineException('Audiovisual model returned unverified evidence.');
+        }
+        final rows = measured['measurements'] as List;
+        if (rows.length != project.segments.length) {
+          throw OfflineEngineException('Audiovisual model omitted dialogue measurements.');
+        }
+        final sourceDigest = (await sha256.bind(source.openRead()).first).toString();
+        final ids = <int>{};
+        for (final raw in rows) {
+          if (raw is! Map) {
+            throw OfflineEngineException('Invalid audiovisual measurement row.');
+          }
+          final evidence = AudiovisualAlignmentEvidence.fromJson(
+              Map<String, dynamic>.from(raw));
+          if (!ids.add(evidence.segmentId)) {
+            throw OfflineEngineException('Duplicate audiovisual measurement.');
+          }
+          final segment = segmentsById[evidence.segmentId];
+          final clip = clips.cast<Map>().firstWhere(
+            (item) => item['segment_id'] == evidence.segmentId,
+            orElse: () => <String, dynamic>{},
+          );
+          if (segment == null || clip['wav_path'] is! String) {
+            throw OfflineEngineException('Audiovisual measurement has unknown segment.');
+          }
+          final clipDigest = (await sha256.bind(
+              File(clip['wav_path'] as String).openRead()).first).toString();
+          if (!evidence.validFor(id: segment.id, sourceSha256: sourceDigest,
+              clipSha256: clipDigest) || evidence.syncScore < 0.85) {
+            throw OfflineEngineException(
+                'Audiovisual confidence/provenance rejected segment ${segment.id}.');
+          }
+          final seconds = (await File(clip['wav_path'] as String).length() - 44) /
+              ((clip['sample_rate'] as int) * 2);
+          final issue = const DialogueAlignmentGate().rejection(
+            segment: segment, speechSeconds: seconds,
+            timeline: project.segments,
+            measuredMouthStart: evidence.mouthStart,
+            measuredMouthEnd: evidence.mouthEnd,
+          );
+          if (issue != null) {
+            throw OfflineEngineException(
+                'Visual dialogue alignment rejected segment ${segment.id}: $issue.');
+          }
+        }
+        project.animeSceneContext ??= <String, dynamic>{};
+        project.animeSceneContext!['dub_lip_sync_status'] = 'verified_measured_pass';
+        await repository.save(project);
+      } on OfflineEngineException catch (error) {
+        if (!error.message.contains('Verified audiovisual alignment inference is unavailable')) {
+          rethrow;
+        }
+        project.animeSceneContext ??= <String, dynamic>{};
+        project.animeSceneContext!['dub_lip_sync_status'] =
+            'unavailable_model_not_installed';
+        await repository.save(project);
       }
 
       // STEP 7: Synchronize dialogue and export MP4
