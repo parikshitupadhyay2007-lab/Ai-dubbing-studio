@@ -1,3 +1,5 @@
+import '../models/dub_project.dart';
+
 /// Strict visual reference lookup performed before speech transcription.
 /// Perceptual hashes are retrieval evidence, NOT proof of a byte-identical cut.
 /// A match must not automatically replace recorded dialogue until a separate
@@ -45,6 +47,71 @@ class ReferenceFirstLookup {
       'identity_status': 'candidate_pending_exact_timeline_verification',
       'reference_dialogue_status': 'not_applied',
       'matching_frames': observed.length,
+    };
+  }
+}
+
+/// Only a byte-identical registered media asset may bypass transcription.
+/// Visual/perceptual candidates above must never supply definitive dialogue.
+class ExactReferenceDialogue {
+  const ExactReferenceDialogue();
+
+  Map<String, dynamic>? match(
+      List<Map<String, dynamic>> corpus, String mediaSha256) {
+    if (!RegExp(r'^[a-fA-F0-9]{64}$').hasMatch(mediaSha256)) return null;
+    final hits = corpus.where((entry) =>
+        entry['asset_sha256'] is String &&
+        (entry['asset_sha256'] as String).toLowerCase() ==
+            mediaSha256.toLowerCase()).toList();
+    if (hits.length != 1) return null;
+    final row = hits.single;
+    if (row['start_seconds'] != 0 || row['end_seconds'] is! num ||
+        row['source_language'] is! String ||
+        !RegExp(r'^[a-z]{2,3}$').hasMatch(row['source_language'] as String) ||
+        row['timeline'] is! List) return null;
+    final timeline = row['timeline'] as List;
+    if (timeline.isEmpty) return null;
+    final segments = <DubSegment>[];
+    var lastEnd = 0.0;
+    for (var i = 0; i < timeline.length; i++) {
+      final raw = timeline[i];
+      if (raw is! Map) return null;
+      final line = Map<String, dynamic>.from(raw);
+      final start = line['start_seconds'];
+      final end = line['end_seconds'];
+      final dialogue = line['dialogue'];
+      final speaker = line['speaker_id'];
+      if (start is! num || end is! num ||
+          !start.toDouble().isFinite || !end.toDouble().isFinite ||
+          start < lastEnd || end <= start ||
+          end > (row['end_seconds'] as num) ||
+          dialogue is! String || dialogue.trim().isEmpty ||
+          speaker is! String || speaker.trim().isEmpty ||
+          line['source_id'] != row['source_id']) return null;
+      segments.add(DubSegment(
+        id: i + 1,
+        start: start.toDouble(),
+        end: end.toDouble(),
+        original: dialogue,
+        // Speaker names are verified reference labels, not ECAPA IDs.
+        // Casting still performs independent acoustic speaker verification.
+      ));
+      lastEnd = end.toDouble();
+    }
+    return <String, dynamic>{
+      'segments': segments,
+      'source_language': row['source_language'],
+      'context': <String, dynamic>{
+        'anime_id': row['anime_id'],
+        'title': row['title'],
+        'episode_id': row['episode_id'],
+        'source_id': row['source_id'],
+        'reference_start_seconds': 0.0,
+        'evidence': 'exact_registered_media_sha256',
+        'identity_status': 'exact_registered_asset',
+        'reference_dialogue_status': 'exact_asset_script_applied',
+        'matching_lines': segments.length,
+      },
     };
   }
 }
