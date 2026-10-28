@@ -25,7 +25,35 @@ class OtakuMindDirector {
     return candidate;
   }
 
-  /// Persist verified, segment-scoped delivery for native Supertonic.\n  void directActing(DubProject project, Map<int, ActingEvidence> evidence) {\n    const acting = OtakuMindActingDirector();\n    for (final segment in project.segments) {\n      acting.direct(segment, evidence[segment.id]);\n    }\n  }\n\n  /// Only corroborated original scripts can be attached as reference evidence.\n  /// Source dialogue and timestamps remain untouched on a failed match.\n  ScriptVerification verifyOriginalScript(DubProject project,\n      OriginalScriptReference reference) {\n    final result = const OtakuMindScriptVerifier()\n        .verify(project.segments, reference);\n    if (result.accepted) {\n      project.animeSceneContext = <String, dynamic>{\n        ...?project.animeSceneContext,\n        'script_source_id': reference.sourceId,\n        'script_anime_id': reference.animeId,\n        'script_episode_id': reference.episodeId,\n        'script_verification': result.reason,\n        'verified_original_lines': result.verifiedLines.map(\n            (id, line) => MapEntry(id.toString(), line)),\n      };\n    }\n    return result;\n  }\n\n  List<DubSegment> _checked(
+  /// Persist verified, segment-scoped delivery for native Supertonic.
+  void directActing(DubProject project, Map<int, ActingEvidence> evidence) {
+    const acting = OtakuMindActingDirector();
+    for (final segment in project.segments) {
+      acting.direct(segment, evidence[segment.id]);
+    }
+  }
+
+  /// Only corroborated original scripts can be attached as reference evidence.
+  /// Source dialogue and timestamps remain untouched on a failed match.
+  ScriptVerification verifyOriginalScript(DubProject project,
+      OriginalScriptReference reference) {
+    final result = const OtakuMindScriptVerifier()
+        .verify(project.segments, reference);
+    if (result.accepted) {
+      project.animeSceneContext = <String, dynamic>{
+        ...?project.animeSceneContext,
+        'script_source_id': reference.sourceId,
+        'script_anime_id': reference.animeId,
+        'script_episode_id': reference.episodeId,
+        'script_verification': result.reason,
+        'verified_original_lines': result.verifiedLines.map(
+            (id, line) => MapEntry(id.toString(), line)),
+      };
+    }
+    return result;
+  }
+
+  List<DubSegment> _checked(
       dynamic raw, List<DubSegment> source, String stage) {
     if (raw is! List || raw.length != source.length) {
       throw OfflineEngineException('$stage changed dialogue segment count.');
