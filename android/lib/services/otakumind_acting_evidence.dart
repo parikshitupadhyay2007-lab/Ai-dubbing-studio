@@ -1,3 +1,5 @@
+import '../models/dub_project.dart';
+
 /// OtakuMind combines independent acoustic, visual and dialogue evidence.
 /// This class does not itself run emotion or active-speaker models.
 class ActingEvidence {
@@ -18,7 +20,7 @@ class ActingEvidence {
       acousticConfidence.isFinite && visualConfidence.isFinite &&
       dialogueConfidence.isFinite && acousticConfidence >= 0.8 &&
       visualConfidence >= 0.8 && dialogueConfidence >= 0.8 &&
-      const {'natural', 'gentle', 'tense', 'excited', 'sad', 'whisper', 'shout'}
+      const {'natural', 'soft', 'urgent', 'excited', 'solemn'}
           .contains(delivery);
 }
 
@@ -27,4 +29,15 @@ class OtakuMindActingDirector {
   /// Unknown or conflicting evidence never becomes an invented performance.
   String deliveryFor(ActingEvidence? evidence) =>
       evidence != null && evidence.corroborated ? evidence.delivery : 'natural';
+
+  /// Apply only segment-scoped corroborated evidence; otherwise retain natural.
+  /// The native renderer interprets this as speed/stochasticity guidance,
+  /// not as proof of a trained emotion-conditioning capability.
+  void direct(DubSegment segment, ActingEvidence? evidence) {
+    if (evidence != null && evidence.segmentId != segment.id) {
+      segment.delivery = 'natural';
+      return;
+    }
+    segment.delivery = deliveryFor(evidence);
+  }
 }
