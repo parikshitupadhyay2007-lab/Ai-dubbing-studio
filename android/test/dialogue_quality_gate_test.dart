@@ -48,6 +48,14 @@ void main() {
     expect(DialogueQualityGate.acceptableTranslation(
       'We should go home.', 'We should go home.', 'en-US', 'hi-IN'), isFalse);
   });
+  test('revision guard catches changed numbers and polarity', () {
+    expect(DialogueQualityGate.preservesRevisionAnchors(
+      'Meet at 3.', 'Meet at 4.'), isFalse);
+    expect(DialogueQualityGate.preservesRevisionAnchors(
+      'I will not go.', 'I will go.'), isFalse);
+    expect(DialogueQualityGate.preservesRevisionAnchors(
+      'Meet at 3.', 'Arrive at 3.'), isTrue);
+  });
   test('regional language codes obey the same script rules', () {
     expect(DialogueQualityGate.acceptable('Plain English output', 'hi-IN'), isFalse);
     expect(DialogueQualityGate.acceptable('मुझे घर जाना है।', 'hi_IN'), isTrue);
