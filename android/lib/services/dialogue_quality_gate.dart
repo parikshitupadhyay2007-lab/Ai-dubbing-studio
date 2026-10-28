@@ -17,7 +17,7 @@ class DialogueQualityGate {
       return false;
     }
     final negatives = RegExp(
-      '(?:^|\\\\W)(?:not|no|never|nothing|nobody|cannot)(?:$|\\\\W)|(?:नहीं|नही|मत)',
+      r'\b(?:no|not|never|cannot)\b',
       caseSensitive: false,
     );
     bool hasNegation(String text) => negatives.hasMatch(text);
