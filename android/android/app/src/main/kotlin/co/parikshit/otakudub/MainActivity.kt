@@ -1015,7 +1015,7 @@ class MainActivity : FlutterActivity() {
                                     "Dialogue: $input\nAnswer:"
                             } else {
                                 "/no_think\nTranslate this dialogue from $sourceLanguage to " +
-                                    "$targetLanguage. Output only the translation.\n" +
+                                    "$targetLanguage. Preserve negation, quantities, names, speaker intent and all essential facts. Do not invent events. Output only the translation.\\n" +
                                     "Dialogue: $original\nAnswer:"
                             }
                             val response = nativeGenerate(
@@ -1101,7 +1101,11 @@ class MainActivity : FlutterActivity() {
             /no_think
             Translate this anime dialogue from $source to $target.
 
-            Preserve meaning, names and emotional intent.
+            Preserve exact propositions, who did what to whom, negation, quantities,
+            named entities, questions versus statements, and emotional intent.
+            Do not guess missing context, invent plot details, omit qualifying clauses,
+            reverse a speaker's intent, or substitute a plausible but different line.
+            If ambiguous, translate conservatively without adding unsupported facts.
             Use natural spoken language.
             Do not explain anything.
             Return only the translated dialogue.
