@@ -1006,6 +1006,8 @@ class MainActivity : FlutterActivity() {
                                 "/no_think\nGenerate ONE DIFFERENT spoken $targetLanguage dubbing alternative. " +
                                     "$strategy Preserve meaning, names, negation, intent and essential facts. " +
                                     "Optimize actual speaking time, not written character count. " +
+                                    "Target duration: ${((segment["end"] as? Number)?.toDouble() ?: 0.0) - ((segment["start"] as? Number)?.toDouble() ?: 0.0)} seconds. " +
+                                    "Variant ${fitAttempt + 1}.${attempt + 1}: use a distinct concise construction. " +
                                     "Do not explain or copy the current line.\nOriginal: $original\nCurrent: $input\nAlternative:"
                             } else if (attempt == 0) prompt else if (refine) {
                                 "/no_think\nRewrite this $targetLanguage spoken dialogue naturally " +
