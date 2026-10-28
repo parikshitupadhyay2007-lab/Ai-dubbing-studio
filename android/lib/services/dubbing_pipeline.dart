@@ -177,7 +177,9 @@ class DubbingPipeline {
           }
         }
       }
-      if (project.segments.isEmpty) {
+      if (!(project.segments.isNotEmpty &&
+          project.segments.every((line) => line.original.trim().isNotEmpty &&
+              line.start.isFinite && line.end.isFinite && line.end > line.start))) {
         // Reference-first discovery runs before Whisper. Ordered visual
         // fingerprints are retrieval evidence only: an exact timeline/asset
         // verifier is still required before substituting catalog dialogue.
