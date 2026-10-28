@@ -6,6 +6,25 @@ class DialogueQualityGate {
 
   static final RegExp _repeatedToken = RegExp(r'(.{4,40}?)\1{3,}', caseSensitive: false);
 
+  /// High-precision revision guard, not a complete semantic equivalence test.
+  /// Refuse changes in explicit numbers or polarity. Unknown semantic changes
+  /// still require a separately validated multilingual verifier.
+  static bool preservesRevisionAnchors(String previous, String candidate) {
+    final numbers = RegExp(r'[0-9]+(?:[.,][0-9]+)*');
+    List<String> quantities(String value) =>
+        numbers.allMatches(value).map((m) => m.group(0)!).toList();
+    if (quantities(previous).join('|') != quantities(candidate).join('|')) {
+      return false;
+    }
+    final negatives = RegExp(
+      r'\\b(?:not|no|never|nothing|nobody|cannot|can\\x27t|don\\x27t|doesn\\x27t|didn\\x27t|won\\x27t|isn\\x27t|aren\\x27t)\\b|(?:नहीं|नही|मत|कभी नहीं)',
+      caseSensitive: false,
+    );
+    bool hasNegation(String text) => negatives.hasMatch(text);
+    if (hasNegation(previous) != hasNegation(candidate)) return false;
+    return true;
+  }
+
   /// Check both content and source-language provenance, including restored
   /// checkpoints. A prior untranslated line must never bypass validation.
   static bool acceptableTranslation(
