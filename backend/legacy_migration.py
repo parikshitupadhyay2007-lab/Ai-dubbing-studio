@@ -10,6 +10,7 @@ from typing import Mapping, Any
 from department_adapters import LegacyBackendAdapters
 from departmental_pipeline import Artifact, Review, DEPARTMENTS, REQUIRED_CHECKS, HandoffError
 from production_controller import Assignment, ProductionController, Pipeline
+from intake_department import IntakeProducer, IntakeReviewer
 
 @dataclass
 class LegacyProducer:
@@ -59,10 +60,12 @@ class EvidenceReviewer:
         return Review(reviewer, artifact.content_digest, checks, issues)
 
 def migration_probe(project_dir: str | Path, job_id: str, target_language: str = "hi",
-                    max_attempts: int = 1) -> ProductionController:
+                    max_attempts: int = 1, verified_intake: bool = False) -> ProductionController:
     """Construct real-data pipeline; intentionally blocks at unverified quality gates."""
     directory = Path(project_dir)
     assignments = {department: Assignment(LegacyProducer(directory, index),
                                            EvidenceReviewer(index), max_attempts)
                    for index, department in enumerate(DEPARTMENTS)}
+    if verified_intake:
+        assignments[DEPARTMENTS[0]] = Assignment(IntakeProducer(directory), IntakeReviewer(directory), max_attempts)
     return ProductionController(Pipeline(job_id), assignments)
