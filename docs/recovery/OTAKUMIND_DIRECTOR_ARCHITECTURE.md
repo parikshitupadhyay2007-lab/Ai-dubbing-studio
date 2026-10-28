@@ -48,3 +48,6 @@ P3: expanded verified reference coverage, long-video reliability, performance an
 
 ## Hybrid direction update
 OtakuMind coordinates optional online reference lookup, original dialogue verification, character attribution, and expression/acting direction. Translation and speech synthesis remain separate local engines. A reference match must be checked against the imported clip. Unknown identities remain unknown. This is a target design, not verified model functionality.
+
+### Director data handoff
+For each source segment, the intended director record contains original-language dialogue, immutable source timestamps, reference provenance, a provisional acoustic speaker, an optional corroborated character ID, expression evidence, emotional delivery guidance, confidence, and a stable voice selection. OtakuMind combines reference, audio and visual evidence; an on-screen character is not automatically the speaker. The local translation model adapts the verified line, and the local voice model renders it. A missing online match falls back to local transcription. Actual inference and device quality require separate validation.
