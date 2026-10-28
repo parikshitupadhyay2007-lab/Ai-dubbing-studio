@@ -54,24 +54,29 @@ class SupertonicSpeechSynthesizer(
                     else -> error("Supertonic style not assigned for $voice")
                 }
             }
-            val expressivePrefix = when(segment.delivery) {
-                "soft" -> "<breath>"
-                "solemn" -> "<sigh>"
-                "excited" -> "<laugh>"
-                else -> ""
+            // Supertonic's verified ONNX interface exposes generation speed and
+            // stochasticity, not a validated emotion-conditioning tensor.
+            // Never inject unsupported pseudo-tags into spoken dialogue.
+            val (baseSpeed, stochasticity) = when (segment.delivery) {
+                "soft" -> 0.96f to 0.12f
+                "solemn" -> 0.94f to 0.10f
+                "urgent" -> 1.16f to 0.12f
+                "excited" -> 1.10f to 0.18f
+                else -> 1.05f to 0.15f
             }
             val window = segment.end - segment.start
             require(window > 0.0 && segment.text.isNotBlank())
-            val text = expressivePrefix + segment.text
+            val text = segment.text
             val preset = style(styleId)
-            var result = engine.call(text, request.targetLanguage, preset, 8, 1.05f, 0.15f, env)
+            var result = engine.call(text, request.targetLanguage, preset, 8,
+                baseSpeed, stochasticity, env)
             // One bounded speed retry; never silently mix speech past the scene boundary.
             // Speech naturalness takes precedence over unlimited forced compression.
             val firstLength = result.duration[0].toDouble()
             if (firstLength.isFinite() && firstLength > window * 1.12 && window >= 0.5) {
-                val speed = (1.05 * firstLength / window * 1.03).coerceIn(1.05, 1.28).toFloat()
-                if (speed > 1.07f) {
-                    val candidate = engine.call(text, request.targetLanguage, preset, 8, speed, 0.15f, env)
+                val speed = (baseSpeed * firstLength / window * 1.03).coerceIn(baseSpeed, 1.28f)
+                if (speed > baseSpeed + 0.02f) {
+                    val candidate = engine.call(text, request.targetLanguage, preset, 8, speed, stochasticity, env)
                     if (candidate.duration[0].isFinite() &&
                         kotlin.math.abs(candidate.duration[0] - window) <
                         kotlin.math.abs(result.duration[0] - window)) {
