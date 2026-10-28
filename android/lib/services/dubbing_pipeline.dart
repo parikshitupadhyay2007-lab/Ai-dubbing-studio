@@ -13,6 +13,7 @@ import 'offline_engine.dart';
 import 'otakumind_director.dart';
 import 'lip_fit_agent.dart';
 import 'intelligent_timing_controller.dart';
+import 'dialogue_alignment_gate.dart';
 import 'anime_scene_matcher.dart';
 import 'anime_reference_store.dart';
 import 'reference_first_lookup.dart';
@@ -683,6 +684,24 @@ class DubbingPipeline {
           throw OfflineEngineException(
             'Synthesis returned missing or invalid audio for segment ${segment.id}.',
           );
+        }
+        // Supertonic emits mono PCM16 WAV with a 44-byte header. Verify the
+        // actual generated speech duration before permitting the final mix.
+        final wavBytes = await File(clipPath).length();
+        if (wavBytes <= 44 || (wavBytes - 44).isOdd) {
+          throw OfflineEngineException(
+            'Invalid synthesized PCM for segment ${segment.id}.');
+        }
+        final spokenSeconds = (wavBytes - 44) / (sampleRate * 2);
+        final alignmentIssue = const DialogueAlignmentGate().rejection(
+          segment: segment,
+          speechSeconds: spokenSeconds,
+          timeline: project.segments,
+        );
+        if (alignmentIssue != null) {
+          throw OfflineEngineException(
+            'Post-synthesis alignment rejected segment ${segment.id}: '
+            '$alignmentIssue.');
         }
         if (item['speaker_id'] != segment.speakerId ||
             item['voice_id'] != segment.voiceId ||
