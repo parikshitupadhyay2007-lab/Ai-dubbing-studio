@@ -74,7 +74,7 @@ class SupertonicSpeechSynthesizer(
             // Speech naturalness takes precedence over unlimited forced compression.
             val firstLength = result.duration[0].toDouble()
             if (firstLength.isFinite() && firstLength > window * 1.12 && window >= 0.5) {
-                val speed = (baseSpeed * firstLength / window * 1.03).coerceIn(baseSpeed, 1.28f)
+                val speed = (baseSpeed.toDouble() * firstLength / window * 1.03).coerceIn(baseSpeed.toDouble(), 1.28).toFloat()
                 if (speed > baseSpeed + 0.02f) {
                     val candidate = engine.call(text, request.targetLanguage, preset, 8, speed, stochasticity, env)
                     if (candidate.duration[0].isFinite() &&
