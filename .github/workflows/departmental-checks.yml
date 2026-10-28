@@ -1,0 +1,18 @@
+name: Departmental pipeline checks
+on:
+  push:
+    branches:
+      - feature/departmental-ai-pipeline
+  pull_request:
+  workflow_dispatch:
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Validate departmental contracts and legacy adapters
+        working-directory: backend
+        run: python -m unittest discover -s tests -p 'test_department*.py' -v
