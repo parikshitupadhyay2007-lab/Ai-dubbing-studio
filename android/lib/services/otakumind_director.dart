@@ -128,7 +128,8 @@ class OtakuMindDirector {
       if (DialogueQualityGate.acceptableTranslation(
           candidate, batch[i].original,
           project.sourceLanguage, project.targetLanguage) &&
-          candidate.length <= previous.length * 2 + 24) {
+          candidate == previous &&
+          DialogueQualityGate.preservesRevisionAnchors(previous, candidate)) {
         accepted[batch[i].id] = candidate;
       }
     }
