@@ -72,6 +72,7 @@ class ExactReferenceDialogue {
     final timeline = row['timeline'] as List;
     if (timeline.isEmpty) return null;
     final segments = <DubSegment>[];
+    final speakerRoles = <String, String>{};
     var lastEnd = 0.0;
     for (var i = 0; i < timeline.length; i++) {
       final raw = timeline[i];
@@ -88,13 +89,19 @@ class ExactReferenceDialogue {
           dialogue is! String || dialogue.trim().isEmpty ||
           speaker is! String || speaker.trim().isEmpty ||
           line['source_id'] != row['source_id']) return null;
+      final role = line['voice_role'];
+      if (role != null) {
+        if (role is! String || !const {'male', 'female', 'youthful'}.contains(role) ||
+            (speakerRoles.containsKey(speaker) && speakerRoles[speaker] != role)) return null;
+        speakerRoles[speaker] = role;
+      }
       segments.add(DubSegment(
         id: i + 1,
         start: start.toDouble(),
         end: end.toDouble(),
         original: dialogue,
-        // Speaker names are verified reference labels, not ECAPA IDs.
-        // Casting still performs independent acoustic speaker verification.
+        speakerId: speaker,
+        speakerConfidence: 1.0, // Exact registered-script attribution, not an acoustic score.
       ));
       lastEnd = end.toDouble();
     }
@@ -111,6 +118,8 @@ class ExactReferenceDialogue {
         'identity_status': 'exact_registered_asset',
         'reference_dialogue_status': 'exact_asset_script_applied',
         'matching_lines': segments.length,
+        'speaker_roles': speakerRoles,
+        'casting_evidence': 'registered_exact_asset_timeline',
       },
     };
   }
