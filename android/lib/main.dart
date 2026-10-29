@@ -71,7 +71,6 @@ class _OtakuShellState extends State<OtakuShell> {
     finally { if (mounted) { await refresh(); setState(() => importing = false); } }
   }
   int tab = 0;
-  static const labels = ['Discover', 'Studio', 'Projects', 'Departments'];
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(
