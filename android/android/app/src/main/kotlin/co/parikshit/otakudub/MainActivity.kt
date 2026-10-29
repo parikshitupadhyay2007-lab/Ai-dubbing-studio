@@ -1,5 +1,6 @@
 package co.parikshit.otakudub
 
+import android.graphics.Bitmap
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMetadataRetriever
@@ -12,6 +13,47 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger,
             "co.parikshit.otakudub/production_office").setMethodCallHandler { call, result ->
+            if (call.method == "sampleFrames") {
+                val path = call.argument<String>("path")
+                val requested = call.argument<List<Number>>("timestamps_ms")
+                if (path.isNullOrBlank() || requested == null || requested.size > 240 || requested.any { it.toLong() < 0L }) {
+                    result.error("FRAME_REQUEST", "Invalid path or timestamps (max 240)", null)
+                    return@setMethodCallHandler
+                }
+                val retriever = MediaMetadataRetriever()
+                try {
+                    retriever.setDataSource(path)
+                    val duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+                    if (duration <= 0L || requested.any { it.toLong() > duration }) {
+                        result.error("FRAME_RANGE", "Frame timestamp outside media duration", null)
+                        return@setMethodCallHandler
+                    }
+                    val samples = requested.map { timestamp ->
+                        val frame = retriever.getFrameAtTime(timestamp.toLong() * 1000L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                        if (frame == null) {
+                            mapOf<String, Any>("timestamp_ms" to timestamp.toLong(), "available" to false)
+                        } else {
+                            try {
+                                val scaled = Bitmap.createScaledBitmap(frame, 8, 8, true)
+                                try {
+                                    val luma = (0 until 64).map { index ->
+                                        val pixel = scaled.getPixel(index % 8, index / 8)
+                                        val red = (pixel shr 16) and 255
+                                        val green = (pixel shr 8) and 255
+                                        val blue = pixel and 255
+                                        (299 * red + 587 * green + 114 * blue) / 1000
+                                    }
+                                    mapOf<String, Any>("timestamp_ms" to timestamp.toLong(), "available" to true, "luma8x8" to luma)
+                                } finally { scaled.recycle() }
+                            } finally { frame.recycle() }
+                        }
+                    }
+                    result.success(mapOf("duration_ms" to duration, "samples" to samples))
+                } catch (e: Exception) {
+                    result.error("FRAME_SAMPLING", e.message ?: "Could not sample frames", null)
+                } finally { retriever.release() }
+                return@setMethodCallHandler
+            }
             if (call.method != "inspect") {
                 result.notImplemented()
                 return@setMethodCallHandler
