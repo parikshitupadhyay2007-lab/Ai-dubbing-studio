@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'production_office.dart';
+import 'otakudub_onboarding.dart';
 import 'package:flutter/material.dart';
 
 void main() {
@@ -17,8 +18,14 @@ const softer = Color(0xFF272530);
 const subdued = Color(0xFFAAA6B6);
 const white = Color(0xFFF8F6FF);
 
-class OtakuDubApp extends StatelessWidget {
+class OtakuDubApp extends StatefulWidget {
   const OtakuDubApp({super.key});
+  @override
+  State<OtakuDubApp> createState() => _OtakuDubAppState();
+}
+
+class _OtakuDubAppState extends State<OtakuDubApp> {
+  bool onboarded = false;
 
   @override
   Widget build(BuildContext context) => MaterialApp(
@@ -42,7 +49,8 @@ class OtakuDubApp extends StatelessWidget {
             labelTextStyle: WidgetStateProperty.all(const TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
           ),
         ),
-        home: const OtakuShell(),
+        home: onboarded ? const OtakuShell() : OtakuDubOnboarding(
+          onFinished: () { if (mounted) setState(() => onboarded = true); }),
       );
 }
 
