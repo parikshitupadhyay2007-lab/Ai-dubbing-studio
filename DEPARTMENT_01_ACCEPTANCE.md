@@ -1,6 +1,6 @@
 # Department 01 acceptance gate
 
-Department 02 must remain locked until ALL six are implemented and independently verified. CI success is necessary but not sufficient.
+Department 02 must remain locked until ALL eleven capabilities (the original six engines plus five dramatic-intelligence capabilities) are implemented and independently verified. CI success is necessary but not sufficient.
 
 | Component | Current executable implementation | Required to graduate |
 |---|---|---|
@@ -43,3 +43,9 @@ Department 02 remains locked. Successful ONNX session execution and mock MethodC
 - The reference index only validates recorded rights basis; external provenance and asset permission must be independently audited. No copyrighted anime footage or reference images have been scraped.
 - The native square resize is not yet an aspect-ratio-preserving DINOv2 short-edge resize on nonsquare original frames. Results must not be certified as faithful upstream preprocessing until that is fixed and tested.
 - No empirical anime/episode recognition, scene classification, active-speaker diarisation, temporal character tracking, visual emotion classification, continuity intelligence inference or device benchmark is certified. Department 02 stays locked.
+
+## Professional dramatic intelligence expansion (11-capability gate)
+
+The original six-engine execution ledger remains intact. Five additional independently reviewed capabilities are required: narrative intelligence; emotion/performance intelligence; audiovisual dialogue attribution (including off-screen and ambiguous speech); scene timing constraints; and persistent character/relationship memory. These may share encoders but cannot borrow each other's verification. The Director Scene Bible must bind to the immutable source, cover each scene with evidence IDs and independent review, reject unresolved contradictions, and pass the separate `ResearchDirectorsSceneBible` reviewer. A draft is automatically persisted by the research director, but starts unavailable and unapproved. The independent Department 01 reviewer now blocks handoff if it is missing or unverified. This is a gate implementation, NOT proof that these five specialised inference capabilities exist or have passed benchmarks.
+
+DINOv2-specific Android path now requests an aspect-preserving 256-pixel short-edge resize followed by 224x224 centre crop and RGB/CHW normalization. Native-device numerical parity with the upstream image processor remains to be measured. Use lawfully supplied reference footage and rights documentation, not scraped copyrighted anime frames.
