@@ -81,8 +81,12 @@ class ResearchDirectorsSceneBible {
           continue;
         }
         previousEnd = end;
+        if (scene['scene_id'] is! String ||
+            (scene['scene_id'] as String).trim().isEmpty) {
+          errors.add('Invalid scene identifier');
+        }
         for (final key in [
-          'scene_id', 'narrative_context', 'dramatic_intent',
+          'narrative_context', 'dramatic_intent',
           'emotion_performance', 'dialogue_attribution',
           'timing_constraints', 'character_relationships',
         ]) {
