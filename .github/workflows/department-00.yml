@@ -66,9 +66,9 @@ jobs:
           key.write_bytes(raw)
           key.chmod(0o600)
           def prop(value):
-              if any(c in value for c in '\\r\\n'):
+              if any(c in value for c in (chr(10), chr(13))):
                   raise SystemExit('Signing secret contains unsupported newline')
-              return ''.join('\\\\' + c if c in '\\\\=:# !' else c for c in value)
+              return ''.join(chr(92) + c if c in (chr(92), '=', ':', '#', ' ', '!') else c for c in value)
           props = {
               'storeFile': 'otakudub-release.jks',
               'storePassword': os.environ[names[3]],
@@ -76,7 +76,7 @@ jobs:
               'keyPassword': os.environ[names[2]],
           }
           target = root / 'signing.properties'
-          target.write_text(''.join(f'{k}={prop(v)}\\n' for k, v in props.items()))
+          target.write_text(chr(10).join(f'{k}={prop(v)}' for k, v in props.items()) + chr(10))
           target.chmod(0o600)
           PY
       - name: Build permanently signed release APK
