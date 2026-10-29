@@ -54,6 +54,25 @@ class Department01Inference {
         raw['semantic_result_verified'] != false) {
       throw const FormatException('Native ONNX execution not confirmed');
     }
+    final outputs = raw['output_metadata'];
+    if (outputs is! List || outputs.isEmpty) {
+      throw const FormatException('No native inference outputs');
+    }
+    for (final output in outputs) {
+      if (output is! Map || output['name'] is! String ||
+          output['type'] != 'float32' ||
+          output['shape'] is! List || output['values'] is! List) {
+        throw const FormatException('Unsupported model output');
+      }
+      final shape = output['shape'] as List;
+      final values = output['values'] as List;
+      if (shape.isEmpty || shape.any((v) => v is! int || v <= 0) ||
+          shape.fold<int>(1, (a, b) => a * (b as int)) != values.length ||
+          values.length > 262144 ||
+          values.any((v) => v is! num || !v.isFinite)) {
+        throw const FormatException('Invalid native model tensor');
+      }
+    }
     return raw;
   }
 }
