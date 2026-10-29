@@ -1,6 +1,5 @@
-
 name: ai_dubbing_studio
-description: OtakuDub Offline V5 - Your Anime. Your Language.
+description: OtakuDub clean Android foundation
 publish_to: none
 version: 0.5.0+5
 
@@ -11,12 +10,6 @@ dependencies:
   flutter:
     sdk: flutter
 
-  file_picker: ^10.3.3
-  path_provider: ^2.1.5
-  shared_preferences: ^2.3.2
-  crypto: ^3.0.6
-  open_filex: ^4.6.0
-
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -25,18 +18,9 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-  assets:
-    - assets/anime_scene_catalog.json
-    - assets/models/
-    - assets/models/voices/
-    - assets/models/speaker/
-    - assets/models/supertonic3/
-    - assets/models/supertonic3/onnx/
-    - assets/models/supertonic3/voice_styles/
-
 flutter_launcher_icons:
   android: true
   ios: false
   image_path: assets/otakudub_icon.png
   adaptive_icon_background: "#B9A2F4"
-  adaptive_icon_foreground: assets/otakudub_icon_foreground.png
+  adaptive_icon_foreground: assets/otakudub_icon.png
