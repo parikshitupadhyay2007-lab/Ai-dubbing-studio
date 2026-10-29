@@ -19,6 +19,27 @@ class Department01Inference {
     return {'model_name': modelName, 'sha256': sha256};
   }
 
+  /// Installs a locally obtained, authorised ONNX file into private storage.
+  /// The native layer independently checks SHA256 and opens the session.
+  Future<Map<String, dynamic>> installLocal({
+    required String sourcePath, required String modelName,
+    required String sha256,
+  }) async {
+    if (sourcePath.trim().isEmpty) {
+      throw const FormatException('Missing local source path');
+    }
+    final raw = await _channel.invokeMapMethod<String, dynamic>(
+      'installLocalModel', {
+        ..._binding(modelName, sha256), 'source_path': sourcePath,
+      });
+    if (raw == null || raw['installed'] != true ||
+        raw['model_name'] != modelName || raw['sha256'] != sha256 ||
+        raw['size_bytes'] is! int || (raw['size_bytes'] as int) <= 0) {
+      throw const FormatException('Native model installation unverified');
+    }
+    return raw;
+  }
+
   Future<Map<String, dynamic>> inspect({
     required String modelName, required String sha256,
   }) async {
