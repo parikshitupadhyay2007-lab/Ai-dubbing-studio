@@ -34,7 +34,7 @@ jobs:
         working-directory: android
         run: flutter test --reporter expanded
       - name: Offline Department 01 benchmark regression tests
-        run: python3 -m unittest discover -s tools -p 'test_benchmark_department01.py' -v
+        run: python3 -m unittest discover -s tools -p 'test_*department01*.py' -v
       - name: Build debug APK
         working-directory: android
         run: flutter build apk --debug
