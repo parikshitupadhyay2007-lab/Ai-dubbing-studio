@@ -122,9 +122,24 @@ class ResearchEngineCoordinator {
       'evidence_ids': evidenceIds, 'attempt': previous + 1,
       'source_revision': ledger['revision'], 'status': 'pending'});
     final records = next['engines'] as Map<String, dynamic>;
-    records[engine] = {...records[engine] as Map<String, dynamic>,
-      'state': 'stale'};
-    next['revision'] = (next['revision'] as int) + 1;
+    final revision = (next['revision'] as int) + 1;
+    final invalidated = <String>{engine};
+    var advanced = true;
+    while (advanced) {
+      advanced = false;
+      for (final name in engines) {
+        if (invalidated.contains(name)) continue;
+        if (dependencies[name]!.any(invalidated.contains)) {
+          invalidated.add(name);
+          advanced = true;
+        }
+      }
+    }
+    for (final name in invalidated) {
+      records[name] = {...records[name] as Map<String, dynamic>,
+        'state': 'stale', 'revision': revision};
+    }
+    next['revision'] = revision;
     next['handoff_ready'] = false;
     return next;
   }
