@@ -37,7 +37,59 @@ class Department01Inference(private val modelsDir: File) : MethodChannel.MethodC
         return file
     }
 
+
+    private fun install(call: MethodCall): Map<String, Any> {
+        val name = call.argument<String>("model_name") ?: error("Missing model name")
+        require(Regex("[a-zA-Z0-9_-]{1,80}\\.onnx").matches(name)) { "Unsafe model name" }
+        val expected = call.argument<String>("sha256") ?: error("Missing checksum")
+        require(Regex("[0-9a-f]{64}").matches(expected)) { "Invalid checksum" }
+        val source = File(call.argument<String>("source_path") ?: error("Missing local path")).canonicalFile
+        require(source.isFile && source.length() in 1L..536870912L) { "Invalid local model" }
+        val root = modelsDir.canonicalFile
+        require(root.exists() || root.mkdirs()) { "Cannot create model directory" }
+        val target = File(root, name).canonicalFile
+        require(target.parentFile == root && source != target) { "Invalid destination" }
+        val temp = File(root, "$name.partial")
+        val digest = MessageDigest.getInstance("SHA-256")
+        try {
+            source.inputStream().use { input ->
+                java.io.FileOutputStream(temp).use { output ->
+                    val buffer = ByteArray(65536)
+                    var size = 0L
+                    while (true) {
+                        val n = input.read(buffer)
+                        if (n < 0) break
+                        size += n
+                        require(size <= 536870912L) { "Model too large" }
+                        digest.update(buffer, 0, n)
+                        output.write(buffer, 0, n)
+                    }
+                    output.fd.sync()
+                }
+            }
+            val actual = digest.digest().joinToString("") { "%02x".format(it) }
+            require(actual == expected) { "Model checksum mismatch" }
+            environment.createSession(temp.absolutePath, OrtSession.SessionOptions()).use { session ->
+                require(session.inputNames.isNotEmpty() && session.outputNames.isNotEmpty()) {
+                    "Invalid ONNX model interface"
+                }
+            }
+            require(temp.renameTo(target)) { "Atomic installation failed" }
+            return mapOf("installed" to true, "model_name" to name,
+                "sha256" to actual, "size_bytes" to target.length())
+        } finally {
+            if (temp.exists()) temp.delete()
+        }
+    }
+
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
+        if (call.method == "installLocalModel") {
+            try { result.success(install(call)) }
+            catch (e: Exception) {
+                result.error("MODEL_INSTALL_FAILED", e.message ?: e.javaClass.simpleName, null)
+            }
+            return
+        }
         if (call.method != "inspectModel" && call.method != "runFloatModel") {
             result.notImplemented()
             return
