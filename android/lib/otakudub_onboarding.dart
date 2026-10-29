@@ -1,10 +1,8 @@
 import 'dart:async';
-import 'otakudub_agreement.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-const onboardingAgreementVersion = otakuDubAgreementVersion;
-const onboardingAgreement = otakuDubAgreement;
+const introVersion = '2026-10-29-intro-v1';
 
 class OtakuDubOnboarding extends StatefulWidget {
   const OtakuDubOnboarding({super.key, required this.onFinished});
@@ -16,7 +14,6 @@ class OtakuDubOnboarding extends StatefulWidget {
 class _OtakuDubOnboardingState extends State<OtakuDubOnboarding>
     with SingleTickerProviderStateMixin {
   bool loading = true;
-  bool accepted = false;
   bool intro = false;
   late final AnimationController animation;
   Timer? clock;
@@ -35,22 +32,11 @@ class _OtakuDubOnboardingState extends State<OtakuDubOnboarding>
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
     preferences = prefs;
-    if (prefs.getString('accepted_agreement_version') == onboardingAgreementVersion) {
-      if (prefs.getBool('intro_completed_$onboardingAgreementVersion') == true) {
-        widget.onFinished();
-      } else {
-        _startIntro();
-      }
+    if (prefs.getBool('intro_completed_$introVersion') == true) {
+      widget.onFinished();
     } else {
-      setState(() => loading = false);
+      _startIntro();
     }
-  }
-
-  Future<void> _accept() async {
-    if (!accepted) return;
-    final saved = await preferences!.setString('accepted_agreement_version', onboardingAgreementVersion);
-    if (!mounted || !saved) return;
-    _startIntro();
   }
 
   void _startIntro() {
@@ -68,7 +54,7 @@ class _OtakuDubOnboardingState extends State<OtakuDubOnboarding>
     if (finishing) return;
     finishing = true;
     clock?.cancel();
-    final saved = await preferences!.setBool('intro_completed_$onboardingAgreementVersion', true);
+    final saved = await preferences!.setBool('intro_completed_$introVersion', true);
     if (mounted && saved) widget.onFinished();
   }
 
@@ -125,30 +111,6 @@ class _OtakuDubOnboardingState extends State<OtakuDubOnboarding>
         ])),
       ])));
     }
-    return Scaffold(body: SafeArea(child: Padding(padding: const EdgeInsets.all(20), child:
-      Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        const Text('BLACKHEART  /  OTAKUDUB', style: TextStyle(
-          color: Color(0xFFB9A2F4), letterSpacing: 2, fontWeight: FontWeight.w800)),
-        const SizedBox(height: 12),
-        const Text('Agreement & Copyright Notice', style: TextStyle(
-          fontSize: 26, fontWeight: FontWeight.w900)),
-        const SizedBox(height: 8),
-        const Text('Please read before using OtakuDub. Commercial use requires a separate written agreement.',
-          style: TextStyle(color: Colors.white70)),
-        const SizedBox(height: 16),
-        Expanded(child: Container(padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(color: const Color(0xFF24202F),
-            borderRadius: BorderRadius.circular(14)),
-          child: const SingleChildScrollView(child: SelectableText(onboardingAgreement,
-            style: TextStyle(height: 1.55, fontSize: 13))))),
-        CheckboxListTile(value: accepted, onChanged: (value) =>
-          setState(() => accepted = value ?? false),
-          title: const Text('I have read and agree to the notice', style: TextStyle(fontSize: 13)),
-          controlAffinity: ListTileControlAffinity.leading),
-        FilledButton(onPressed: accepted ? _accept : null,
-          style: FilledButton.styleFrom(backgroundColor: const Color(0xFFB9A2F4),
-            foregroundColor: const Color(0xFF101014)),
-          child: const Text('AGREE AND CONTINUE')),
-      ]))));
+    return const Scaffold(body: Center(child: CircularProgressIndicator()));
   }
 }
