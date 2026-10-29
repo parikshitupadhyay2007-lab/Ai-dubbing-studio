@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'package:flutter/services.dart';
+import 'package:ai_dubbing_studio/frame_signal_sampler.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ai_dubbing_studio/otakumind_online_research.dart';
 import 'package:ai_dubbing_studio/otakumind_research_director.dart';
@@ -53,4 +55,32 @@ void main() {
     expect(fake.received, isNull);
     expect(output['internet_research_status'], 'offline_no_reference');
   });
+  test('native frame observations reach research without claiming verified scenes', () async {
+    const channel = MethodChannel('test/research_frames');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+      final times = (call.arguments as Map)['timestamps_ms'] as List;
+      return {'duration_ms': 3000, 'samples': times.map((time) =>
+        {'timestamp_ms': time, 'available': true,
+          'luma8x8': List.filled(64, time == 0 ? 0 : 255)}).toList()};
+    });
+    try {
+      final source = File('${root.path}/fixture.mp4')..writeAsStringSync('sample bytes');
+      final office = ProductionOffice(root: Directory('${root.path}/projects'),
+        inspectOverride: (_) async => {'duration_ms': 3000, 'width': 640,
+          'height': 480, 'has_video': true, 'has_audio': true, 'streams': []});
+      final intake = await office.import(source.path, 'Private title', 'en');
+      final output = await OtakuMindResearchDirector(office, onlineEnabled: false)
+          .runFromVideo(intake: intake,
+            sampler: const FrameSignalSampler(channel: channel));
+      expect((output['visual_sampling'] as Map)['sample_count'], 3);
+      expect((output['visual_sampling'] as Map)['candidate_count'], 1);
+      expect((output['visual_sampling'] as Map)['verified_scene_segmentation'], false);
+      expect(await ResearchContinuity(office).canHandoff(intake), false);
+    } finally {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null);
+    }
+  });
+
 }
