@@ -41,6 +41,67 @@ jobs:
         run: flutter test --reporter expanded
       - name: Offline Department 01 benchmark regression tests
         run: python3 -m unittest discover -s tools -p 'test_*department01*.py' -v
+      - name: Restore existing release signing key securely
+        working-directory: android
+        env:
+          OTAKUDUB_KEYSTORE_BASE64: ${{ secrets.OTAKUDUB_KEYSTORE_BASE64 }}
+          OTAKUDUB_KEY_ALIAS: ${{ secrets.OTAKUDUB_KEY_ALIAS }}
+          OTAKUDUB_KEY_PASSWORD: ${{ secrets.OTAKUDUB_KEY_PASSWORD }}
+          OTAKUDUB_STORE_PASSWORD: ${{ secrets.OTAKUDUB_STORE_PASSWORD }}
+        run: |
+          python3 - <<'PY'
+          import base64, os, pathlib
+          names = ('OTAKUDUB_KEYSTORE_BASE64', 'OTAKUDUB_KEY_ALIAS',
+                   'OTAKUDUB_KEY_PASSWORD', 'OTAKUDUB_STORE_PASSWORD')
+          if any(not os.environ.get(n) for n in names):
+              raise SystemExit('Required release signing secret is absent')
+          root = pathlib.Path('android')
+          key = root / 'otakudub-release.jks'
+          try:
+              raw = base64.b64decode(''.join(os.environ[names[0]].split()), validate=True)
+          except (ValueError, base64.binascii.Error):
+              raise SystemExit('Invalid base64 keystore secret')
+          if not raw:
+              raise SystemExit('Empty release keystore')
+          key.write_bytes(raw)
+          key.chmod(0o600)
+          def prop(value):
+              if any(c in value for c in '\\r\\n'):
+                  raise SystemExit('Signing secret contains unsupported newline')
+              return ''.join('\\\\' + c if c in '\\\\=:# !' else c for c in value)
+          props = {
+              'storeFile': 'otakudub-release.jks',
+              'storePassword': os.environ[names[3]],
+              'keyAlias': os.environ[names[1]],
+              'keyPassword': os.environ[names[2]],
+          }
+          target = root / 'signing.properties'
+          target.write_text(''.join(f'{k}={prop(v)}\\n' for k, v in props.items()))
+          target.chmod(0o600)
+          PY
+      - name: Build permanently signed release APK
+        working-directory: android
+        run: flutter build apk --release
+      - name: Verify signed release APK identity
+        working-directory: android
+        run: |
+          APK=build/app/outputs/flutter-apk/app-release.apk
+          test -s "$APK"
+          SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          TOOL="$(find "$SDK/build-tools" -name apksigner -type f | sort -V | tail -1)"
+          test -n "$TOOL"
+          "$TOOL" verify --verbose --print-certs "$APK" | grep -E 'Verified using|Signer #1 certificate SHA-256 digest'
+          sha256sum "$APK"
+      - name: Remove temporary signing material
+        if: always()
+        working-directory: android
+        run: rm -f android/otakudub-release.jks android/signing.properties
+      - name: Publish signed update APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: OtakuDub-Signed-Release-${{ github.sha }}
+          path: android/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
       - name: Build debug APK
         working-directory: android
         run: flutter build apk --debug
