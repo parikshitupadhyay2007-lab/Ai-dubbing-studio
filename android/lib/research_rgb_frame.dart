@@ -29,6 +29,30 @@ class ResearchRgbFrame {
     return rgb;
   }
 
+  /// DINOv2: preserve aspect ratio, resize shorter edge to 256,
+  /// then center crop 224x224 natively before transferring RGB bytes.
+  Future<Uint8List> sampleDinov2({
+    required String sourcePath, required int timestampMs,
+  }) async {
+    if (sourcePath.trim().isEmpty || timestampMs < 0) {
+      throw const FormatException('Invalid DINOv2 frame request');
+    }
+    final response = await channel.invokeMapMethod<String, dynamic>(
+      'sampleRgbFrame', {'path': sourcePath, 'timestamp_ms': timestampMs,
+      'size': 256, 'preserve_aspect_center_crop': true});
+    if (response == null || response['timestamp_ms'] != timestampMs ||
+        response['width'] != 224 || response['height'] != 224 ||
+        response['pixel_format'] != 'RGB_U8_INTERLEAVED' ||
+        response['rgb'] is! Uint8List) {
+      throw const FormatException('Malformed DINOv2 RGB frame');
+    }
+    final rgb = response['rgb'] as Uint8List;
+    if (rgb.length != 224 * 224 * 3) {
+      throw const FormatException('Incomplete DINOv2 frame');
+    }
+    return rgb;
+  }
+
   /// Center-crop a decoded square RGB image without channel reordering.
   Uint8List centerCrop(Uint8List rgb, {required int sourceSize,
     required int cropSize}) {
