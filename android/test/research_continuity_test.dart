@@ -32,6 +32,12 @@ void main() {
     ]), throwsFormatException);
     final manifest = await research.createResearchManifest(intake, []);
     expect(manifest['approved'], false);
+    final receipt = Map<String, dynamic>.from(manifest['upstream_handoff'] as Map);
+    expect(await office.verifyHandoff(intake, receipt), true);
+    final altered = {...receipt, 'source_sha256': 'incorrect'};
+    expect(await office.verifyHandoff(intake, altered), false);
+    await File(intake.data['source_path'] as String).writeAsString('changed source');
+    expect(await office.verifyHandoff(intake, receipt), false);
     expect(manifest['status'], 'awaiting_models_and_review');
     expect(await research.canHandoff(intake), false);
   });
