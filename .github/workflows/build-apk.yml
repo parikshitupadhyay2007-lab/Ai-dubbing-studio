@@ -788,7 +788,8 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: OtakuDub-Signed-Release-APK
+          name: OtakuDub-Signed-Release-APK-${{ github.sha }}
+          compression-level: 0
           path: android/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 7
