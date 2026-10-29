@@ -1,7 +1,0 @@
-fastapi
-uvicorn[standard]
-python-multipart
-faster-whisper
-edge-tts
-pydantic
-httpx
