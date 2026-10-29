@@ -21,6 +21,7 @@ class MainActivity : FlutterActivity() {
                 val path = call.argument<String>("path")
                 val timestamp = call.argument<Number>("timestamp_ms")?.toLong()
                 val size = call.argument<Int>("size")
+                val preserveAspect = call.argument<Boolean>("preserve_aspect_center_crop") == true
                 if (path.isNullOrBlank() || timestamp == null || timestamp < 0 ||
                     size == null || size !in 32..384) {
                     result.error("RGB_FRAME_REQUEST", "Invalid source, timestamp, or image size", null)
@@ -36,10 +37,18 @@ class MainActivity : FlutterActivity() {
                         timestamp * 1000L, MediaMetadataRetriever.OPTION_CLOSEST)
                         ?: error("Video frame unavailable")
                     try {
-                        val resized = Bitmap.createScaledBitmap(frame, size, size, true)
+                        val shortEdge = minOf(frame.width, frame.height)
+                        val targetWidth = if (preserveAspect) (frame.width.toLong() * size / shortEdge).toInt() else size
+                        val targetHeight = if (preserveAspect) (frame.height.toLong() * size / shortEdge).toInt() else size
+                        require(targetWidth in 32..4096 && targetHeight in 32..4096) { "Unsafe scaled dimensions" }
+                        val resized = Bitmap.createScaledBitmap(frame, targetWidth, targetHeight, true)
                         try {
-                            val pixels = IntArray(size * size)
-                            resized.getPixels(pixels, 0, size, 0, 0, size, size)
+                            val cropSize = if (preserveAspect) 224 else size
+                            require(cropSize <= targetWidth && cropSize <= targetHeight) { "Crop outside frame" }
+                            val left = (targetWidth - cropSize) / 2
+                            val top = (targetHeight - cropSize) / 2
+                            val pixels = IntArray(cropSize * cropSize)
+                            resized.getPixels(pixels, 0, cropSize, left, top, cropSize, cropSize)
                             val rgb = ByteArray(pixels.size * 3)
                             for (i in pixels.indices) {
                                 val pixel = pixels[i]
@@ -48,7 +57,7 @@ class MainActivity : FlutterActivity() {
                                 rgb[i * 3 + 2] = pixel.toByte()
                             }
                             result.success(mapOf("timestamp_ms" to timestamp,
-                                "width" to size, "height" to size,
+                                "width" to cropSize, "height" to cropSize,
                                 "pixel_format" to "RGB_U8_INTERLEAVED",
                                 "rgb" to rgb))
                         } finally { if (resized != frame) resized.recycle() }
