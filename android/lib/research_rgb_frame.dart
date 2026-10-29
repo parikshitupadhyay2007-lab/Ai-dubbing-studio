@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:flutter/services.dart';
 
 /// Real decoded RGB pixels, not the 8x8 cut-detection proxy.
