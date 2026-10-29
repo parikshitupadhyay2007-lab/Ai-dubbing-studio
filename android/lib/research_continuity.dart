@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'production_office.dart';
+import 'research_evidence_graph.dart';
 
 /// Evidence is not an identity claim. Every assertion has an explicit source.
 class SceneEvidence {
@@ -96,6 +97,14 @@ class ResearchContinuity {
             }
           }
         }
+      }
+      final graph = data['evidence_graph'];
+      if (graph is! Map || !const ResearchEvidenceGraph().validate(
+          Map<String, dynamic>.from(graph))) {
+        errors.add('Cross-modal evidence graph absent or invalid');
+      } else if (graph['source_sha256'] != intake.data['sha256'] ||
+          graph['source_duration_ms'] != duration) {
+        errors.add('Cross-modal evidence graph source mismatch');
       }
       // Producer-declared flags are insufficient to certify inference.
       // Each component must be represented in the persisted model coverage.
