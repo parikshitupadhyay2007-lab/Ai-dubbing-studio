@@ -1,0 +1,101 @@
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
+import 'department01_inference.dart';
+import 'research_embedding_matcher.dart';
+
+/// A real ONNX visual embedding execution plus conservative local retrieval.
+/// Tensor preprocessing is specified by the chosen model, not guessed here.
+/// This does not by itself identify an anime, episode, or character.
+class ResearchVisualEmbeddingEngine {
+  const ResearchVisualEmbeddingEngine({
+    this.inference = const Department01Inference(),
+    this.matcher = const ResearchEmbeddingMatcher(),
+  });
+
+  final Department01Inference inference;
+  final ResearchEmbeddingMatcher matcher;
+
+  Future<Map<String, dynamic>> evaluate({
+    required String modelName,
+    required String modelSha256,
+    required String inputName,
+    required String outputName,
+    required String preprocessingId,
+    required List<int> inputShape,
+    required List<double> preprocessedPixels,
+    required Map<String, List<double>> authorisedReferences,
+    double minimumSimilarity = 0.65,
+    double minimumMargin = 0.08,
+  }) async {
+    if (preprocessingId.trim().isEmpty ||
+        !RegExp(r'^[a-zA-Z0-9_.-]{1,100}$').hasMatch(preprocessingId) ||
+        outputName.trim().isEmpty || authorisedReferences.isEmpty) {
+      throw const FormatException('Missing model preprocessing or references');
+    }
+    // inspectModel checks the independently pinned bytes in private storage.
+    final inspected = await inference.inspect(
+      modelName: modelName, sha256: modelSha256);
+    final inputs = inspected['inputs'], outputs = inspected['outputs'];
+    if (inputs is! List || !inputs.contains(inputName) ||
+        outputs is! List || !outputs.contains(outputName)) {
+      throw const FormatException('Pinned model tensor signature mismatch');
+    }
+    final result = await inference.runFloat(
+      modelName: modelName, sha256: modelSha256,
+      inputName: inputName, shape: inputShape, values: preprocessedPixels);
+    final rawOutputs = result['output_metadata'];
+    if (rawOutputs is! List) {
+      throw const FormatException('No actual ONNX inference outputs');
+    }
+    final selected = rawOutputs.whereType<Map>().where(
+      (item) => item['name'] == outputName).toList();
+    if (selected.length != 1) {
+      throw const FormatException('Missing or ambiguous embedding output');
+    }
+    final output = selected.single;
+    final shape = output['shape'];
+    final rawValues = output['values'];
+    // Supports a single [D] or [1,D] float embedding; rejects class logits,
+    // spatial feature maps and batch inference rather than guessing semantics.
+    if (output['type'] != 'float32' || shape is! List ||
+        rawValues is! List || !(
+          shape.length == 1 ||
+          (shape.length == 2 && shape.first == 1))) {
+      throw const FormatException('Unsupported embedding output shape');
+    }
+    final values = rawValues.map((v) {
+      if (v is! num || !v.isFinite) {
+        throw const FormatException('Nonfinite embedding');
+      }
+      return v.toDouble();
+    }).toList(growable: false);
+    if (values.isEmpty || values.length > 4096 ||
+        shape.last != values.length) {
+      throw const FormatException('Embedding dimension mismatch');
+    }
+    final ranking = matcher.rank(query: values,
+      references: authorisedReferences,
+      minimumSimilarity: minimumSimilarity,
+      minimumMargin: minimumMargin);
+    final inputDigest = sha256.convert(utf8.encode(jsonEncode({
+      'shape': inputShape, 'pixels': preprocessedPixels,
+      'preprocessing_id': preprocessingId,
+    }))).toString();
+    final outputDigest = sha256.convert(utf8.encode(jsonEncode({
+      'shape': shape, 'values': values, 'output_name': outputName,
+    }))).toString();
+    return {
+      'engine': 'visual_embedding_retrieval',
+      'model_name': modelName,
+      'model_sha256': modelSha256,
+      'preprocessing_id': preprocessingId,
+      'input_sha256': inputDigest,
+      'output_sha256': outputDigest,
+      'actual_onnx_execution': true,
+      'ranking': ranking,
+      'verified_anime': false,
+      'verified_character': false,
+      'requires_independent_review': true,
+    };
+  }
+}
