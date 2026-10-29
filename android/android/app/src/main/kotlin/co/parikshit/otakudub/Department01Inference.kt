@@ -81,7 +81,30 @@ class Department01Inference(private val modelsDir: File) : MethodChannel.MethodC
                             val value = output.get(name).orElseThrow {
                                 IllegalStateException("Missing model output: $name")
                             }
-                            mapOf("name" to name, "type" to value.info.toString())
+                            require(value is OnnxTensor) {
+                                "Unsupported non-tensor model output: $name"
+                            }
+                            val info = value.info
+                            require(info.type.toString() == "FLOAT") {
+                                "Only float32 model outputs are supported: $name"
+                            }
+                            val dimensions = info.shape
+                            require(dimensions.isNotEmpty() && dimensions.all { it > 0 }) {
+                                "Invalid output tensor dimensions: $name"
+                            }
+                            val count = dimensions.fold(1L) { a, b -> Math.multiplyExact(a, b) }
+                            require(count <= 262144L) {
+                                "Output tensor exceeds transfer budget: $name"
+                            }
+                            val floats = value.floatBuffer
+                            val values = FloatArray(count.toInt())
+                            floats.get(values)
+                            require(values.all { it.isFinite() }) {
+                                "Nonfinite model output: $name"
+                            }
+                            mapOf("name" to name, "type" to "float32",
+                                "shape" to dimensions.toList(),
+                                "values" to values.map { it.toDouble() })
                         }
                         result.success(metadata + mapOf(
                             "executed" to true, "output_metadata" to summary,
