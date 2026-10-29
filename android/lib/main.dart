@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:open_filex/open_filex.dart';
 
 import 'models/dub_project.dart';
+import 'pages/department_work_page.dart';
 import 'services/dubbing_pipeline.dart';
 import 'services/model_manager.dart';
 import 'services/offline_engine.dart';
@@ -624,56 +625,16 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
     });
   }
 
+  // Legacy engine intentionally disconnected during the departmental rebuild.
+  // No unreviewed AI stage is allowed to execute as a production department.
   Future<void> generate() async {
-    final project = current;
-    if (project == null || busy) return;
-
+    if (!mounted) return;
     setState(() {
-      busy = true;
-      status = 'Checking offline AI runtime...';
-      dubPercent = 0;
+      status = 'The replacement AI pipeline is being rebuilt and tested one '
+          'department at a time. Existing dubbing execution is disabled on '
+          'this development branch. See Department Work for saved evidence.';
+      dubPercent = null;
     });
-
-    var backgroundStarted = false;
-    try {
-      await const MethodChannel('co.parikshit.otakudub/offline_engine')
-          .invokeMethod<bool>('startBackgroundDubbing');
-      backgroundStarted = true;
-      await pipeline.process(
-        project,
-        onProgress: (stage) {
-          if (mounted) {
-            setState(() { status = stage == ProjectStage.transcribing ? 'Transcribing audio locally with Whisper. This stage can take time; 10% is its starting milestone.' : 'Processing: ${stage.name}'; dubPercent = stage == ProjectStage.completed ? 100 : stage == ProjectStage.exporting ? 85 : stage == ProjectStage.synthesizing ? 70 : stage == ProjectStage.refining ? 55 : stage == ProjectStage.translating ? 40 : stage == ProjectStage.casting ? 25 : stage == ProjectStage.transcribing ? 10 : dubPercent; });
-          }
-        },
-      );
-
-      if (mounted) {
-        setState(() => status = project.error ?? 'Dubbed video saved automatically to Movies/OtakuDub and Projects!');
-      }
-
-      await refreshProjects();
-    } catch (e) {
-      if (mounted) {
-        final needsCasting = e.toString().contains('no verified voice role') ||
-            e.toString().contains('Speaker identification is incomplete');
-        setState(() => status = needsCasting
-            ? 'Speaker identification needs review. Tap ASSIGN CHARACTER VOICES, '
-              'resolve any unknown segments, choose voices, save, then resume. '
-              'Your transcription is preserved.'
-            : 'Processing stopped: $e');
-      }
-    } finally {
-      if (backgroundStarted) {
-        try {
-          await const MethodChannel('co.parikshit.otakudub/offline_engine')
-              .invokeMethod<bool>('stopBackgroundDubbing');
-        } catch (error) {
-          debugPrint('Could not stop background notification: $error');
-        }
-      }
-      if (mounted) setState(() => busy = false);
-    }
   }
 
   Widget heading(String title, String subtitle) {
@@ -1025,6 +986,7 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
       studio(),
       projectLibrary(),
       modelSetup(),
+      DepartmentWorkPage(project: current),
     ];
 
     return Scaffold(
@@ -1160,6 +1122,11 @@ class _OtakuDubHomeState extends State<OtakuDubHome> {
             icon: Icon(Icons.memory_outlined),
             selectedIcon: Icon(Icons.memory, color: cyan),
             label: 'Models',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.account_tree_outlined),
+            selectedIcon: Icon(Icons.account_tree, color: cyan),
+            label: 'Departments',
           ),
         ],
       ),
