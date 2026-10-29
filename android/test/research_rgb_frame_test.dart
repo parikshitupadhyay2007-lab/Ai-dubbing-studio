@@ -28,6 +28,30 @@ void main() {
     expect(tensor[2048], 0);
   });
 
+  test('DINOv2 requests aspect-preserving crop and validates pixels', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .setMockMethodCallHandler(channel, (call) async {
+        expect(call.method, 'sampleRgbFrame');
+        expect(call.arguments['size'], 256);
+        expect(call.arguments['preserve_aspect_center_crop'], true);
+        return {'timestamp_ms': 300, 'width': 224, 'height': 224,
+          'pixel_format': 'RGB_U8_INTERLEAVED',
+          'rgb': Uint8List(224 * 224 * 3)};
+      });
+    final pixels = await sampler.sampleDinov2(
+      sourcePath: '/source.mp4', timestampMs: 300);
+    expect(pixels.length, 224 * 224 * 3);
+  });
+
+  test('DINOv2 rejects incomplete native crop', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .setMockMethodCallHandler(channel, (_) async =>
+        {'timestamp_ms': 300, 'width': 224, 'height': 224,
+          'pixel_format': 'RGB_U8_INTERLEAVED', 'rgb': Uint8List(1)});
+    await expectLater(sampler.sampleDinov2(
+      sourcePath: '/source.mp4', timestampMs: 300), throwsFormatException);
+  });
+
   test('center crop preserves RGB interleaving and spatial offset', () {
     final source = Uint8List.fromList(List.generate(32 * 32 * 3,
       (i) => (i ~/ 3) % 256));
