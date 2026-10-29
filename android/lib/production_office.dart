@@ -131,4 +131,43 @@ class ProductionOffice {
       return false;
     }
   }
+  /// Revalidated, source-bound contract. A caller must not trust a stored status.
+  Future<Map<String, dynamic>> issueHandoff(IntakeRecord record) async {
+    if (!await canHandoff(record)) {
+      throw StateError('Department 00 approval is absent or stale');
+    }
+    final manifest = File('${(await root).path}/${record.id}/manifest.json');
+    final manifestHash = await digest(manifest);
+    final source = File(record.data['source_path'] as String);
+    final sourceHash = await digest(source);
+    if (sourceHash != record.data['sha256']) {
+      throw StateError('Source changed during handoff');
+    }
+    return <String, dynamic>{
+      'schema': 1,
+      'from_department': '00',
+      'to_department': '01',
+      'project_id': record.id,
+      'run_id': record.data['run_id'],
+      'source_sha256': sourceHash,
+      'manifest_sha256': manifestHash,
+      'issued_at': DateTime.now().toUtc().toIso8601String(),
+    };
+  }
+
+  /// A downstream worker calls this again immediately before committing output.
+  Future<bool> verifyHandoff(IntakeRecord record, Map<String, dynamic> receipt) async {
+    try {
+      if (receipt['schema'] != 1 || receipt['from_department'] != '00' ||
+          receipt['to_department'] != '01' || receipt['project_id'] != record.id ||
+          receipt['run_id'] != record.data['run_id'] ||
+          receipt['source_sha256'] != record.data['sha256']) return false;
+      if (!await canHandoff(record)) return false;
+      final manifest = File('${(await root).path}/${record.id}/manifest.json');
+      return await digest(manifest) == receipt['manifest_sha256'];
+    } catch (_) {
+      return false;
+    }
+  }
+
 }
