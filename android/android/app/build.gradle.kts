@@ -50,6 +50,11 @@ kotlin {
     }
 }
 
+dependencies {
+    // Pinned full ONNX Runtime, rather than a mock inference adapter.
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.31.1")
+}
+
 flutter {
     source = "../.."
 }
