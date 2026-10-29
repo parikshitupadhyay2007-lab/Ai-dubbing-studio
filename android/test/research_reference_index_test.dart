@@ -5,7 +5,7 @@ import 'package:ai_dubbing_studio/research_reference_index.dart';
 
 void main() {
   const index = ResearchReferenceIndex();
-  final sha = 'a' * 64;
+  final sha = List.filled(64, 'a').join();
   late Directory dir;
   setUp(() async { dir = await Directory.systemTemp.createTemp('reference_test_'); });
   tearDown(() async { await dir.delete(recursive: true); });
@@ -16,7 +16,7 @@ void main() {
     'preprocessing_id': 'dinov2_256_center224_v1', 'dimension': 3,
     'entries': [
       {'id': 'original:test:1', 'source': 'locally authored reference',
-        'rights_basis': 'original', 'source_sha256': 'b' * 64,
+        'rights_basis': 'original', 'source_sha256': List.filled(64, 'b').join(),
         'embedding': [1, 0, 0]}
     ],
   };
@@ -37,7 +37,7 @@ void main() {
   });
   test('rejects incompatible model hash', () async {
     await expectLater(index.load(file: await write(valid()),
-      expectedModelSha256: 'c' * 64,
+      expectedModelSha256: List.filled(64, 'c').join(),
       expectedPreprocessingId: 'dinov2_256_center224_v1', dimension: 3),
       throwsFormatException);
   });
