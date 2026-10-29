@@ -27,6 +27,12 @@ jobs:
       - name: Dependencies
         working-directory: android
         run: flutter pub get
+      - name: Generate branded OtakuDub Android launcher icons
+        working-directory: android
+        run: |
+          test -s assets/otakudub_icon.png
+          dart run flutter_launcher_icons
+          test -s android/app/src/main/res/mipmap-hdpi/ic_launcher.png
       - name: Static analysis
         working-directory: android
         run: flutter analyze
