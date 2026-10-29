@@ -33,10 +33,17 @@ class OtakuMindResearchDirector {
       throw const FormatException('Invalid source metadata');
     }
     final length = duration.toInt();
+    // Cover the entire source instead of silently analysing only its first
+    // 240 seconds at the default sampling interval.
+    final effectiveInterval = length > sampleIntervalMs * 239
+        ? (length / 239).ceil()
+        : sampleIntervalMs;
     final timestamps = <int>[];
-    for (var t = 0; t < length && timestamps.length < 240; t += sampleIntervalMs) {
+    for (var t = 0; t < length && timestamps.length < 240; t += effectiveInterval) {
       timestamps.add(t);
     }
+    if (timestamps.isNotEmpty && timestamps.last != length - 1 &&
+        timestamps.length < 240) timestamps.add(length - 1);
     if (timestamps.length < 2) {
       throw StateError('Insufficient frames for visual transition analysis');
     }
@@ -58,8 +65,10 @@ class OtakuMindResearchDirector {
         'method': 'decoded_frame_luma8x8',
         'sample_count': samples.length,
         'candidate_count': candidates.length,
-        'coverage_limited_to_240_samples': timestamps.length == 240 &&
-            timestamps.last + sampleIntervalMs < length,
+        'effective_sample_interval_ms': effectiveInterval,
+        'last_sample_ms': timestamps.last,
+        'source_duration_ms': length,
+        'coverage_limited_to_240_samples': timestamps.length == 240,
         'verified_scene_segmentation': false,
       },
     };
