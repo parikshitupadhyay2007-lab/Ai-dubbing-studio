@@ -17,6 +17,47 @@ class MainActivity : FlutterActivity() {
             )
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger,
             "co.parikshit.otakudub/production_office").setMethodCallHandler { call, result ->
+            if (call.method == "sampleRgbFrame") {
+                val path = call.argument<String>("path")
+                val timestamp = call.argument<Number>("timestamp_ms")?.toLong()
+                val size = call.argument<Int>("size")
+                if (path.isNullOrBlank() || timestamp == null || timestamp < 0 ||
+                    size == null || size !in 32..384) {
+                    result.error("RGB_FRAME_REQUEST", "Invalid source, timestamp, or image size", null)
+                    return@setMethodCallHandler
+                }
+                val retriever = MediaMetadataRetriever()
+                try {
+                    retriever.setDataSource(path)
+                    val duration = retriever.extractMetadata(
+                        MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+                    require(duration > 0 && timestamp <= duration) { "Frame outside source" }
+                    val frame = retriever.getFrameAtTime(
+                        timestamp * 1000L, MediaMetadataRetriever.OPTION_CLOSEST)
+                        ?: error("Video frame unavailable")
+                    try {
+                        val resized = Bitmap.createScaledBitmap(frame, size, size, true)
+                        try {
+                            val pixels = IntArray(size * size)
+                            resized.getPixels(pixels, 0, size, 0, 0, size, size)
+                            val rgb = ByteArray(pixels.size * 3)
+                            for (i in pixels.indices) {
+                                val pixel = pixels[i]
+                                rgb[i * 3] = (pixel shr 16).toByte()
+                                rgb[i * 3 + 1] = (pixel shr 8).toByte()
+                                rgb[i * 3 + 2] = pixel.toByte()
+                            }
+                            result.success(mapOf("timestamp_ms" to timestamp,
+                                "width" to size, "height" to size,
+                                "pixel_format" to "RGB_U8_INTERLEAVED",
+                                "rgb" to rgb))
+                        } finally { if (resized != frame) resized.recycle() }
+                    } finally { frame.recycle() }
+                } catch (e: Exception) {
+                    result.error("RGB_FRAME_FAILED", e.message ?: "Cannot decode frame", null)
+                } finally { retriever.release() }
+                return@setMethodCallHandler
+            }
             if (call.method == "sampleFrames") {
                 val path = call.argument<String>("path")
                 val requested = call.argument<List<Number>>("timestamps_ms")
