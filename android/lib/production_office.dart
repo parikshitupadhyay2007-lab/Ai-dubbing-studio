@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
@@ -17,6 +18,7 @@ class IntakeRecord {
 class ProductionOffice {
   ProductionOffice({Directory? root, this.inspectOverride}) : _root = root;
   final Directory? _root;
+  static final Random _random = Random.secure();
   final Future<Map<String, dynamic>> Function(String path)? inspectOverride;
   static const channel = MethodChannel('co.parikshit.otakudub/production_office');
   Future<Directory> get root async => _root ?? Directory('${(await getApplicationDocumentsDirectory()).path}/otakudub_v6');
@@ -53,9 +55,9 @@ class ProductionOffice {
     if (!await source.exists() || await source.length() == 0) throw const FormatException('Source is missing or empty');
     final base = await root;
     await base.create(recursive: true);
-    final id = DateTime.now().microsecondsSinceEpoch.toString();
+    final id = '${DateTime.now().microsecondsSinceEpoch}-${_random.nextInt(0x7fffffff).toRadixString(16)}';
     final folder = Directory('${base.path}/$id');
-    await folder.create();
+    await folder.create(recursive: false);
     final destination = File('${folder.path}/source.media');
     final manifest = File('${folder.path}/manifest.json');
     final initial = <String, dynamic>{
@@ -93,6 +95,9 @@ class ProductionOffice {
       return {'passed': false, 'errors': ['Invalid project storage path']};
     }
     final file = File(path);
+    if (file.absolute.path != File('${(await root).path}/${evidence['id']}/source.media').absolute.path) {
+      return {'passed': false, 'errors': ['Source path does not match project ID']};
+    }
     if (!await file.exists()) return {'passed': false, 'errors': ['Stored source missing']};
     final actualSize = await file.length();
     final actualHash = await digest(file);
@@ -113,6 +118,14 @@ class ProductionOffice {
   Future<bool> canHandoff(IntakeRecord record) async {
     if (!record.approved || record.data['review'] is! Map ||
         (record.data['review'] as Map)['passed'] != true) return false;
+    if (!RegExp(r'^[0-9]+-[0-9a-f]+
+    if (!await file.exists()) return false;
+    final saved = Map<String, dynamic>.from(jsonDecode(await file.readAsString()) as Map);
+    if (jsonEncode(saved) != jsonEncode(record.data)) return false;
+    return (await review(saved))['passed'] == true;
+  }
+}
+).hasMatch(record.id)) return false;
     final file = File('${(await root).path}/${record.id}/manifest.json');
     if (!await file.exists()) return false;
     final saved = Map<String, dynamic>.from(jsonDecode(await file.readAsString()) as Map);
