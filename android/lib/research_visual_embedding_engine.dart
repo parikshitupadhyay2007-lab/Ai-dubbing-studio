@@ -1,8 +1,10 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:crypto/crypto.dart' as crypto;
 import 'department01_inference.dart';
 import 'research_rgb_frame.dart';
 import 'research_embedding_matcher.dart';
+import 'research_reference_index.dart';
 
 /// A real ONNX visual embedding execution plus conservative local retrieval.
 /// Tensor preprocessing is specified by the chosen model, not guessed here.
@@ -17,6 +19,35 @@ class ResearchVisualEmbeddingEngine {
   final Department01Inference inference;
   final ResearchEmbeddingMatcher matcher;
   final ResearchRgbFrame frames;
+
+  /// Uses only a provenance-validated, model-pinned local reference index.
+  Future<Map<String, dynamic>> evaluateIndexedFrame({
+    required File referenceIndex,
+    required String sourcePath,
+    required int timestampMs,
+    required int imageSize,
+    int? cropSize,
+    required List<double> channelMean,
+    required List<double> channelStd,
+    required String modelName,
+    required String modelSha256,
+    required String inputName,
+    required String outputName,
+    required String preprocessingId,
+    required int embeddingDimension,
+  }) async {
+    final references = await const ResearchReferenceIndex().load(
+      file: referenceIndex, expectedModelSha256: modelSha256,
+      expectedPreprocessingId: preprocessingId, dimension: embeddingDimension);
+    final result = await evaluateFrame(sourcePath: sourcePath,
+      timestampMs: timestampMs, imageSize: imageSize, cropSize: cropSize,
+      channelMean: channelMean, channelStd: channelStd,
+      modelName: modelName, modelSha256: modelSha256,
+      inputName: inputName, outputName: outputName,
+      preprocessingId: preprocessingId, authorisedReferences: references);
+    return {...result, 'reference_index_sha256':
+      const ResearchReferenceIndex().fingerprint(references)};
+  }
 
   /// Decodes a real video frame and applies the model card's supplied RGB
   /// preprocessing contract before running the pinned ONNX encoder.
