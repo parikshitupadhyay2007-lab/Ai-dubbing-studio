@@ -24,9 +24,7 @@ class ResearchContinuity {
 
   Future<Map<String, dynamic>> createResearchManifest(
       IntakeRecord intake, List<SceneEvidence> evidence) async {
-    if (!await office.canHandoff(intake)) {
-      throw StateError('Department 00 fresh verification required');
-    }
+    final receipt = await office.issueHandoff(intake);
     final media = intake.data['media'];
     if (media is! Map || media['duration_ms'] is! num) {
       throw StateError('Invalid approved media manifest');
@@ -45,6 +43,7 @@ class ResearchContinuity {
     final manifest = <String, dynamic>{
       'schema': 1, 'department': '01', 'project_id': intake.id,
       'source_sha256': intake.data['sha256'],
+      'upstream_handoff': receipt,
       'source_duration_ms': duration,
       'status': 'awaiting_models_and_review',
       'scene_evidence': evidence.map((e) => e.toJson()).toList(),
@@ -52,10 +51,17 @@ class ResearchContinuity {
       'continuity_review': 'pending',
       'approved': false,
     };
+    if (!await office.verifyHandoff(intake, receipt)) {
+      throw StateError('Department 00 source or approval changed during research');
+    }
     final root = await office.root;
     final file = File('${root.path}/${intake.id}/research_manifest.json');
     final temp = File('${file.path}.part');
     await temp.writeAsString(jsonEncode(manifest), flush: true);
+    if (!await office.verifyHandoff(intake, receipt)) {
+      await temp.delete();
+      throw StateError('Stale upstream approval: research output discarded');
+    }
     await temp.rename(file.path);
     return manifest;
   }
