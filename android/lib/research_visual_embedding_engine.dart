@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:crypto/crypto.dart';
+import 'package:crypto/crypto.dart' as crypto;
 import 'department01_inference.dart';
 import 'research_embedding_matcher.dart';
 
@@ -77,11 +77,11 @@ class ResearchVisualEmbeddingEngine {
       references: authorisedReferences,
       minimumSimilarity: minimumSimilarity,
       minimumMargin: minimumMargin);
-    final inputDigest = sha256.convert(utf8.encode(jsonEncode({
+    final inputDigest = crypto.sha256.convert(utf8.encode(jsonEncode({
       'shape': inputShape, 'pixels': preprocessedPixels,
       'preprocessing_id': preprocessingId,
     }))).toString();
-    final outputDigest = sha256.convert(utf8.encode(jsonEncode({
+    final outputDigest = crypto.sha256.convert(utf8.encode(jsonEncode({
       'shape': shape, 'values': values, 'output_name': outputName,
     }))).toString();
     return {
