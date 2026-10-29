@@ -24,6 +24,7 @@ class ResearchVisualEmbeddingEngine {
     required String sourcePath,
     required int timestampMs,
     required int imageSize,
+    int? cropSize,
     required List<double> channelMean,
     required List<double> channelStd,
     required String modelName,
@@ -35,12 +36,15 @@ class ResearchVisualEmbeddingEngine {
   }) async {
     final rgb = await frames.sample(sourcePath: sourcePath,
       timestampMs: timestampMs, size: imageSize);
-    final pixels = frames.toChwNormalized(rgb, size: imageSize,
+    final inputSize = cropSize ?? imageSize;
+    final prepared = cropSize == null ? rgb : frames.centerCrop(rgb,
+      sourceSize: imageSize, cropSize: cropSize);
+    final pixels = frames.toChwNormalized(prepared, size: inputSize,
       mean: channelMean, std: channelStd);
     return evaluate(modelName: modelName, modelSha256: modelSha256,
       inputName: inputName, outputName: outputName,
       preprocessingId: preprocessingId,
-      inputShape: [1, 3, imageSize, imageSize],
+      inputShape: [1, 3, inputSize, inputSize],
       preprocessedPixels: pixels,
       authorisedReferences: authorisedReferences);
   }
