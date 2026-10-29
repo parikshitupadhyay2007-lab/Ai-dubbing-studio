@@ -1,0 +1,44 @@
+name: Department 00 verification
+on:
+  push:
+    branches: [feature/departmental-ai-pipeline]
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Restore standard Flutter Android scaffold without overwriting application files
+        working-directory: android
+        run: |
+          mkdir -p /tmp/otakudub_scaffold
+          cd /tmp/otakudub_scaffold
+          flutter create --platforms android --project-name ai_dubbing_studio --org co.parikshit .
+          cd "$GITHUB_WORKSPACE/android"
+          cp -an /tmp/otakudub_scaffold/android/. android/
+          test -f android/settings.gradle.kts -o -f android/settings.gradle
+          test -f android/gradlew
+          chmod +x android/gradlew
+      - name: Dependencies
+        working-directory: android
+        run: flutter pub get
+      - name: Static analysis
+        working-directory: android
+        run: flutter analyze
+      - name: Unit and widget tests
+        working-directory: android
+        run: flutter test --reporter expanded
+      - name: Build debug APK
+        working-directory: android
+        run: flutter build apk --debug
+      - name: Publish verification APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: OtakuDub-Department-00-Verification-${{ github.sha }}
+          path: android/build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
