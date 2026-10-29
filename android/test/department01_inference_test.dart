@@ -10,6 +10,29 @@ void main() {
   tearDown(() => TestDefaultBinaryMessengerBinding.instance
     .defaultBinaryMessenger.setMockMethodCallHandler(channel, null));
 
+  test('local install checks the native receipt and rejects bad paths', () async {
+    expect(() => inference.installLocal(sourcePath: '',
+      modelName: 'scene.onnx', sha256: hash), throwsFormatException);
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .setMockMethodCallHandler(channel, (call) async {
+        expect(call.method, 'installLocalModel');
+        return {'installed': true, 'model_name': 'scene.onnx',
+          'sha256': hash, 'size_bytes': 1024};
+      });
+    final receipt = await inference.installLocal(sourcePath: '/local/scene.onnx',
+      modelName: 'scene.onnx', sha256: hash);
+    expect(receipt['installed'], true);
+  });
+
+  test('rejects native installation with mismatched digest', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .setMockMethodCallHandler(channel, (_) async =>
+        {'installed': true, 'model_name': 'scene.onnx',
+          'sha256': 'b' * 64, 'size_bytes': 1024});
+    await expectLater(inference.installLocal(sourcePath: '/local/scene.onnx',
+      modelName: 'scene.onnx', sha256: hash), throwsFormatException);
+  });
+
   test('rejects unpinned models before native invocation', () async {
     expect(() => inference.inspect(modelName: '../unsafe.onnx', sha256: hash),
       throwsFormatException);
