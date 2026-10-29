@@ -49,7 +49,7 @@ class ResearchReferenceIndex {
       }
       final values = raw['embedding'] as List;
       if (values.length != dimension || values.any((v) => v is! num ||
-          !(v as num).isFinite)) {
+          !v.isFinite)) {
         throw const FormatException('Invalid reference embedding');
       }
       final vector = values.map((v) => (v as num).toDouble()).toList(growable: false);
