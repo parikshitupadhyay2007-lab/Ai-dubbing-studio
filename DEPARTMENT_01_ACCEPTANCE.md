@@ -16,3 +16,21 @@ Implemented plumbing: Department 00 source-bound receipts; recheck before artifa
 The current app must not claim that empty evidence, a provider title match or a generated manifest proves anime recognition, a scene boundary, a speaker or a character. No external anime metadata may silently become ground truth.
 
 Real-device test may remain pending by project policy, but model inference, integration and CI must pass before the department is marked complete.
+
+## Implemented infrastructure update (October 29, 2026)
+
+- Android ONNX Runtime, checksum-bound private local model import, session inspection, bounded real float32 input/output transfer, and Dart validation are committed.
+- Dependency-aware six-engine coordinator and transitive invalidation/reanalysis ledger are committed.
+- Visual embedding output can now feed a conservative local cosine reference matcher with ambiguous/unknown rejection, model/input/output binding, and tests. This bridge requires actual authorised weights and model-specific preprocessed image tensors. It does not certify character or anime recognition.
+- Full-length 1 fps native 8x8 frame-signal batches provide shot discontinuity candidates, NOT verified scenes or high-resolution visual model tensors.
+
+### Still blocking six-engine operational acceptance
+
+1. Select and obtain authorised, version-pinned weights for each distinct model capability and record SHA256/model cards/input/output contracts. Do not commit restricted or unavailable weights.
+2. Implement full-resolution frame extraction, model-specific visual preprocessing, real inference integration and temporal scene grouping; the 8x8 luma signal is insufficient for visual embeddings.
+3. Build/licence a source-attributed local anime/episode reference index and independently test unknown-title abstention.
+4. Integrate audio speaker embeddings, temporal visual tracking, active-speaker detection and evidence-based identity fusion. This cannot be inferred from video luminance alone.
+5. Implement model-backed visual understanding and continuity assessment; keep uncertainty and contradiction-driven reanalysis visible.
+6. Benchmark all six on annotated, lawfully available footage. Complete actual Android-device validation before commercial-quality claims. CI unit tests cannot demonstrate semantic accuracy or device performance.
+
+Department 02 remains locked. Successful ONNX session execution and mock MethodChannel tests are not a substitute for real-model end-to-end tests.
