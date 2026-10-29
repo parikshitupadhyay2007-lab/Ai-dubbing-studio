@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'production_office.dart';
 import 'research_evidence_graph.dart';
+import 'research_engine_coordinator.dart';
 
 /// Evidence is not an identity claim. Every assertion has an explicit source.
 class SceneEvidence {
@@ -105,6 +106,24 @@ class ResearchContinuity {
       } else if (graph['source_sha256'] != intake.data['sha256'] ||
           graph['source_duration_ms'] != duration) {
         errors.add('Cross-modal evidence graph source mismatch');
+      }
+      final ledger = data['coordination_ledger'];
+      if (ledger is! Map) {
+        errors.add('Six-engine coordination ledger missing');
+      } else {
+        try {
+          final coordination = const ResearchEngineCoordinator();
+          final typed = Map<String, dynamic>.from(ledger);
+          coordination.validate(typed);
+          if (typed['source_sha256'] != intake.data['sha256']) {
+            errors.add('Coordination ledger source mismatch');
+          }
+          if (!coordination.canRequestHandoff(typed)) {
+            errors.add('Engine dependencies or reanalysis unresolved');
+          }
+        } catch (_) {
+          errors.add('Invalid engine coordination ledger');
+        }
       }
       // Producer-declared flags are insufficient to certify inference.
       // Each component must be represented in the persisted model coverage.
