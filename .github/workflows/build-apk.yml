@@ -3,7 +3,7 @@ name: Build OtakuDub Offline APK
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, feature/departmental-ai-pipeline]
     paths:
       - '.github/workflows/build-apk.yml'
       - 'android/**'
