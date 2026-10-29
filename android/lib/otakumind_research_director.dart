@@ -3,6 +3,7 @@ import 'dart:io';
 import 'frame_signal_sampler.dart';
 import 'research_evidence_graph.dart';
 import 'research_engine_coordinator.dart';
+import 'research_directors_scene_bible.dart';
 
 import 'otakumind_online_research.dart';
 import 'continuity_evidence_verifier.dart';
@@ -143,6 +144,9 @@ class OtakuMindResearchDirector {
     final revised = <String, dynamic>{
       ...manifest,
       'evidence_graph': graph,
+      'directors_scene_bible': const ResearchDirectorsSceneBible().draft(
+        sourceSha256: intake.data['sha256'] as String,
+        durationMs: duration.toInt()),
       'coordination_ledger': const ResearchEngineCoordinator().initial(intake.data['sha256'] as String),
       'internet_enabled': onlineEnabled,
       'internet_research_status': researchState,
