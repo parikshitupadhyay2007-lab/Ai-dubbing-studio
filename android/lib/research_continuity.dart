@@ -97,6 +97,24 @@ class ResearchContinuity {
           }
         }
       }
+      // Producer-declared flags are insufficient to certify inference.
+      // Each component must be represented in the persisted model coverage.
+      // Metadata-only lookup and schema validation are not inference.
+      const required = [
+        'anime_recognition', 'scene_segmentation', 'visual_understanding',
+        'character_recognition', 'context_research', 'continuity_intelligence'
+      ];
+      final coverage = data['model_coverage'];
+      if (coverage is! Map) {
+        errors.add('Six-engine model coverage missing');
+      } else {
+        for (final engine in required) {
+          if (coverage[engine] != 'verified') {
+            errors.add('Engine not verified: $engine');
+          }
+        }
+      }
+      if (data['approved'] != true) errors.add('Research not approved');
       if (data['scene_segmentation_verified'] != true) errors.add('Scene segmentation unverified');
       if (data['visual_analysis_verified'] != true) errors.add('Visual analysis unverified');
       if (data['continuity_review'] != 'passed') errors.add('Continuity review pending');
