@@ -6,7 +6,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const channel = MethodChannel('test/dept01_onnx');
   const inference = Department01Inference(channel: channel);
-  const hash = 'a' * 64;
+  final hash = 'a' * 64;
   tearDown(() => TestDefaultBinaryMessengerBinding.instance
     .defaultBinaryMessenger.setMockMethodCallHandler(channel, null));
 
