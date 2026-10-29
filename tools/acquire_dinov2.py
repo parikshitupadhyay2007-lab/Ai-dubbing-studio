@@ -32,7 +32,7 @@ wrapper = ClsEmbedding(model).eval()
 size = processor.size
 height = size.get("height", size.get("shortest_edge"))
 width = size.get("width", size.get("shortest_edge"))
-assert height == width == 224, f"Unexpected processor size: {size}"
+assert processor.crop_size.get("height") == processor.crop_size.get("width") == 224, f"Unexpected processor crop: {processor.crop_size}"
 assert processor.do_normalize and processor.do_rescale
 assert abs(processor.rescale_factor - 1 / 255) < 1e-9
 assert processor.do_resize and processor.do_center_crop
