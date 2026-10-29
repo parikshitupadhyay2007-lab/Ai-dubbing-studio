@@ -20,6 +20,25 @@ class ResearchVisualEmbeddingEngine {
   final ResearchEmbeddingMatcher matcher;
   final ResearchRgbFrame frames;
 
+  /// DINOv2-specific inference using aspect-preserving 256 short-edge resize,
+  /// 224 center crop, and published RGB channel normalization.
+  Future<Map<String, dynamic>> evaluateDinov2Frame({
+    required String sourcePath,
+    required int timestampMs,
+    required String modelSha256,
+    required Map<String, List<double>> authorisedReferences,
+  }) async {
+    final rgb = await frames.sampleDinov2(sourcePath: sourcePath,
+      timestampMs: timestampMs);
+    final pixels = frames.toChwNormalized(rgb, size: 224,
+      mean: [0.485, 0.456, 0.406], std: [0.229, 0.224, 0.225]);
+    return evaluate(modelName: 'dinov2_small_cls.onnx',
+      modelSha256: modelSha256, inputName: 'pixel_values',
+      outputName: 'embedding', preprocessingId: 'dinov2_short256_crop224_v1',
+      inputShape: [1, 3, 224, 224], preprocessedPixels: pixels,
+      authorisedReferences: authorisedReferences);
+  }
+
   /// Uses only a provenance-validated, model-pinned local reference index.
   Future<Map<String, dynamic>> evaluateIndexedFrame({
     required File referenceIndex,
