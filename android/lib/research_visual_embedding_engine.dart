@@ -36,6 +36,7 @@ class ResearchVisualEmbeddingEngine {
   }) async {
     final rgb = await frames.sample(sourcePath: sourcePath,
       timestampMs: timestampMs, size: imageSize);
+    // DINOv2 processor's resize and crop are separate operations.
     final inputSize = cropSize ?? imageSize;
     final prepared = cropSize == null ? rgb : frames.centerCrop(rgb,
       sourceSize: imageSize, cropSize: cropSize);
