@@ -44,11 +44,15 @@ void main() {
         expect(call.method, 'runFloatModel');
         expect((call.arguments as Map)['shape'], [1, 2]);
         return {'executed': true, 'checksum_verified': true,
-          'semantic_result_verified': false, 'output_metadata': []};
+          'semantic_result_verified': false, 'output_metadata': [
+            {'name': 'features', 'type': 'float32', 'shape': [1, 2],
+              'values': [0.25, 0.75]}
+          ]};
       });
     final result = await inference.runFloat(modelName: 'scene.onnx', sha256: hash,
       inputName: 'image', shape: [1, 2], values: [0.0, 1.0]);
     expect(result['semantic_result_verified'], false);
+    expect(((result['output_metadata'] as List).first as Map)['values'], [0.25, 0.75]);
     await expectLater(inference.runFloat(modelName: 'scene.onnx', sha256: hash,
       inputName: 'image', shape: [1, 2], values: [0.0]),
       throwsFormatException);
