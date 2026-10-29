@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'frame_signal_sampler.dart';
 
 import 'otakumind_online_research.dart';
 import 'continuity_evidence_verifier.dart';
@@ -14,6 +15,68 @@ class OtakuMindResearchDirector {
   final ProductionOffice office;
   final bool onlineEnabled;
   final OtakuMindOnlineResearch online;
+
+  /// Decode real frames locally and persist candidate visual transitions.
+  /// This does not certify semantic scenes, identities or model coverage.
+  Future<Map<String, dynamic>> runFromVideo({
+    required IntakeRecord intake,
+    String? userProvidedAnimeTitle,
+    FrameSignalSampler sampler = const FrameSignalSampler(),
+    int sampleIntervalMs = 1000,
+  }) async {
+    if (sampleIntervalMs < 250 || sampleIntervalMs > 60000) {
+      throw const FormatException('Invalid sampling interval');
+    }
+    final duration = (intake.data['media'] as Map)['duration_ms'];
+    final path = intake.data['source_path'];
+    if (duration is! num || duration <= 0 || path is! String || path.isEmpty) {
+      throw const FormatException('Invalid source metadata');
+    }
+    final length = duration.toInt();
+    final timestamps = <int>[];
+    for (var t = 0; t < length && timestamps.length < 240; t += sampleIntervalMs) {
+      timestamps.add(t);
+    }
+    if (timestamps.length < 2) {
+      throw StateError('Insufficient frames for visual transition analysis');
+    }
+    final samples = await sampler.sample(path, timestamps);
+    final candidates = const ShotBoundaryCandidates().detect(samples);
+    final observations = candidates.map((item) => SceneEvidence(
+      startMs: item['start_ms'] as int,
+      endMs: item['end_ms'] as int,
+      kind: 'shot_boundary_candidate',
+      description: 'Frame luminance discontinuity; not a verified scene boundary',
+      source: 'native_decoded_frame_luma8x8',
+      confidence: (item['difference'] as num).toDouble(),
+    )).toList();
+    final result = await run(intake: intake, observedEvidence: observations,
+      userProvidedAnimeTitle: userProvidedAnimeTitle);
+    final revised = <String, dynamic>{
+      ...result,
+      'visual_sampling': {
+        'method': 'decoded_frame_luma8x8',
+        'sample_count': samples.length,
+        'candidate_count': candidates.length,
+        'coverage_limited_to_240_samples': timestamps.length == 240 &&
+            timestamps.last + sampleIntervalMs < length,
+        'verified_scene_segmentation': false,
+      },
+    };
+    final receipt = Map<String, dynamic>.from(result['upstream_handoff'] as Map);
+    if (!await office.verifyHandoff(intake, receipt)) {
+      throw StateError('Source changed before visual sampling commit');
+    }
+    final file = File('${(await office.root).path}/${intake.id}/research_manifest.json');
+    final temp = File('${file.path}.part');
+    await temp.writeAsString(jsonEncode(revised), flush: true);
+    if (!await office.verifyHandoff(intake, receipt)) {
+      await temp.delete();
+      throw StateError('Stale source during visual sampling commit');
+    }
+    await temp.rename(file.path);
+    return revised;
+  }
 
   /// Only a deliberately entered title is transmitted. No dialogue, frames,
   /// file paths, hashes, episode footage, or extracted user content is sent.
