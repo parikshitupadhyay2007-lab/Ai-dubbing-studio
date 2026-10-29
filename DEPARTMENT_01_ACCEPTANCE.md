@@ -34,3 +34,12 @@ Real-device test may remain pending by project policy, but model inference, inte
 6. Benchmark all six on annotated, lawfully available footage. Complete actual Android-device validation before commercial-quality claims. CI unit tests cannot demonstrate semantic accuracy or device performance.
 
 Department 02 remains locked. Successful ONNX session execution and mock MethodChannel tests are not a substitute for real-model end-to-end tests.
+
+
+## Current integration increment (2026-10-29)
+
+- DINOv2-S acquisition/export workflow #40889830540 succeeded and uploaded a ~82 MB artifact; import into app private storage and Android execution still need direct validation.
+- Real RGB frame API, model-specific CHW normalization, optional distinct square resize and center crop, pinned ONNX embedding execution and provenance-checked reference-index adapter are implemented. DINOv2 reference index expects the actual acquired artifact SHA256 and the exact matching preprocessing ID, not a fabricated value.
+- The reference index only validates recorded rights basis; external provenance and asset permission must be independently audited. No copyrighted anime footage or reference images have been scraped.
+- The native square resize is not yet an aspect-ratio-preserving DINOv2 short-edge resize on nonsquare original frames. Results must not be certified as faithful upstream preprocessing until that is fixed and tested.
+- No empirical anime/episode recognition, scene classification, active-speaker diarisation, temporal character tracking, visual emotion classification, continuity intelligence inference or device benchmark is certified. Department 02 stays locked.
