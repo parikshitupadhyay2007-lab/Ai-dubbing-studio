@@ -56,3 +56,7 @@ successful because the APK merely installed or exported a file.
 Only unlock Department 02 after all eleven real-engine receipts, source-bound scene
 bible review, lawful evaluation, held-out quality benchmarks and physical Android
 validation are accepted. Until then maintain `department02_unlocked=false`.
+
+## Current baseline build
+
+Run the branch verification workflow before adding further inference changes. The APK is a diagnostic build, not a professional dubbing certification. Keep source-bound test reports and distinguish Flutter unit tests from actual Redmi device results. Do not unlock Department 02 based on a successful APK build alone.
