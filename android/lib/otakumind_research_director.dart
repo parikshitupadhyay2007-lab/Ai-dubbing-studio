@@ -42,7 +42,7 @@ class OtakuMindResearchDirector {
     for (var t = 0; t < length && timestamps.length < 240; t += effectiveInterval) {
       timestamps.add(t);
     }
-    if (timestamps.isNotEmpty && timestamps.last != length - 1 &&
+    if (timestamps.isNotEmpty && length - 1 - timestamps.last > effectiveInterval &&
         timestamps.length < 240) timestamps.add(length - 1);
     if (timestamps.length < 2) {
       throw StateError('Insufficient frames for visual transition analysis');
