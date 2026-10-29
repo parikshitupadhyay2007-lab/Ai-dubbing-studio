@@ -1,0 +1,47 @@
+/// Versioned first-launch notice. Obtain qualified legal review before public
+/// commercial release, particularly for jurisdiction, minors and revenue terms.
+const otakuDubAgreementVersion = '2026-10-29-v1';
+
+const otakuDubAgreement = '''
+WELCOME TO OTAKUDUB — USER AGREEMENT AND IMPORTANT RIGHTS NOTICE
+
+OtakuDub is an anime-focused dubbing production platform developed under the Blackheart brand. Its purpose is to help users organise audiovisual projects and, as compatible capabilities become available, analyse scenes, transcribe speech, adapt dialogue, coordinate character voices, synthesise performances, align timing and prepare dubbed video. OtakuDub aims for responsible, evidence-based production. Automated output is not a guarantee of accuracy, legal clearance, professional suitability, uninterrupted performance or permission to exploit any underlying work.
+
+Please read this notice carefully before continuing. By selecting “Agree & Continue,” you acknowledge that you have read and accept these terms for your use of the app. If you do not agree, do not continue to use OtakuDub. Where a parent or guardian's consent is required by applicable law, obtain it before using paid or commercial services. This is a versioned notice; a material revision may require renewed acceptance.
+
+1. YOUR SOURCE MATERIAL AND PERMISSIONS
+You are responsible for choosing the video, audio, dialogue, subtitles, reference material and other content you import. You must hold the relevant rights, permissions, licences or other lawful authority for your intended acts. Owning a copy, subscribing to a streaming service, purchasing the app or possessing an episode does not by itself grant permission to adapt, translate, dub, distribute or commercially exploit someone else's anime. Rights in an underlying film, soundtrack, script, performance, character design or translation may be held by different parties. Verify the scope, territory, language, duration and distribution channels of your permissions.
+
+2. PRIVATE EXPERIMENTS AND OUTPUT SHARING
+You may use app functions for lawful personal testing where permitted by applicable law and the relevant rights. A private experiment is not automatically exempt from copyright requirements. If you share, upload, sell, screen, broadcast, monetise or otherwise distribute a dubbed video without the necessary permission, you do so at your own legal and financial risk. You are responsible for checking and obtaining the required permission before publication. OtakuDub does not grant anime rights, endorse infringement or promise to defend unauthorised publication. Nothing in this notice excludes liability where the law does not allow exclusion.
+
+3. SEPARATE COMMERCIAL LICENSING AND PROFIT SHARE
+A licence from an anime rightsholder and a commercial licence for OtakuDub are two separate matters. If you legally obtain the underlying rights needed to dub and commercially exploit an anime, you must also obtain Blackheart's express written commercial-use authorisation before using OtakuDub-generated or OtakuDub-assisted dubbing in a commercial project. Our proposed standard commercial arrangement requires payment to Blackheart of fifty percent (50%) of the Net Profit attributable to that commercial dubbing project, including projects made using a Lifetime Offer purchase. A Lifetime Offer covers only the app access expressly described in that purchase and does not waive this commercial-use condition, pay any anime rightsholder or transfer copyright in any anime.
+
+For this proposed standard arrangement, Net Profit means revenue actually received from the authorised commercial exploitation of the particular dubbed project, minus documented, reasonable, directly attributable third-party distribution fees, taxes collected and remitted, refunds, and payments contractually due to the underlying rightsholder; no unrelated overhead, personal expenditure, artificial affiliate charges or double deductions may be deducted. The calculation, accounting period, reporting, audit procedure, payment deadline, applicable taxes, permitted exploitation and any negotiated adjustments must be set out in a separate written commercial agreement accepted by both parties before commercial use. If no such agreement has been executed, this notice does not itself grant a commercial licence. Applicable consumer law and mandatory legal rights remain unaffected. Seek independent legal and financial advice before accepting a commercial arrangement.
+
+4. NO IMPLIED RIGHTS OR OFFICIAL AFFILIATION
+OtakuDub and Blackheart are not affiliated with, sponsored by or authorised by a particular anime studio, broadcaster, publisher or distributor unless expressly stated under a valid arrangement. Recognition of a title, character, scene or episode, or the presence of optional descriptive metadata, is not proof of the user's rights and is not an offer of a licence. Output may contain errors even when a model reports high confidence. Do not use generated material to impersonate an actual performer, claim false endorsement or misrepresent authorship.
+
+5. AUTOMATION, REVIEW AND QUALITY
+Speech recognition, translation, scene interpretation, character association, performance direction, synthesis, timing and mixing are technically complex. Ambiguous speakers, overlapping speech, songs, emotional transitions, visual cuts, stylistic effects and damaged input can cause errors. You must review the accuracy, safety, language, names, pronunciation, audio balance and synchronisation of any result before relying on it. An exported file is not evidence that the project passed independent quality control. If a capability is unavailable, OtakuDub should show that status instead of claiming it ran successfully.
+
+6. RESPONSIBLE USE
+Do not submit material that you are not authorised to process, deliberately infringe others' rights, bypass technical restrictions, mislead people about an output's origin, distribute unlawful content or use the platform to harass others. Comply with applicable laws, licence conditions and the rights of performers, creators and other people. Respect local rules when obtaining, importing or transferring content. You are responsible for any third-party platform requirements governing your publication, including content identification, credits and takedown requests.
+
+7. FILES, DEVICE AND OPTIONAL CONNECTIONS
+The app is designed around on-device project processing, but particular features and versions may have different capabilities. An optional external lookup must be expressly disclosed and enabled before use. Review the applicable privacy notice and requested Android permissions. Keep independent backups of your legally held originals and important exports. Device storage, operating-system restrictions, model installation, interruptions, resource limits, unexpected faults or corrupt inputs can affect completion. Do not treat the app as your only archive.
+
+8. SOFTWARE AND BRAND
+Blackheart retains its applicable rights in the OtakuDub software, interface, brand, original model integration, documentation and other Blackheart-owned materials. You retain whatever rights you lawfully hold in your own original source material. This agreement does not transfer ownership of third-party anime or magically create rights in an adaptation. Do not remove attribution or security controls where prohibited by applicable law or valid licence terms. Third-party components may have their own licences and notices.
+
+9. AVAILABILITY AND SUPPORT
+Features described as planned, experimental, unavailable or pending verification are not promises of immediate delivery. Model compatibility, storage, memory, speed, language support and output quality may vary by device and content. We may correct defects, publish security updates and refine quality checks. Any paid service, cancellation, refund, support or lifetime-access promise must follow the separate purchase terms and applicable consumer protection law. No sentence here removes rights that cannot lawfully be waived.
+
+10. DISPUTES, CHANGES AND ACCEPTANCE
+Before commencing commercial work, confirm the latest written commercial terms directly with Blackheart. Preserve the original rights receipts and project accounting records. Material changes to this notice should be presented for renewed consent. Any dispute and governing-law clause for public release should be reviewed and completed by qualified counsel rather than inferred from your location or this screen. If a provision is unenforceable, the remaining lawful provisions should continue to the extent permitted. Your acceptance records the notice version on this device; it is not proof of an anime licence or a signed commercial exploitation agreement.
+
+By tapping “Agree & Continue,” you acknowledge the distinctions between personal app access, underlying anime permissions and separately negotiated commercial use. You understand that sharing an unauthorised dub is at your risk; the proposed 50% Net Profit requirement applies to a separately executed OtakuDub commercial agreement even if you bought Lifetime Access. Thank you for approaching anime dubbing responsibly.
+
+BLACKHEART • OTAKUDUB
+''';
