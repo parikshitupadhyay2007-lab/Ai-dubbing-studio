@@ -34,21 +34,24 @@ class OtakuMindResearchDirector {
       throw const FormatException('Invalid source metadata');
     }
     final length = duration.toInt();
-    // Cover the entire source instead of silently analysing only its first
-    // 240 seconds at the default sampling interval.
-    final effectiveInterval = length > sampleIntervalMs * 239
-        ? (length / 239).ceil()
-        : sampleIntervalMs;
+    // Decode every requested sample across the full source in bounded native
+    // batches. Never silently degrade a 30-minute video to 240 sparse frames.
     final timestamps = <int>[];
-    for (var t = 0; t < length && timestamps.length < 240; t += effectiveInterval) {
+    for (var t = 0; t < length; t += sampleIntervalMs) {
       timestamps.add(t);
     }
-    if (timestamps.isNotEmpty && length - 1 - timestamps.last > effectiveInterval &&
-        timestamps.length < 240) timestamps.add(length - 1);
     if (timestamps.length < 2) {
       throw StateError('Insufficient frames for visual transition analysis');
     }
-    final samples = await sampler.sample(path, timestamps);
+    final samples = <FrameSignal>[];
+    for (var offset = 0; offset < timestamps.length; offset += 240) {
+      final end = offset + 240 < timestamps.length ? offset + 240 : timestamps.length;
+      samples.addAll(await sampler.sample(path, timestamps.sublist(offset, end)));
+      // A source replacement during long-running analysis invalidates all evidence.
+      if (!await office.canHandoff(intake)) {
+        throw StateError('Source changed during visual frame sampling');
+      }
+    }
     final candidates = const ShotBoundaryCandidates().detect(samples);
     final observations = candidates.map((item) => SceneEvidence(
       startMs: item['start_ms'] as int,
@@ -66,10 +69,11 @@ class OtakuMindResearchDirector {
         'method': 'decoded_frame_luma8x8',
         'sample_count': samples.length,
         'candidate_count': candidates.length,
-        'effective_sample_interval_ms': effectiveInterval,
+        'effective_sample_interval_ms': sampleIntervalMs,
         'last_sample_ms': timestamps.last,
         'source_duration_ms': length,
-        'coverage_limited_to_240_samples': timestamps.length == 240,
+        'sampling_complete': samples.length == timestamps.length,
+        'native_batch_limit': 240,
         'verified_scene_segmentation': false,
       },
     };
