@@ -1,5 +1,10 @@
 name: Acquire Department 01 licensed vision model
 on:
+  push:
+    branches: [feature/departmental-ai-pipeline]
+    paths:
+      - 'tools/acquire_dinov2.py'
+      - '.github/workflows/acquire-department01-vision.yml'
   workflow_dispatch:
 jobs:
   acquire:
@@ -15,7 +20,7 @@ jobs:
       - name: Install model export dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install 'torch==2.5.1' 'transformers==4.46.3' 'huggingface_hub==0.26.2' 'onnx==1.17.0' 'onnxruntime==1.20.1' 'numpy==1.26.4' 'onnxscript==0.1.0'
+          python -m pip install 'torch==2.5.1' 'torchvision==0.20.1' 'transformers==4.46.3' 'huggingface_hub==0.26.2' 'onnx==1.17.0' 'onnxruntime==1.20.1' 'numpy==1.26.4' 'onnxscript==0.1.0'
       - name: Download upstream pretrained weights and export verified ONNX
         run: python tools/acquire_dinov2.py
       - name: Publish model and provenance for authorised local import
