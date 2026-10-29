@@ -22,9 +22,11 @@ class ProductionOffice {
   final Future<Map<String, dynamic>> Function(String path)? inspectOverride;
   static const channel = MethodChannel('co.parikshit.otakudub/production_office');
   Future<Directory> get root async => _root ?? Directory('${(await getApplicationDocumentsDirectory()).path}/otakudub_v6');
-  Future<Map<String, dynamic>> inspect(String path) async =>
-      inspectOverride != null ? inspectOverride!(path) : Map<String, dynamic>.from(
-        await channel.invokeMapMethod<String, dynamic>('inspect', {'path': path}) ?? {});
+  Future<Map<String, dynamic>> inspect(String path) async {
+    if (inspectOverride != null) return await inspectOverride!(path);
+    return Map<String, dynamic>.from(
+      await channel.invokeMapMethod<String, dynamic>('inspect', {'path': path}) ?? {});
+  }
 
   Future<String> digest(File f) async => (await sha256.bind(f.openRead()).first).toString();
 
@@ -118,18 +120,15 @@ class ProductionOffice {
   Future<bool> canHandoff(IntakeRecord record) async {
     if (!record.approved || record.data['review'] is! Map ||
         (record.data['review'] as Map)['passed'] != true) return false;
-    if (!RegExp(r'^[0-9]+-[0-9a-f]+
-    if (!await file.exists()) return false;
-    final saved = Map<String, dynamic>.from(jsonDecode(await file.readAsString()) as Map);
-    if (jsonEncode(saved) != jsonEncode(record.data)) return false;
-    return (await review(saved))['passed'] == true;
-  }
-}
-).hasMatch(record.id)) return false;
+    if (!RegExp(r'^[0-9]+-[0-9a-f]+$').hasMatch(record.id)) return false;
     final file = File('${(await root).path}/${record.id}/manifest.json');
     if (!await file.exists()) return false;
-    final saved = Map<String, dynamic>.from(jsonDecode(await file.readAsString()) as Map);
-    if (jsonEncode(saved) != jsonEncode(record.data)) return false;
-    return (await review(saved))['passed'] == true;
+    try {
+      final saved = Map<String, dynamic>.from(jsonDecode(await file.readAsString()) as Map);
+      if (jsonEncode(saved) != jsonEncode(record.data)) return false;
+      return (await review(saved))['passed'] == true;
+    } catch (_) {
+      return false;
+    }
   }
 }
