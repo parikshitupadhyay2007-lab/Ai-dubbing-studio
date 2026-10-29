@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'package:file_picker/file_picker.dart';
+import 'production_office.dart';
 import 'package:flutter/material.dart';
 
 void main() {
@@ -50,6 +53,23 @@ class OtakuShell extends StatefulWidget {
 }
 
 class _OtakuShellState extends State<OtakuShell> {
+  final office = ProductionOffice();
+  List<IntakeRecord> records = [];
+  bool importing = false;
+  String? intakeError;
+  String targetLanguage = 'hi';
+  @override
+  void initState() { super.initState(); refresh(); }
+  Future<void> refresh() async { final next = await office.all(); if (mounted) setState(() => records = next); }
+  Future<void> importVideo() async {
+    if (importing) return;
+    final picked = await FilePicker.platform.pickFiles(type: FileType.video, withData: false);
+    if (picked == null || picked.files.single.path == null) return;
+    setState(() { importing = true; intakeError = null; });
+    try { await office.import(picked.files.single.path!, picked.files.single.name, targetLanguage); }
+    catch (e) { if (mounted) setState(() => intakeError = '$e'); }
+    finally { if (mounted) { await refresh(); setState(() => importing = false); } }
+  }
   int tab = 0;
   static const labels = ['Discover', 'Studio', 'Projects', 'Departments'];
   @override
@@ -67,7 +87,7 @@ class _OtakuShellState extends State<OtakuShell> {
             const Padding(padding: EdgeInsets.only(right: 16), child: CircleAvatar(radius: 15, backgroundColor: softer, child: Icon(Icons.person_outline, color: lavender, size: 19))),
           ],
         ),
-        body: IndexedStack(index: tab, children: const [DiscoverPage(), StudioPage(), ProjectsPage(), DepartmentsPage()]),
+        body: IndexedStack(index: tab, children: [const DiscoverPage(), StudioPage(importing: importing, error: intakeError, onImport: importVideo, language: targetLanguage, onLanguage: (v) => setState(() => targetLanguage = v)), ProjectsPage(records: records), DepartmentsPage(records: records)]),
         bottomNavigationBar: NavigationBar(
           selectedIndex: tab,
           onDestinationSelected: (i) => setState(() => tab = i),
@@ -160,7 +180,12 @@ class _FeatureTile extends StatelessWidget {
 }
 
 class StudioPage extends StatelessWidget {
-  const StudioPage({super.key});
+  const StudioPage({super.key, required this.importing, required this.error, required this.onImport, required this.language, required this.onLanguage});
+  final bool importing;
+  final String? error;
+  final VoidCallback onImport;
+  final String language;
+  final ValueChanged<String> onLanguage;
   @override
   Widget build(BuildContext context) => ListView(padding: const EdgeInsets.all(18), children: [
     const Text('DUBBING STUDIO', style: TextStyle(fontSize: 27, fontWeight: FontWeight.w900)),
@@ -176,27 +201,33 @@ class StudioPage extends StatelessWidget {
         const SizedBox(height: 14),
         const Text('Start a new dub', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900)),
         const SizedBox(height: 8),
-        const Text('Video import will return with Department 00.', textAlign: TextAlign.center,
+        const Text('Department 00 validates and independently reviews every source video.', textAlign: TextAlign.center,
           style: TextStyle(color: subdued)),
         const SizedBox(height: 18),
+        SegmentedButton<String>(segments: const [ButtonSegment(value: 'hi', label: Text('Hindi')), ButtonSegment(value: 'en', label: Text('English'))], selected: {language}, onSelectionChanged: (v) => onLanguage(v.first)),
+        const SizedBox(height: 18),
+        if (importing) const CircularProgressIndicator(),
+        if (error != null) Text(error!, style: const TextStyle(color: Colors.redAccent)),
         FilledButton.icon(
-          onPressed: () => _notReady(context), icon: const Icon(Icons.add), label: const Text('IMPORT VIDEO'),
+          onPressed: importing ? null : onImport, icon: const Icon(Icons.add), label: const Text('IMPORT VIDEO'),
           style: FilledButton.styleFrom(backgroundColor: lavender, foregroundColor: canvas),
         ),
       ]),
     ),
     const SizedBox(height: 22),
-    const _FeatureTile(icon: Icons.lock_clock_outlined, title: 'Production currently offline', description: 'The old AI pipeline has been removed. No unfinished department will silently run.'),
+    const _FeatureTile(icon: Icons.lock_clock_outlined, title: 'Department 00 intake only', description: 'Approved imports are saved. AI departments 01–10 remain disabled.'),
   ]);
 }
 
 class ProjectsPage extends StatelessWidget {
-  const ProjectsPage({super.key});
+  const ProjectsPage({super.key, required this.records});
+  final List<IntakeRecord> records;
   @override
   Widget build(BuildContext context) => ListView(padding: const EdgeInsets.all(20), children: [
     const Text('MY PROJECTS', style: TextStyle(fontSize: 27, fontWeight: FontWeight.w900)),
     const SizedBox(height: 8),
-    const Text('New project storage and resume controls will be rebuilt with Production Office.', style: TextStyle(color: subdued)),
+    const Text('Saved production intake records. No dubbing stages run yet.', style: TextStyle(color: subdued)),
+    for (final record in records) Card(child: ListTile(title: Text(record.title), subtitle: Text('Department 00: ${record.data['status']} · Target: ${record.data['target_language']}'), trailing: Icon(record.approved ? Icons.verified_outlined : Icons.warning_amber_outlined, color: record.approved ? lavender : Colors.amber))),
     const SizedBox(height: 80),
     Center(child: Column(children: [
       Icon(Icons.video_library_outlined, size: 75, color: lavender.withValues(alpha: .8)),
@@ -240,7 +271,8 @@ const departments = <DepartmentSpec>[
 ];
 
 class DepartmentsPage extends StatelessWidget {
-  const DepartmentsPage({super.key});
+  const DepartmentsPage({super.key, required this.records});
+  final List<IntakeRecord> records;
   @override
   Widget build(BuildContext context) => ListView(padding: const EdgeInsets.all(18), children: [
     const Text('DEPARTMENT TRACKER', style: TextStyle(fontSize: 25, fontWeight: FontWeight.w900)),
@@ -250,19 +282,23 @@ class DepartmentsPage extends StatelessWidget {
     Container(padding: const EdgeInsets.all(17),
       decoration: BoxDecoration(color: surface, borderRadius: BorderRadius.circular(14)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text('NEW PIPELINE', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 1)),
-          Text('0 / 11 approved', style: TextStyle(color: lavender, fontWeight: FontWeight.w800)),
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          const Text('NEW PIPELINE', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 1)),
+          Text(records.any((r) => r.approved) ? '1 intake approved · 10 pending' : '0 / 11 approved', style: const TextStyle(color: lavender, fontWeight: FontWeight.w800)),
         ]),
         const SizedBox(height: 13),
         ClipRRect(borderRadius: BorderRadius.circular(8),
           child: const LinearProgressIndicator(value: 0, minHeight: 8, backgroundColor: softer, color: lavender)),
         const SizedBox(height: 11),
-        const Text('No AI department is implemented or approved yet. Progress will come from verified saved records, not estimated percentages.',
+        const Text('Department 00 intake is implemented. Production status below reflects saved project records; later departments remain unbuilt.',
           style: TextStyle(fontSize: 12, color: subdued)),
       ]),
     ),
     const SizedBox(height: 19),
+    if (records.isNotEmpty) ...[
+      const _DetailHeader('SAVED PRODUCTION OFFICE RESULTS'),
+      for (final record in records) Card(child: ExpansionTile(title: Text(record.title), subtitle: Text('00 · ${record.data['status']}'), children: [Padding(padding: const EdgeInsets.all(14), child: SelectableText(const JsonEncoder.withIndent('  ').convert(record.data)))])),
+    ],
     for (var i = 0; i < departments.length; i++) _DepartmentCard(index: i, spec: departments[i]),
     const SizedBox(height: 12),
   ]);
