@@ -29,6 +29,23 @@ class ResearchRgbFrame {
     return rgb;
   }
 
+  /// Center-crop a decoded square RGB image without channel reordering.
+  Uint8List centerCrop(Uint8List rgb, {required int sourceSize,
+    required int cropSize}) {
+    if (sourceSize < 32 || sourceSize > 384 || cropSize < 1 ||
+        cropSize > sourceSize || rgb.length != sourceSize * sourceSize * 3) {
+      throw const FormatException('Invalid RGB center crop');
+    }
+    final result = Uint8List(cropSize * cropSize * 3);
+    final offset = (sourceSize - cropSize) ~/ 2;
+    for (var row = 0; row < cropSize; row++) {
+      final from = ((row + offset) * sourceSize + offset) * 3;
+      result.setRange(row * cropSize * 3, (row + 1) * cropSize * 3,
+        rgb, from);
+    }
+    return result;
+  }
+
   /// ImageNet-style CHW preprocessing; use only when a pinned model's own
   /// documented preprocessing contract explicitly requires these values.
   List<double> toChwNormalized(Uint8List rgb, {
