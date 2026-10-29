@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:crypto/crypto.dart' as crypto;
 import 'department01_inference.dart';
+import 'research_rgb_frame.dart';
 import 'research_embedding_matcher.dart';
 
 /// A real ONNX visual embedding execution plus conservative local retrieval.
@@ -10,10 +11,40 @@ class ResearchVisualEmbeddingEngine {
   const ResearchVisualEmbeddingEngine({
     this.inference = const Department01Inference(),
     this.matcher = const ResearchEmbeddingMatcher(),
+    this.frames = const ResearchRgbFrame(),
   });
 
   final Department01Inference inference;
   final ResearchEmbeddingMatcher matcher;
+  final ResearchRgbFrame frames;
+
+  /// Decodes a real video frame and applies the model card's supplied RGB
+  /// preprocessing contract before running the pinned ONNX encoder.
+  Future<Map<String, dynamic>> evaluateFrame({
+    required String sourcePath,
+    required int timestampMs,
+    required int imageSize,
+    required List<double> channelMean,
+    required List<double> channelStd,
+    required String modelName,
+    required String modelSha256,
+    required String inputName,
+    required String outputName,
+    required String preprocessingId,
+    required Map<String, List<double>> authorisedReferences,
+  }) async {
+    final rgb = await frames.sample(sourcePath: sourcePath,
+      timestampMs: timestampMs, size: imageSize);
+    final pixels = frames.toChwNormalized(rgb, size: imageSize,
+      mean: channelMean, std: channelStd);
+    return evaluate(modelName: modelName, modelSha256: modelSha256,
+      inputName: inputName, outputName: outputName,
+      preprocessingId: preprocessingId,
+      inputShape: [1, 3, imageSize, imageSize],
+      preprocessedPixels: pixels,
+      authorisedReferences: authorisedReferences);
+  }
+
 
   Future<Map<String, dynamic>> evaluate({
     required String modelName,
