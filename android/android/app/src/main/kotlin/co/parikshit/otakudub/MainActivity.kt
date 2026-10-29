@@ -12,6 +12,10 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger,
+            "co.parikshit.otakudub/department01_inference").setMethodCallHandler(
+                Department01Inference(java.io.File(filesDir, "otakudub/models"))
+            )
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger,
             "co.parikshit.otakudub/production_office").setMethodCallHandler { call, result ->
             if (call.method == "sampleFrames") {
                 val path = call.argument<String>("path")
