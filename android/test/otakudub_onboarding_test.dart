@@ -7,7 +7,7 @@ void main() {
     expect(onboardingAgreement, contains('fifty percent (50%)'));
     expect(onboardingAgreement.toLowerCase(), contains('lifetime'));
     expect(onboardingAgreement, contains('separate written commercial agreement'));
-    expect(onboardingAgreement, contains('without permission'));
+    expect(onboardingAgreement, contains('without the necessary permissions'));
     expect(onboardingAgreement, contains('anime rightsholder'));
     expect(onboardingAgreementVersion, isNotEmpty);
   });
