@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'otakumind_online_research.dart';
+import 'continuity_evidence_verifier.dart';
 import 'production_office.dart';
 import 'research_continuity.dart';
 
@@ -21,6 +22,14 @@ class OtakuMindResearchDirector {
     required List<SceneEvidence> observedEvidence,
     String? userProvidedAnimeTitle,
   }) async {
+    final duration = (intake.data['media'] as Map)['duration_ms'];
+    if (duration is! num) throw const FormatException('Missing media duration');
+    final continuity = const ContinuityEvidenceVerifier().verify(
+      durationMs: duration.toInt(), observations: observedEvidence,
+      identityClaims: const []);
+    if (continuity['passed'] != true) {
+      throw FormatException('Continuity evidence rejected: ${continuity['errors']}');
+    }
     final department = ResearchContinuity(office);
     final manifest = await department.createResearchManifest(intake, observedEvidence);
     Map<String, dynamic>? reference;
@@ -46,6 +55,7 @@ class OtakuMindResearchDirector {
       'internet_research_status': researchState,
       if (reference != null) 'external_reference': reference,
       'identity_claims': <Object>[],
+      'continuity_evidence_review': continuity,
       'model_coverage': {
         'anime_recognition': 'unavailable',
         'scene_segmentation': 'unavailable',
