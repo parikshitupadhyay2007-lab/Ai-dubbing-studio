@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'frame_signal_sampler.dart';
+import 'research_evidence_graph.dart';
 
 import 'otakumind_online_research.dart';
 import 'continuity_evidence_verifier.dart';
@@ -121,8 +122,22 @@ class OtakuMindResearchDirector {
     if (!await office.verifyHandoff(intake, receipt)) {
       throw StateError('Upstream intake changed during research');
     }
+    final graph = const ResearchEvidenceGraph().build(
+      sourceSha256: intake.data['sha256'] as String,
+      durationMs: duration.toInt(),
+      nodes: List.generate(observedEvidence.length, (i) {
+        final item = observedEvidence[i];
+        return <String, dynamic>{
+          'id': 'observation_$i',
+          'modality': item.kind == 'shot_boundary_candidate' ? 'visual' : 'context',
+          'start_ms': item.startMs, 'end_ms': item.endMs,
+          'confidence': item.confidence, 'provenance': item.source,
+          'observation': item.description, 'verified': false,
+        };
+      }), links: const []);
     final revised = <String, dynamic>{
       ...manifest,
+      'evidence_graph': graph,
       'internet_enabled': onlineEnabled,
       'internet_research_status': researchState,
       if (reference != null) 'external_reference': reference,
