@@ -66,6 +66,46 @@ class ResearchContinuity {
     return manifest;
   }
 
-  /// No approval by presence of a file or by a model's self-reported score.
-  Future<bool> canHandoff(IntakeRecord intake) async => false;
+  /// Independently reads the persisted artifact and rechecks its upstream receipt.
+  Future<Map<String, dynamic>> review(IntakeRecord intake) async {
+    final errors = <String>[];
+    final file = File('${(await office.root).path}/${intake.id}/research_manifest.json');
+    if (!await file.exists()) return {'passed': false, 'errors': ['Research manifest missing']};
+    try {
+      final data = Map<String, dynamic>.from(jsonDecode(await file.readAsString()) as Map);
+      final receipt = Map<String, dynamic>.from(data['upstream_handoff'] as Map);
+      if (!await office.verifyHandoff(intake, receipt)) errors.add('Stale upstream approval');
+      if (data['department'] != '01' || data['project_id'] != intake.id ||
+          data['source_sha256'] != intake.data['sha256']) errors.add('Source binding mismatch');
+      final duration = (intake.data['media'] as Map)['duration_ms'];
+      if (data['source_duration_ms'] != duration) errors.add('Duration mismatch');
+      final raw = data['scene_evidence'];
+      if (raw is! List || raw.isEmpty) {
+        errors.add('No scene evidence');
+      } else {
+        for (final entry in raw) {
+          if (entry is! Map) { errors.add('Invalid evidence record'); continue; }
+          final start = entry['start_ms'], end = entry['end_ms'], confidence = entry['confidence'];
+          if (start is! int || end is! int || start < 0 || end <= start ||
+              duration is! num || end > duration) errors.add('Invalid scene interval');
+          if (confidence is! num || !confidence.isFinite ||
+              confidence < 0 || confidence > 1) errors.add('Invalid confidence');
+          for (final key in ['kind', 'description', 'source']) {
+            if (entry[key] is! String || (entry[key] as String).trim().isEmpty) {
+              errors.add('Missing evidence provenance or description');
+            }
+          }
+        }
+      }
+      if (data['scene_segmentation_verified'] != true) errors.add('Scene segmentation unverified');
+      if (data['visual_analysis_verified'] != true) errors.add('Visual analysis unverified');
+      if (data['continuity_review'] != 'passed') errors.add('Continuity review pending');
+    } catch (e) {
+      errors.add('Research artifact cannot be independently parsed: $e');
+    }
+    return {'passed': errors.isEmpty, 'errors': errors.toSet().toList()};
+  }
+
+  Future<bool> canHandoff(IntakeRecord intake) async =>
+      (await review(intake))['passed'] == true;
 }
