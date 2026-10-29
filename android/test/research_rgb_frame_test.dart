@@ -28,6 +28,16 @@ void main() {
     expect(tensor[2048], 0);
   });
 
+  test('center crop preserves RGB interleaving and spatial offset', () {
+    final source = Uint8List.fromList(List.generate(32 * 32 * 3,
+      (i) => (i ~/ 3) % 256));
+    final crop = sampler.centerCrop(source, sourceSize: 32, cropSize: 30);
+    expect(crop.length, 30 * 30 * 3);
+    expect(crop.sublist(0, 3), source.sublist((32 + 1) * 3, (32 + 1) * 3 + 3));
+    expect(() => sampler.centerCrop(source, sourceSize: 32, cropSize: 33),
+      throwsFormatException);
+  });
+
   test('rejects incomplete RGB payload', () async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
       .setMockMethodCallHandler(channel, (_) async => {
