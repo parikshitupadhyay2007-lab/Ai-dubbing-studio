@@ -3,6 +3,7 @@ import 'dart:io';
 import 'production_office.dart';
 import 'research_evidence_graph.dart';
 import 'research_engine_coordinator.dart';
+import 'research_directors_scene_bible.dart';
 
 /// Evidence is not an identity claim. Every assertion has an explicit source.
 class SceneEvidence {
@@ -140,6 +141,17 @@ class ResearchContinuity {
           if (coverage[engine] != 'verified') {
             errors.add('Engine not verified: $engine');
           }
+        }
+      }
+      final bible = data['directors_scene_bible'];
+      if (bible is! Map) {
+        errors.add('Director scene bible missing');
+      } else {
+        final review = const ResearchDirectorsSceneBible().review(
+          Map<String, dynamic>.from(bible));
+        if (bible['source_sha256'] != intake.data['sha256'] ||
+            bible['duration_ms'] != duration || review['passed'] != true) {
+          errors.add('Director scene bible failed independent review');
         }
       }
       if (data['approved'] != true) errors.add('Research not approved');
