@@ -166,8 +166,18 @@ class _OtakuShellState extends State<OtakuShell> {
     }
   }
   Future<void> runResearchDiagnostic(IntakeRecord intake) async {
-    if (activeResearchId != null || installedVisionHash == null ||
-        !verifiedIntakes.contains(intake.id)) return;
+    if (activeResearchId != null) return;
+    if (!verifiedIntakes.contains(intake.id)) {
+      setState(() => researchStatus = 'Department 01 blocked: Department 00 intake must pass fresh source verification.');
+      return;
+    }
+    if (installedVisionHash == null) {
+      setState(() {
+        tab = 1;
+        researchStatus = 'Department 01 needs the verified DINOv2 model. In Studio, tap INSTALL DINOv2 MODEL and select its acquisition JSON manifest followed by the matching ONNX file. The full department remains unverified.';
+      });
+      return;
+    }
     setState(() {
       activeResearchId = intake.id;
       researchStatus = 'Running locally on ${intake.title}';
@@ -379,11 +389,11 @@ class ProjectsPage extends StatelessWidget {
       if (onDiagnose != null) Padding(
         padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
         child: OutlinedButton.icon(
-          onPressed: visionReady && activeResearchId == null &&
-              verifiedIntakes.contains(record.id) ? () => onDiagnose!(record) : null,
+          onPressed: activeResearchId == null ? () => onDiagnose!(record) : null,
           icon: const Icon(Icons.science_outlined),
           label: Text(activeResearchId == record.id ? 'RUNNING LOCAL INFERENCE' :
-            'RUN DEPARTMENT 01 DIAGNOSTIC')),
+            !verifiedIntakes.contains(record.id) ? 'CHECK DEPARTMENT 00 PREREQUISITE' :
+            !visionReady ? 'SET UP DEPARTMENT 01 DIAGNOSTIC' : 'RUN DEPARTMENT 01 DIAGNOSTIC')),
       ),
     ])),
     const SizedBox(height: 80),
