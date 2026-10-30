@@ -24,6 +24,25 @@ void main() {
     expect(receipt['installed'], true);
   });
 
+  test('bundled model provisioning requires a verified native installation receipt', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .setMockMethodCallHandler(channel, (call) async {
+        expect(call.method, 'installBundledModel');
+        expect((call.arguments as Map)['sha256'], hash);
+        return {'installed': true, 'model_name': 'dinov2_small_cls.onnx',
+          'sha256': hash, 'size_bytes': 82000000};
+      });
+    final receipt = await inference.installBundled(
+      modelName: 'dinov2_small_cls.onnx', sha256: hash);
+    expect(receipt['installed'], true);
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .setMockMethodCallHandler(channel, (_) async =>
+        {'installed': true, 'model_name': 'dinov2_small_cls.onnx',
+          'sha256': 'b' * 64, 'size_bytes': 82000000});
+    await expectLater(inference.installBundled(
+      modelName: 'dinov2_small_cls.onnx', sha256: hash), throwsFormatException);
+  });
+
   test('rejects native installation with mismatched digest', () async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
       .setMockMethodCallHandler(channel, (_) async =>
