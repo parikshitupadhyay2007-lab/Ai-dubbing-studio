@@ -60,3 +60,33 @@ validation are accepted. Until then maintain `department02_unlocked=false`.
 ## Current baseline build
 
 Run the branch verification workflow before adding further inference changes. The APK is a diagnostic build, not a professional dubbing certification. Keep source-bound test reports and distinguish Flutter unit tests from actual Redmi device results. Do not unlock Department 02 based on a successful APK build alone.
+
+## Locked execution priorities (implementation order)
+
+These are six milestones **inside Department 01**, not six additional departments.
+An implementation milestone does not change an engine state to verified without its
+source-bound output and independent review. Department 02 remains locked.
+
+1. **DINOv2 on Android:** load the pinned ONNX weights; verify decoded-frame RGB,
+   resize/crop/normalisation and input/output signatures; compare actual Android
+   embeddings with reference vectors; record model SHA256, latency, peak memory,
+   thermals and corruption/incompatibility failures on the physical device.
+2. **Scene segmentation:** combine source-bound shot signals and visual embeddings
+   into coherent scene intervals, preserving cuts and uncertainty; benchmark against
+   independently annotated boundaries with the stated tolerance.
+3. **Recurring character recognition:** fuse tracked visual evidence, speaker
+   embeddings and temporal continuity; use stable local IDs and abstain when the
+   evidence does not support a named identity; measure re-identification and errors.
+4. **Anime and episode recognition:** compare against a rights-cleared, versioned
+   reference index; retain provenance and known-vs-unknown thresholds; no inferred
+   title/episode is treated as fact without independent support.
+5. **OtakuMind dramatic intelligence:** produce evidence-linked narrative intent,
+   emotion/performance, audiovisual dialogue attribution, timing constraints and
+   character relationship memory for each scene. Independent reviewer rejects
+   omissions, unsupported claims, contradictory or stale evidence.
+6. **Independent acceptance:** validate all original six engines plus five dramatic
+   capabilities, held-out benchmarks, rights records, device receipts and the
+   source-bound Scene Bible before issuing any handoff.
+
+The first actionable milestone is real DINOv2 inference on the Redmi device, not
+merely exporting or loading a model. Do not use placeholder percentages as progress.
