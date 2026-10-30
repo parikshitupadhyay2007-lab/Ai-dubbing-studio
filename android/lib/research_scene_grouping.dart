@@ -45,7 +45,7 @@ class ResearchSceneGrouping {
     double distance(List<double> a, List<double> b) {
       var dot = 0.0;
       for (var i = 0; i < a.length; i++) { dot += a[i] * b[i]; }
-      return 1 - dot.clamp(-1.0, 1.0);
+      return 1.0 - dot.clamp(-1.0, 1.0).toDouble();
     }
     final candidates = <Map<String, dynamic>>[];
     var sceneStart = 0;
