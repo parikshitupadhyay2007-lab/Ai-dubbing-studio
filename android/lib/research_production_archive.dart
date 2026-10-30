@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:crypto/crypto.dart' as crypto;
 import 'production_office.dart';
 import 'research_multimodal_coordinator.dart';
+import 'research_multimodal_reviewer.dart';
 import 'research_directors_scene_bible.dart';
 
 /// Source-bound persisted research. A successful structural review is NOT a
@@ -105,10 +106,21 @@ class ResearchProductionArchive {
           multimodal['handoff_to_department02'] != false) {
         errors.add('Invalid research consistency review');
       }
+      final freshReview = const ResearchMultimodalReviewer().review(
+        durationMs: data['duration_ms'] as int,
+        characterTracks: Map<String, dynamic>.from(multimodal['character_tracking'] as Map),
+        speakerAttribution: Map<String, dynamic>.from(multimodal['speaker_attribution'] as Map),
+        episodeMatching: Map<String, dynamic>.from(multimodal['episode_matching'] as Map),
+        dramaticEvidence: Map<String, dynamic>.from(multimodal['dramatic_evidence'] as Map));
+      if (freshReview['passed'] != true ||
+          jsonEncode(freshReview) != jsonEncode(multimodal['independent_consistency_review'])) {
+        errors.add('Independent multimodal replay disagrees with stored review');
+      }
       final bible = Map<String, dynamic>.from(data['directors_scene_bible'] as Map);
       if (bible['source_sha256'] != data['source_sha256'] ||
           bible['duration_ms'] != data['duration_ms'] ||
           bible['approved'] != false ||
+          jsonEncode(bible['scenes']) != jsonEncode((multimodal['dramatic_evidence'] as Map)['scenes']) ||
           (bible['scenes'] as List).isEmpty) {
         errors.add('Invalid provisional Scene Bible');
       }
