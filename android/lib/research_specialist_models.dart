@@ -17,6 +17,41 @@ class ResearchSpecialistModels {
   static final _sha = RegExp(r'^[a-f0-9]{64}$');
   static final _name = RegExp(r'^[a-zA-Z0-9_-]{1,80}\.onnx$');
 
+  /// Runs the pinned native model under its manifest input/output contract.
+  /// Actual ONNX tensor execution is separate from specialist semantic decoding.
+  Future<Map<String, dynamic>> execute({
+    required File manifestFile,
+    required String inputName,
+    required List<int> inputShape,
+    required List<double> inputValues,
+  }) async {
+    final contract = await inspectManifest(manifestFile);
+    final raw = jsonDecode(await manifestFile.readAsString()) as Map;
+    if (!(raw['inputs'] as List).contains(inputName) ||
+        (raw['inputs'] as List).length != 1) {
+      throw const FormatException('Unsupported specialist input tensor contract');
+    }
+    final result = await inference.runFloat(
+      modelName: contract['model_name'] as String,
+      sha256: contract['model_sha256'] as String,
+      inputName: inputName, shape: inputShape, values: inputValues);
+    final outputs = result['output_metadata'] as List;
+    final names = outputs.map((v) => (v as Map)['name']).toSet();
+    if (names.length != outputs.length ||
+        names.length != (raw['outputs'] as List).length ||
+        !names.containsAll(raw['outputs'] as List)) {
+      throw const FormatException('Specialist execution outputs changed');
+    }
+    return {
+      'role': contract['role'], 'model_sha256': contract['model_sha256'],
+      'preprocessing_id': contract['preprocessing_id'],
+      'input_name': inputName, 'input_shape': inputShape,
+      'output_metadata': outputs, 'actual_onnx_execution': true,
+      'semantic_result_verified': false,
+      'independent_review': 'pending',
+    };
+  }
+
   Future<Map<String, dynamic>> inspectManifest(File manifestFile) async {
     if (!await manifestFile.exists() || await manifestFile.length() > 65536) {
       throw const FormatException('Missing or oversized model manifest');
