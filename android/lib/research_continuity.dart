@@ -164,6 +164,72 @@ class ResearchContinuity {
     return {'passed': errors.isEmpty, 'errors': errors.toSet().toList()};
   }
 
+  /// Independently checks a persisted diagnostic's intake and model binding.
+  /// This never certifies embedding accuracy, semantics or Android parity.
+  Future<Map<String, dynamic>> reviewDinov2Diagnostic(
+      IntakeRecord intake, {required String expectedModelSha256}) async {
+    final errors = <String>[];
+    final file = File('${(await office.root).path}/${intake.id}/dinov2_diagnostic.json');
+    if (!await file.exists()) {
+      return {'passed': false, 'errors': ['Diagnostic missing']};
+    }
+    try {
+      final data = Map<String, dynamic>.from(jsonDecode(await file.readAsString()) as Map);
+      final receipt = Map<String, dynamic>.from(data['upstream_handoff'] as Map);
+      if (!await office.verifyHandoff(intake, receipt)) errors.add('Stale upstream source');
+      final duration = (intake.data['media'] as Map)['duration_ms'];
+      if (data['schema'] != 1 || data['department'] != '01' ||
+          data['kind'] != 'dinov2_diagnostic' || data['project_id'] != intake.id ||
+          data['source_sha256'] != intake.data['sha256'] ||
+          data['source_duration_ms'] != duration ||
+          data['model_name'] != 'dinov2_small_cls.onnx' ||
+          data['model_sha256'] != expectedModelSha256 ||
+          !RegExp(r'^[a-f0-9]{64}
+      (await review(intake))['passed'] == true;
+}
+).hasMatch(expectedModelSha256) ||
+          data['preprocessing_id'] != 'dinov2_short256_crop224_v1') {
+        errors.add('Source or model binding mismatch');
+      }
+      final samples = data['samples'];
+      if (duration is! int || duration <= 0 || samples is! List ||
+          samples.isEmpty || samples.length > 3 ||
+          data['sample_count'] != samples.length) {
+        errors.add('Invalid sample manifest');
+      } else {
+        var previous = -1;
+        for (final item in samples) {
+          if (item is! Map || item['timestamp_ms'] is! int ||
+              item['timestamp_ms'] <= previous || item['timestamp_ms'] >= duration ||
+              item['embedding_dimension'] != 384 ||
+              item['actual_onnx_execution'] != true ||
+              item['input_sha256'] is! String || item['output_sha256'] is! String ||
+              !RegExp(r'^[a-f0-9]{64}
+      (await review(intake))['passed'] == true;
+}
+).hasMatch(item['input_sha256'] as String) ||
+              !RegExp(r'^[a-f0-9]{64}
+      (await review(intake))['passed'] == true;
+}
+).hasMatch(item['output_sha256'] as String)) {
+            errors.add('Invalid ordered model evidence');
+            break;
+          }
+          previous = item['timestamp_ms'] as int;
+        }
+      }
+      if (data['approved'] != false ||
+          data['semantic_recognition_verified'] != false ||
+          data['android_reference_parity_verified'] != false ||
+          data['independent_review'] != 'pending') {
+        errors.add('Unsubstantiated diagnostic certification');
+      }
+    } catch (_) {
+      errors.add('Unparseable diagnostic');
+    }
+    return {'passed': errors.isEmpty, 'errors': errors.toSet().toList()};
+  }
+
   Future<bool> canHandoff(IntakeRecord intake) async =>
       (await review(intake))['passed'] == true;
 }
