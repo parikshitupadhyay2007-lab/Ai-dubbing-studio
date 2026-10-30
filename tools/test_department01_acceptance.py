@@ -14,6 +14,21 @@ class AcceptanceTests(unittest.TestCase):
             "capabilities": {name: {"state": "verified", "model_sha256": "b" * 64,
                 "independent_review": "passed", "evidence_ids": ["e1"], "metric": 0.9,
                 "benchmark_run_source_sha256": sha} for name in CAPABILITIES},
+            "specialist_models": {role: {
+                "sha256": "b" * 64, "rights_receipt": "fixture-original",
+                "preprocessing_id": "fixture-preprocessing",
+                "execution_receipt": "fixture-android-execution",
+                "independent_review_receipt": "fixture-review",
+                "actual_android_execution": True, "review": "passed",
+            } for role in (
+                "visual_embedding", "character_detector", "character_reidentification",
+                "active_speaker", "emotion_performance", "narrative_context",
+            )},
+            "scene_bible": {"source_sha256": sha, "fingerprint_sha256": "d" * 64,
+                "approved": True, "independent_review": "passed"},
+            "held_out_benchmark": {"source_sha256": sha,
+                "independent_review": "passed", "leakage_check": "passed",
+                "thresholds_pre_registered": True, "professional_result": "passed"},
             "device": {"platform": "android", "result": "passed",
                 "device_fingerprint": "physical-android-build-id", "apk_sha256": "c" * 64,
                 "instrumentation_receipt": "device-run-log", "source_sha256": sha,
@@ -37,6 +52,17 @@ class AcceptanceTests(unittest.TestCase):
 
     def test_simulation_rejects(self):
         self.data["device"]["simulated"] = True
+        self.assertFalse(review(self.data)["passed"])
+
+    def test_missing_specialist_execution_rejects(self):
+        self.data["specialist_models"]["active_speaker"]["actual_android_execution"] = False
+        self.assertFalse(review(self.data)["department02_unlocked"])
+
+    def test_missing_scene_bible_or_heldout_benchmark_rejects(self):
+        self.data["scene_bible"]["approved"] = False
+        self.assertFalse(review(self.data)["passed"])
+        self.data["scene_bible"]["approved"] = True
+        self.data["held_out_benchmark"]["leakage_check"] = "pending"
         self.assertFalse(review(self.data)["passed"])
 
     def test_stale_source_rejects(self):
