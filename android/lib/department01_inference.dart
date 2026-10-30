@@ -40,6 +40,21 @@ class Department01Inference {
     return raw;
   }
 
+  /// Copies packaged model bytes natively without loading them into Dart memory.
+  /// The native installer checks the pinned digest and opens a real ONNX session.
+  Future<Map<String, dynamic>> installBundled({
+    required String modelName, required String sha256,
+  }) async {
+    final raw = await _channel.invokeMapMethod<String, dynamic>(
+      'installBundledModel', _binding(modelName, sha256));
+    if (raw == null || raw['installed'] != true ||
+        raw['model_name'] != modelName || raw['sha256'] != sha256 ||
+        raw['size_bytes'] is! int || (raw['size_bytes'] as int) <= 0) {
+      throw const FormatException('Bundled native model installation unverified');
+    }
+    return raw;
+  }
+
   Future<Map<String, dynamic>> inspect({
     required String modelName, required String sha256,
   }) async {
