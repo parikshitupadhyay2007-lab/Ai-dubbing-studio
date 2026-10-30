@@ -9,6 +9,16 @@ class ResearchEngineCoordinator {
     'anime_recognition', 'scene_segmentation', 'visual_understanding',
     'character_recognition', 'context_research', 'continuity_intelligence',
   ];
+  /// Delivery sequence; visual embedding is a prerequisite within visual understanding,
+  /// not a claim that model inference has passed device verification.
+  static const executionPriorities = <String>[
+    'dinov2_android_validation',
+    'scene_segmentation',
+    'character_recognition',
+    'anime_recognition',
+    'dramatic_intelligence',
+    'independent_acceptance',
+  ];
   static const dependencies = <String, List<String>>{
     'anime_recognition': [],
     'scene_segmentation': [],
