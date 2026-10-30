@@ -3,6 +3,7 @@ import 'dart:io';
 import 'frame_signal_sampler.dart';
 import 'research_visual_embedding_engine.dart';
 import 'research_scene_grouping.dart';
+import 'research_production_archive.dart';
 import 'research_evidence_graph.dart';
 import 'research_engine_coordinator.dart';
 import 'research_directors_scene_bible.dart';
@@ -20,6 +21,34 @@ class OtakuMindResearchDirector {
   final ProductionOffice office;
   final bool onlineEnabled;
   final OtakuMindOnlineResearch online;
+
+  /// Persist the full provisional multimodal record and Scene Bible from
+  /// independently measured upstream model evidence, not inferred placeholders.
+  Future<Map<String, dynamic>> assembleResearchArchive({
+    required IntakeRecord intake,
+    required List<Map<String, dynamic>> characterObservations,
+    required List<Map<String, dynamic>> dialogueObservations,
+    required List<List<double>> episodeSamples,
+    required Map<String, List<double>> authorisedReferences,
+    required Map<String, Map<String, dynamic>> referenceProvenance,
+    required List<Map<String, dynamic>> sceneObservations,
+    required List<Map<String, dynamic>> timedDialogueEvidence,
+  }) async {
+    final archive = ResearchProductionArchive(office);
+    final written = await archive.produce(
+      intake: intake, characterObservations: characterObservations,
+      dialogueObservations: dialogueObservations,
+      episodeSamples: episodeSamples,
+      authorisedReferences: authorisedReferences,
+      referenceProvenance: referenceProvenance,
+      sceneObservations: sceneObservations,
+      timedDialogueEvidence: timedDialogueEvidence);
+    final review = await archive.review(intake);
+    if (review['passed'] != true) {
+      throw FormatException('Persisted research failed independent rereview: ${review['errors']}');
+    }
+    return written;
+  }
 
   /// Diagnostic only: executes pinned ONNX on frames from an approved intake.
   Future<Map<String, dynamic>> diagnoseDinov2({
