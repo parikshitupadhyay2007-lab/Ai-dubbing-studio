@@ -10,7 +10,8 @@ void main() {
     expect(find.text('Departments'), findsOneWidget);
     await tester.tap(find.text('Departments'));
     await tester.pumpAndSettle();
-    expect(find.text('0 / 11 approved'), findsOneWidget);
+    expect(find.text('0 / 11 verified · 0 valid intakes'), findsOneWidget);
+    expect(find.text('READY FOR INTAKE · NO VERIFIED RUN'), findsOneWidget);
     expect(find.text('Production Office'), findsOneWidget);
     await tester.tap(find.text('Production Office'));
     await tester.pumpAndSettle();
