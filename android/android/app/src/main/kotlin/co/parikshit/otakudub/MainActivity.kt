@@ -13,7 +13,12 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger,
             "co.parikshit.otakudub/department01_inference").setMethodCallHandler(
-                Department01Inference(java.io.File(filesDir, "otakudub/models"))
+                Department01Inference(
+                    java.io.File(filesDir, "otakudub/models"),
+                    assets,
+                    io.flutter.FlutterInjector.instance().flutterLoader()
+                        .getLookupKeyForAsset("assets/models/dinov2_small_cls.onnx")
+                )
             )
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger,
             "co.parikshit.otakudub/production_office").setMethodCallHandler { call, result ->
