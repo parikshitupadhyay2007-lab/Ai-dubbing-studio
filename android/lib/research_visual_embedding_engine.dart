@@ -115,7 +115,7 @@ class ResearchVisualEmbeddingEngine {
   }) async {
     if (preprocessingId.trim().isEmpty ||
         !RegExp(r'^[a-zA-Z0-9_.-]{1,100}$').hasMatch(preprocessingId) ||
-        outputName.trim().isEmpty || authorisedReferences.isEmpty) {
+        outputName.trim().isEmpty) {
       throw const FormatException('Missing model preprocessing or references');
     }
     // inspectModel checks the independently pinned bytes in private storage.
@@ -159,7 +159,7 @@ class ResearchVisualEmbeddingEngine {
         shape.last != values.length) {
       throw const FormatException('Embedding dimension mismatch');
     }
-    final ranking = matcher.rank(query: values,
+    final ranking = authorisedReferences.isEmpty ? null : matcher.rank(query: values,
       references: authorisedReferences,
       minimumSimilarity: minimumSimilarity,
       minimumMargin: minimumMargin);
@@ -178,7 +178,10 @@ class ResearchVisualEmbeddingEngine {
       'input_sha256': inputDigest,
       'output_sha256': outputDigest,
       'actual_onnx_execution': true,
+      'embedding_dimension': values.length,
+      'embedding': values,
       'ranking': ranking,
+      'reference_status': authorisedReferences.isEmpty ? 'no_authorised_references' : 'comparison_performed',
       'verified_anime': false,
       'verified_character': false,
       'requires_independent_review': true,
