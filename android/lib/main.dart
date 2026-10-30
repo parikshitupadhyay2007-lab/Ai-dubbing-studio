@@ -8,6 +8,7 @@ import 'package:file_picker/file_picker.dart';
 import 'production_office.dart';
 import 'otakudub_onboarding.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -80,22 +81,53 @@ class _OtakuShellState extends State<OtakuShell> {
   @override
   void initState() { super.initState(); refresh(); loadVisionModel(); }
   Future<void> loadVisionModel() async {
-    final prefs = await SharedPreferences.getInstance();
-    final hash = prefs.getString('department01_dinov2_sha256');
-    if (hash == null || hash.length != 64) return;
+    if (installingVision) return;
+    setState(() {
+      installingVision = true;
+      visionStatus = 'Verifying bundled offline DINOv2 model…';
+    });
     try {
-      await const Department01Inference().inspect(
-        modelName: 'dinov2_small_cls.onnx', sha256: hash);
+      final manifest = jsonDecode(
+        await rootBundle.loadString('assets/models/manifest.json'));
+      if (manifest is! Map ||
+          manifest['model_id'] != 'facebook/dinov2-small' ||
+          manifest['artifact'] != 'dinov2_small_cls.onnx' ||
+          manifest['input_name'] != 'pixel_values' ||
+          manifest['output_name'] != 'embedding' ||
+          jsonEncode(manifest['input_shape']) != jsonEncode([1, 3, 224, 224]) ||
+          jsonEncode(manifest['output_shape']) != jsonEncode([1, 384]) ||
+          manifest['onnx_cpu_equivalence_checked'] != true ||
+          manifest['sha256'] is! String ||
+          !RegExp(r'^[a-f0-9]{64}$').hasMatch(manifest['sha256'] as String)) {
+        throw const FormatException('Packaged DINOv2 provenance is invalid');
+      }
+      final sha = manifest['sha256'] as String;
+      final inference = const Department01Inference();
+      try {
+        await inference.inspect(modelName: 'dinov2_small_cls.onnx', sha256: sha);
+      } catch (_) {
+        await inference.installBundled(
+          modelName: 'dinov2_small_cls.onnx', sha256: sha);
+      }
+      final inspected = await inference.inspect(
+        modelName: 'dinov2_small_cls.onnx', sha256: sha);
+      if (!(inspected['inputs'] as List).contains('pixel_values') ||
+          !(inspected['outputs'] as List).contains('embedding')) {
+        throw const FormatException('Packaged model tensor interface mismatch');
+      }
+      await (await SharedPreferences.getInstance()).setString(
+        'department01_dinov2_sha256', sha);
       if (mounted) setState(() {
-        installedVisionHash = hash;
-        visionStatus = 'Local DINOv2 checksum verified';
+        installedVisionHash = sha;
+        visionStatus = 'Bundled DINOv2 installed and verified offline. Run its real inference diagnostic from Projects.';
       });
-    } catch (_) {
-      await prefs.remove('department01_dinov2_sha256');
+    } catch (error) {
       if (mounted) setState(() {
         installedVisionHash = null;
-        visionStatus = 'Stored vision model is no longer valid';
+        visionStatus = 'Offline DINOv2 provisioning failed: $error';
       });
+    } finally {
+      if (mounted) setState(() => installingVision = false);
     }
   }
   Future<void> refresh() async {
@@ -115,56 +147,7 @@ class _OtakuShellState extends State<OtakuShell> {
     catch (e) { if (mounted) setState(() => intakeError = '$e'); }
     finally { if (mounted) { await refresh(); setState(() => importing = false); } }
   }
-  Future<void> installVisionModel() async {
-    if (installingVision) return;
-    final manifestPick = await FilePicker.platform.pickFiles(
-      type: FileType.custom, allowedExtensions: ['json'], withData: false);
-    if (manifestPick == null || manifestPick.files.single.path == null) return;
-    final modelPick = await FilePicker.platform.pickFiles(
-      type: FileType.custom, allowedExtensions: ['onnx'], withData: false);
-    if (modelPick == null || modelPick.files.single.path == null) return;
-    setState(() { installingVision = true; visionStatus = null; });
-    try {
-      final manifest = jsonDecode(await File(manifestPick.files.single.path!).readAsString());
-      if (manifest is! Map ||
-          manifest['model_id'] != 'facebook/dinov2-small' ||
-          manifest['artifact'] != 'dinov2_small_cls.onnx' ||
-          manifest['input_name'] != 'pixel_values' ||
-          manifest['output_name'] != 'embedding' ||
-          jsonEncode(manifest['input_shape']) != jsonEncode([1, 3, 224, 224]) ||
-          jsonEncode(manifest['output_shape']) != jsonEncode([1, 384]) ||
-          manifest['onnx_cpu_equivalence_checked'] != true ||
-          manifest['sha256'] is! String ||
-          !RegExp(r'^[a-f0-9]{64}$').hasMatch(manifest['sha256'] as String)) {
-        throw const FormatException('DINOv2 acquisition manifest is incompatible');
-      }
-      if (modelPick.files.single.name != manifest['artifact']) {
-        throw const FormatException('Model file does not match acquisition manifest');
-      }
-      final inference = const Department01Inference();
-      await inference.installLocal(
-        sourcePath: modelPick.files.single.path!,
-        modelName: manifest['artifact'] as String,
-        sha256: manifest['sha256'] as String);
-      final inspected = await inference.inspect(
-        modelName: manifest['artifact'] as String,
-        sha256: manifest['sha256'] as String);
-      if (!(inspected['inputs'] as List).contains('pixel_values') ||
-          !(inspected['outputs'] as List).contains('embedding')) {
-        throw const FormatException('Installed model has incompatible tensor names');
-      }
-      await (await SharedPreferences.getInstance()).setString(
-        'department01_dinov2_sha256', manifest['sha256'] as String);
-      if (mounted) setState(() {
-        installedVisionHash = manifest['sha256'] as String;
-        visionStatus = 'DINOv2 installed and checksum verified; inference diagnostic available.';
-      });
-    } catch (error) {
-      if (mounted) setState(() => visionStatus = 'Vision model installation failed: $error');
-    } finally {
-      if (mounted) setState(() => installingVision = false);
-    }
-  }
+  Future<void> installVisionModel() => loadVisionModel();
   Future<void> runResearchDiagnostic(IntakeRecord intake) async {
     if (activeResearchId != null) return;
     if (!verifiedIntakes.contains(intake.id)) {
@@ -174,7 +157,7 @@ class _OtakuShellState extends State<OtakuShell> {
     if (installedVisionHash == null) {
       setState(() {
         tab = 1;
-        researchStatus = 'Department 01 needs the verified DINOv2 model. In Studio, tap INSTALL DINOv2 MODEL and select its acquisition JSON manifest followed by the matching ONNX file. The full department remains unverified.';
+        researchStatus = 'Department 01 bundled model provisioning has not passed. In Studio tap RETRY OFFLINE MODEL VERIFICATION and inspect its error. Full department acceptance remains pending.';
       });
       return;
     }
@@ -353,11 +336,11 @@ class StudioPage extends StatelessWidget {
         const Text('DEPARTMENT 01 · LOCAL VISION MODEL',
           style: TextStyle(fontWeight: FontWeight.w800, color: lavender)),
         const SizedBox(height: 8),
-        const Text('Choose the acquisition manifest.json, then its matching dinov2_small_cls.onnx. Both remain local. The native installer verifies the complete model checksum.'),
+        const Text('DINOv2 is packaged with this APK. Installation and full SHA-256 verification occur offline on first launch; no file selection or model download is needed.'),
         const SizedBox(height: 12),
         if (installingVision) const CircularProgressIndicator(),
         OutlinedButton.icon(onPressed: installingVision ? null : onInstallVision,
-          icon: const Icon(Icons.memory), label: const Text('INSTALL DINOv2 MODEL')),
+          icon: const Icon(Icons.memory), label: const Text('RETRY OFFLINE MODEL VERIFICATION')),
         if (visionStatus != null) SelectableText(visionStatus!),
       ]),
     ),
