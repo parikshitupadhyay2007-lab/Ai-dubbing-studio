@@ -52,6 +52,41 @@ def review(package):
             errors.append(f"{name}: actual metric missing")
         if entry.get("benchmark_run_source_sha256") != source:
             errors.append(f"{name}: benchmark source mismatch")
+    # Specialist model receipts are separate from producer-declared capability states.
+    # A pinned checksum without an actual installed/executed model is insufficient.
+    models = package.get("specialist_models", {})
+    required_roles = (
+        "visual_embedding", "character_detector", "character_reidentification",
+        "active_speaker", "emotion_performance", "narrative_context",
+    )
+    if not isinstance(models, dict) or set(models) != set(required_roles):
+        errors.append("Missing or unexpected specialist model receipts")
+        models = {}
+    for role in required_roles:
+        model = models.get(role, {})
+        if not isinstance(model, dict):
+            errors.append(f"{role}: invalid specialist receipt")
+            continue
+        if not isinstance(model.get("sha256"), str) or not SHA.fullmatch(model["sha256"]):
+            errors.append(f"{role}: invalid model fingerprint")
+        for field in ("rights_receipt", "preprocessing_id", "execution_receipt",
+                      "independent_review_receipt"):
+            if not isinstance(model.get(field), str) or not model[field].strip():
+                errors.append(f"{role}: missing {field}")
+        if model.get("actual_android_execution") is not True or model.get("review") != "passed":
+            errors.append(f"{role}: Android inference not independently verified")
+    bible = package.get("scene_bible", {})
+    if not isinstance(bible, dict) or bible.get("source_sha256") != source or not (
+        isinstance(bible.get("fingerprint_sha256"), str) and SHA.fullmatch(bible["fingerprint_sha256"])
+    ) or bible.get("independent_review") != "passed" or bible.get("approved") is not True:
+        errors.append("Approved independently reviewed source-bound Scene Bible missing")
+    benchmark = package.get("held_out_benchmark", {})
+    if not isinstance(benchmark, dict) or benchmark.get("source_sha256") != source or (
+        benchmark.get("independent_review") != "passed" or benchmark.get("leakage_check") != "passed"
+        or benchmark.get("thresholds_pre_registered") is not True
+        or benchmark.get("professional_result") != "passed"
+    ):
+        errors.append("Held-out professional benchmark evidence missing")
     device = package.get("device", {})
     if not isinstance(device, dict) or device.get("platform") != "android" or device.get("result") != "passed":
         errors.append("Real Android validation missing")
