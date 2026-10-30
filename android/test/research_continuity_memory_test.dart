@@ -34,6 +34,7 @@ void main() {
       expect((second['unresolved_conflicts'] as List).length, 1);
       expect(second['approved'], false);
       final file = File('${project.path}/continuity_memory.json');
+      final original = await file.readAsString();
       final corrupted = Map<String, dynamic>.from(
         jsonDecode(await file.readAsString()) as Map);
       corrupted['approved'] = true;
@@ -41,6 +42,7 @@ void main() {
       await expectLater(memory.append(intake: intake,
         entityId: 'track_1', attribute: 'role', value: 'speaker_a',
         evidenceIds: ['frame_3']), throwsFormatException);
+      await file.writeAsString(original);
       office.current = false;
       await expectLater(memory.append(intake: intake,
         entityId: 'track_2', attribute: 'role', value: 'speaker_c',
