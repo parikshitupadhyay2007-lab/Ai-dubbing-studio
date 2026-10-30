@@ -10,7 +10,7 @@ import java.nio.FloatBuffer
 import java.security.MessageDigest
 
 /** Local-only ONNX executor; never uses network or declares semantic AI success. */
-class Department01Inference(private val modelsDir: File) : MethodChannel.MethodCallHandler {
+class Department01Inference(private val modelsDir: File, private val bundledAssets: android.content.res.AssetManager, private val bundledAssetKey: String) : MethodChannel.MethodCallHandler {
     private val environment by lazy { OrtEnvironment.getEnvironment() }
 
     private fun model(call: MethodCall): File {
@@ -82,7 +82,57 @@ class Department01Inference(private val modelsDir: File) : MethodChannel.MethodC
         }
     }
 
+    private fun installBundled(call: MethodCall): Map<String, Any> {
+        val name = call.argument<String>("model_name") ?: error("Missing model name")
+        require(name == "dinov2_small_cls.onnx") { "Unsupported bundled model" }
+        val expected = call.argument<String>("sha256") ?: error("Missing pinned checksum")
+        require(Regex("[0-9a-f]{64}").matches(expected)) { "Invalid checksum" }
+        val root = modelsDir.canonicalFile
+        require(root.exists() || root.mkdirs()) { "Cannot create model directory" }
+        val target = File(root, name).canonicalFile
+        require(target.parentFile == root) { "Unsafe target" }
+        val temp = File(root, "$name.bundled.partial")
+        val digest = MessageDigest.getInstance("SHA-256")
+        try {
+            bundledAssets.open(bundledAssetKey, android.content.res.AssetManager.ACCESS_STREAMING).use { input ->
+                java.io.FileOutputStream(temp).use { output ->
+                    val buffer = ByteArray(65536)
+                    var size = 0L
+                    while (true) {
+                        val n = input.read(buffer)
+                        if (n < 0) break
+                        size += n
+                        require(size in 1L..536870912L) { "Bundled model too large" }
+                        digest.update(buffer, 0, n)
+                        output.write(buffer, 0, n)
+                    }
+                    output.fd.sync()
+                }
+            }
+            val actual = digest.digest().joinToString("") { "%02x".format(it) }
+            require(actual == expected) { "Bundled model checksum mismatch" }
+            environment.createSession(temp.absolutePath, OrtSession.SessionOptions()).use { session ->
+                require(session.inputNames.contains("pixel_values") && session.outputNames.contains("embedding")) {
+                    "Bundled DINOv2 interface mismatch"
+                }
+            }
+            if (target.exists()) require(target.delete()) { "Cannot replace outdated model" }
+            require(temp.renameTo(target)) { "Bundled model installation failed" }
+            return mapOf("installed" to true, "model_name" to name,
+                "sha256" to actual, "size_bytes" to target.length())
+        } finally {
+            if (temp.exists()) temp.delete()
+        }
+    }
+
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
+        if (call.method == "installBundledModel") {
+            try { result.success(installBundled(call)) }
+            catch (e: Exception) {
+                result.error("BUNDLED_MODEL_FAILED", e.message ?: e.javaClass.simpleName, null)
+            }
+            return
+        }
         if (call.method == "installLocalModel") {
             try { result.success(install(call)) }
             catch (e: Exception) {
