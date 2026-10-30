@@ -63,12 +63,20 @@ class OtakuShell extends StatefulWidget {
 class _OtakuShellState extends State<OtakuShell> {
   final office = ProductionOffice();
   List<IntakeRecord> records = [];
+  Set<String> verifiedIntakes = {};
   bool importing = false;
   String? intakeError;
   String targetLanguage = 'hi';
   @override
   void initState() { super.initState(); refresh(); }
-  Future<void> refresh() async { final next = await office.all(); if (mounted) setState(() => records = next); }
+  Future<void> refresh() async {
+    final next = await office.all();
+    final verified = <String>{};
+    for (final record in next) {
+      if (await office.canHandoff(record)) verified.add(record.id);
+    }
+    if (mounted) setState(() { records = next; verifiedIntakes = verified; });
+  }
   Future<void> importVideo() async {
     if (importing) return;
     final picked = await FilePicker.platform.pickFiles(type: FileType.video, withData: false);
@@ -94,7 +102,7 @@ class _OtakuShellState extends State<OtakuShell> {
             const Padding(padding: EdgeInsets.only(right: 16), child: CircleAvatar(radius: 15, backgroundColor: softer, child: Icon(Icons.person_outline, color: lavender, size: 19))),
           ],
         ),
-        body: IndexedStack(index: tab, children: [const DiscoverPage(), StudioPage(importing: importing, error: intakeError, onImport: importVideo, language: targetLanguage, onLanguage: (v) => setState(() => targetLanguage = v)), ProjectsPage(records: records), DepartmentsPage(records: records)]),
+        body: IndexedStack(index: tab, children: [const DiscoverPage(), StudioPage(importing: importing, error: intakeError, onImport: importVideo, language: targetLanguage, onLanguage: (v) => setState(() => targetLanguage = v)), ProjectsPage(records: records), DepartmentsPage(records: records, verifiedIntakes: verifiedIntakes)]),
         bottomNavigationBar: NavigationBar(
           selectedIndex: tab,
           onDestinationSelected: (i) => setState(() => tab = i),
@@ -278,10 +286,14 @@ const departments = <DepartmentSpec>[
 ];
 
 class DepartmentsPage extends StatelessWidget {
-  const DepartmentsPage({super.key, required this.records});
+  const DepartmentsPage({super.key, required this.records, this.verifiedIntakes = const {}});
   final List<IntakeRecord> records;
+  final Set<String> verifiedIntakes;
   @override
-  Widget build(BuildContext context) => ListView(padding: const EdgeInsets.all(18), children: [
+  Widget build(BuildContext context) {
+    final verified = records.where((r) => verifiedIntakes.contains(r.id)).toList();
+    final count = verified.isEmpty ? 0 : 1;
+    return ListView(padding: const EdgeInsets.all(18), children: [
     const Text('DEPARTMENT TRACKER', style: TextStyle(fontSize: 25, fontWeight: FontWeight.w900)),
     const SizedBox(height: 5),
     const Text('Inspect each department’s actual work, independent review and handoff.', style: TextStyle(color: subdued)),
@@ -291,28 +303,30 @@ class DepartmentsPage extends StatelessWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           const Text('NEW PIPELINE', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 1)),
-          Text(records.any((r) => r.approved) ? '1 intake approved · 10 pending' : '0 / 11 approved', style: const TextStyle(color: lavender, fontWeight: FontWeight.w800)),
+          Text('$count / 11 verified · ${verified.length} valid intake${verified.length == 1 ? '' : 's'}', style: const TextStyle(color: lavender, fontWeight: FontWeight.w800)),
         ]),
         const SizedBox(height: 13),
         ClipRRect(borderRadius: BorderRadius.circular(8),
-          child: const LinearProgressIndicator(value: 0, minHeight: 8, backgroundColor: softer, color: lavender)),
+          child: LinearProgressIndicator(value: count / departments.length, minHeight: 8, backgroundColor: softer, color: lavender)),
         const SizedBox(height: 11),
-        const Text('Department 00 intake is implemented. Production status below reflects saved project records; later departments remain unbuilt.',
+        const Text('Only revalidated, source-bound Department 00 receipts count. Later departments require independent acceptance.',
           style: TextStyle(fontSize: 12, color: subdued)),
       ]),
     ),
     const SizedBox(height: 19),
     if (records.isNotEmpty) ...[
       const _DetailHeader('SAVED PRODUCTION OFFICE RESULTS'),
-      for (final record in records) Card(child: ExpansionTile(title: Text(record.title), subtitle: Text('00 · ${record.data['status']}'), children: [Padding(padding: const EdgeInsets.all(14), child: SelectableText(const JsonEncoder.withIndent('  ').convert(record.data)))])),
+      for (final record in records) Card(child: ExpansionTile(title: Text(record.title), subtitle: Text(verifiedIntakes.contains(record.id) ? '00 · VERIFIED INTAKE' : '00 · NOT CURRENTLY VERIFIED (${record.data['status']})'), children: [Padding(padding: const EdgeInsets.all(14), child: SelectableText(const JsonEncoder.withIndent('  ').convert(record.data)))])),
     ],
-    for (var i = 0; i < departments.length; i++) _DepartmentCard(index: i, spec: departments[i]),
+    for (var i = 0; i < departments.length; i++) _DepartmentCard(index: i, spec: departments[i], verifiedCount: verified.length, recordCount: records.length),
     const SizedBox(height: 12),
   ]);
+  }
 }
 
 class _DepartmentCard extends StatelessWidget {
-  const _DepartmentCard({required this.index, required this.spec});
+  const _DepartmentCard({required this.index, required this.spec, required this.verifiedCount, required this.recordCount});
+  final int verifiedCount, recordCount;
   final int index;
   final DepartmentSpec spec;
   @override
@@ -324,7 +338,10 @@ class _DepartmentCard extends StatelessWidget {
         decoration: BoxDecoration(color: softer, borderRadius: BorderRadius.circular(8)),
         child: Text(index.toString().padLeft(2, '0'), style: const TextStyle(color: lavender, fontWeight: FontWeight.w900))),
       title: Text(spec.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
-      subtitle: const Padding(padding: EdgeInsets.only(top: 4), child: Text('NOT BUILT · 0% VERIFIED', style: TextStyle(color: subdued, fontSize: 10))),
+      subtitle: Padding(padding: const EdgeInsets.only(top: 4), child: Text(index == 0
+        ? (verifiedCount > 0 ? 'OPERATIONAL · $verifiedCount VERIFIED INTAKE${verifiedCount == 1 ? '' : 'S'}' : (recordCount > 0 ? 'INTAKE REVALIDATION FAILED OR PENDING' : 'READY FOR INTAKE · NO VERIFIED RUN'))
+        : (index == 1 ? 'PARTIALLY IMPLEMENTED · ACCEPTANCE PENDING' : 'LOCKED · NO VERIFIED HANDOFF'),
+        style: const TextStyle(color: subdued, fontSize: 10))),
       children: [Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Divider(color: softer),
@@ -337,12 +354,12 @@ class _DepartmentCard extends StatelessWidget {
           for (final item in spec.checks) _DetailLine(item),
           const SizedBox(height: 13),
           const _DetailHeader('ACTUAL RESULTS'),
-          const Text('No output recorded. No original script, translation, audio, or review exists in the replacement pipeline yet.',
-            style: TextStyle(color: subdued, fontSize: 12)),
+          Text(index == 0 ? '$verifiedCount of $recordCount saved intake records passed fresh source, manifest and independent media revalidation.' : 'No independently accepted output receipt for this department is available in the current project tracker.',
+            style: const TextStyle(color: subdued, fontSize: 12)),
           const SizedBox(height: 12),
           const _DetailHeader('HANDOFF'),
-          const Text('Locked until implementation, evidence and independent acceptance pass.',
-            style: TextStyle(color: subdued, fontSize: 12)),
+          Text(index == 0 ? (verifiedCount > 0 ? 'Department 00 handoff eligibility revalidated; this does not certify Department 01.' : 'No current eligible intake handoff.') : 'Locked until implementation, evidence and independent acceptance pass.',
+            style: const TextStyle(color: subdued, fontSize: 12)),
         ]))],
     ));
 }
