@@ -14,7 +14,7 @@ void main() {
       {'timestamp_ms': 2000, 'evidence_id': 'frame_2', 'detector_verified': true,
         'visual_embedding': [0.0, 1.0]},
       {'timestamp_ms': 3000, 'evidence_id': 'frame_3', 'detector_verified': true,
-        'visual_embedding': [0.7071, 0.7071]},
+        'visual_embedding': [0.85, 0.53]},
     ]);
     final assignments = result['assignments'] as List;
     expect((assignments[0] as Map)['track_id'], 'local_track_0');
