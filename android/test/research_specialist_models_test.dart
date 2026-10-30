@@ -14,7 +14,12 @@ void main() {
   setUp(() async {
     root = await Directory.systemTemp.createTemp('specialist_models_');
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-      .setMockMethodCallHandler(channel, (call) async => {
+      .setMockMethodCallHandler(channel, (call) async => call.method == 'runFloatModel' ? {
+        'executed': true, 'checksum_verified': true,
+        'semantic_result_verified': false,
+        'output_metadata': [{'name': 'detections', 'type': 'float32',
+          'shape': [1, 2], 'values': [0.2, 0.8]}],
+      } : {
         'runtime': 'onnxruntime_android', 'checksum_verified': true,
         'inputs': ['image'], 'outputs': ['detections'],
       });
@@ -39,6 +44,18 @@ void main() {
     expect(result['installed'], true);
     expect(result['real_inference_verified'], false);
     expect(result['professional_accuracy_verified'], false);
+  });
+  test('runs installed model with actual native output but no semantic certification', () async {
+    final file = File('${root.path}/model.json');
+    await file.writeAsString(jsonEncode(valid()));
+    final result = await registry.execute(manifestFile: file,
+      inputName: 'image', inputShape: [1, 2], inputValues: [0.1, 0.2]);
+    expect(result['actual_onnx_execution'], true);
+    expect(result['semantic_result_verified'], false);
+    expect(result['independent_review'], 'pending');
+    await expectLater(registry.execute(manifestFile: file,
+      inputName: 'wrong', inputShape: [1, 2], inputValues: [0.1, 0.2]),
+      throwsFormatException);
   });
   test('rejects missing licensing or incompatible tensor signatures', () async {
     final file = File('${root.path}/model.json');
