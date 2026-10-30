@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'frame_signal_sampler.dart';
 import 'research_visual_embedding_engine.dart';
+import 'research_scene_grouping.dart';
 import 'research_evidence_graph.dart';
 import 'research_engine_coordinator.dart';
 import 'research_directors_scene_bible.dart';
@@ -90,6 +91,83 @@ class OtakuMindResearchDirector {
       if (await temp.exists()) await temp.delete();
     }
     return diagnostic;
+  }
+
+  /// Use actual local video samples and pinned visual embeddings to propose
+  /// scene boundaries. Never presents proposals as reviewed semantic scenes.
+  Future<Map<String, dynamic>> proposeVisualScenes({
+    required IntakeRecord intake,
+    required String modelSha256,
+    int sampleIntervalMs = 2000,
+    FrameSignalSampler sampler = const FrameSignalSampler(),
+    ResearchVisualEmbeddingEngine engine = const ResearchVisualEmbeddingEngine(),
+  }) async {
+    if (sampleIntervalMs < 500 || sampleIntervalMs > 60000) {
+      throw const FormatException('Invalid semantic sampling interval');
+    }
+    final receipt = await office.issueHandoff(intake);
+    final duration = (intake.data['media'] as Map)['duration_ms'];
+    final path = intake.data['source_path'];
+    if (duration is! int || duration <= 0 || path is! String ||
+        path.isEmpty || !RegExp(r'^[a-f0-9]{64}$').hasMatch(modelSha256)) {
+      throw const FormatException('Invalid visual scene input');
+    }
+    final times = <int>[];
+    for (var t = 0; t < duration; t += sampleIntervalMs) {
+      times.add(t);
+    }
+    if (times.length < 2 || times.length > 7200) {
+      throw const FormatException('Insufficient or excessive scene samples');
+    }
+    final records = <Map<String, dynamic>>[];
+    List<int>? previous;
+    for (var offset = 0; offset < times.length; offset += 120) {
+      if (!await office.verifyHandoff(intake, receipt)) {
+        throw StateError('Stale intake before scene sampling');
+      }
+      final end = offset + 120 < times.length ? offset + 120 : times.length;
+      final signals = await sampler.sample(path, times.sublist(offset, end));
+      for (final signal in signals) {
+        var cut = 0.0;
+        if (previous != null) {
+          var delta = 0;
+          for (var i = 0; i < 64; i++) {
+            delta += (previous[i] - signal.luma8x8[i]).abs();
+          }
+          cut = delta / (64 * 255);
+        }
+        previous = signal.luma8x8;
+        final inference = await engine.evaluateDinov2Frame(
+          sourcePath: path, timestampMs: signal.timestampMs,
+          modelSha256: modelSha256, authorisedReferences: const {});
+        final vector = inference['embedding'];
+        if (inference['actual_onnx_execution'] != true ||
+            inference['model_sha256'] != modelSha256 ||
+            inference['embedding_dimension'] != 384 ||
+            vector is! List<double> || vector.length != 384 ||
+            inference['verified_anime'] != false ||
+            inference['verified_character'] != false) {
+          throw const FormatException('Scene grouping requires actual pinned DINOv2 embeddings');
+        }
+        records.add({'timestamp_ms': signal.timestampMs,
+          'cut_score': cut, 'embedding': vector});
+      }
+      if (!await office.verifyHandoff(intake, receipt)) {
+        throw StateError('Source changed during scene sampling');
+      }
+    }
+    final proposal = const ResearchSceneGrouping().propose(
+      durationMs: duration, frames: records);
+    if (!await office.verifyHandoff(intake, receipt)) {
+      throw StateError('Source changed before scene proposal');
+    }
+    return {
+      ...proposal, 'project_id': intake.id,
+      'source_sha256': intake.data['sha256'],
+      'model_sha256': modelSha256,
+      'preprocessing_id': 'dinov2_short256_crop224_v1',
+      'approved': false,
+    };
   }
 
   /// Decode real frames locally and persist candidate visual transitions.
