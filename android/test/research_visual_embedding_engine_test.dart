@@ -38,6 +38,30 @@ void main() {
     expect((result['input_sha256'] as String).length, 64);
   });
 
+  test('executes diagnostic embedding with no reference index', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .setMockMethodCallHandler(channel, (call) async {
+        if (call.method == 'inspectModel') return {
+          'runtime': 'onnxruntime_android', 'checksum_verified': true,
+          'inputs': ['image'], 'outputs': ['embedding']};
+        return {'executed': true, 'checksum_verified': true,
+          'semantic_result_verified': false,
+          'output_metadata': [{'name': 'embedding', 'type': 'float32',
+            'shape': [1, 3], 'values': [1.0, 0.0, 0.0]}]};
+      });
+    final result = await engine.evaluate(modelName: 'encoder.onnx',
+      modelSha256: hash, inputName: 'image', outputName: 'embedding',
+      preprocessingId: 'diagnostic-v1', inputShape: [1, 2],
+      preprocessedPixels: [0, 1], authorisedReferences: const {});
+    expect(result['actual_onnx_execution'], true);
+    expect(result['embedding_dimension'], 3);
+    expect(result['embedding'], [1.0, 0.0, 0.0]);
+    expect(result['ranking'], isNull);
+    expect(result['reference_status'], 'no_authorised_references');
+    expect(result['verified_anime'], false);
+    expect(result['verified_character'], false);
+  });
+
   test('rejects logits or spatial tensor presented as an embedding', () async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
       .setMockMethodCallHandler(channel, (call) async {
