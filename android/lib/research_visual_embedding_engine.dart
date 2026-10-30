@@ -26,7 +26,7 @@ class ResearchVisualEmbeddingEngine {
     required String sourcePath,
     required int timestampMs,
     required String modelSha256,
-    required Map<String, List<double>> authorisedReferences,
+    Map<String, List<double>> authorisedReferences = const {},
   }) async {
     final rgb = await frames.sampleDinov2(sourcePath: sourcePath,
       timestampMs: timestampMs);
