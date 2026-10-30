@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:io';
+import 'department01_inference.dart';
 import 'package:file_picker/file_picker.dart';
 import 'production_office.dart';
 import 'otakudub_onboarding.dart';
@@ -65,6 +67,8 @@ class _OtakuShellState extends State<OtakuShell> {
   List<IntakeRecord> records = [];
   Set<String> verifiedIntakes = {};
   bool importing = false;
+  bool installingVision = false;
+  String? visionStatus;
   String? intakeError;
   String targetLanguage = 'hi';
   @override
@@ -86,6 +90,52 @@ class _OtakuShellState extends State<OtakuShell> {
     catch (e) { if (mounted) setState(() => intakeError = '$e'); }
     finally { if (mounted) { await refresh(); setState(() => importing = false); } }
   }
+  Future<void> installVisionModel() async {
+    if (installingVision) return;
+    final manifestPick = await FilePicker.platform.pickFiles(
+      type: FileType.custom, allowedExtensions: ['json'], withData: false);
+    if (manifestPick == null || manifestPick.files.single.path == null) return;
+    final modelPick = await FilePicker.platform.pickFiles(
+      type: FileType.custom, allowedExtensions: ['onnx'], withData: false);
+    if (modelPick == null || modelPick.files.single.path == null) return;
+    setState(() { installingVision = true; visionStatus = null; });
+    try {
+      final manifest = jsonDecode(await File(manifestPick.files.single.path!).readAsString());
+      if (manifest is! Map ||
+          manifest['model_id'] != 'facebook/dinov2-small' ||
+          manifest['artifact'] != 'dinov2_small_cls.onnx' ||
+          manifest['input_name'] != 'pixel_values' ||
+          manifest['output_name'] != 'embedding' ||
+          jsonEncode(manifest['input_shape']) != jsonEncode([1, 3, 224, 224]) ||
+          jsonEncode(manifest['output_shape']) != jsonEncode([1, 384]) ||
+          manifest['onnx_cpu_equivalence_checked'] != true ||
+          manifest['sha256'] is! String ||
+          !RegExp(r'^[a-f0-9]{64}$').hasMatch(manifest['sha256'] as String)) {
+        throw const FormatException('DINOv2 acquisition manifest is incompatible');
+      }
+      if (modelPick.files.single.name != manifest['artifact']) {
+        throw const FormatException('Model file does not match acquisition manifest');
+      }
+      final inference = const Department01Inference();
+      await inference.installLocal(
+        sourcePath: modelPick.files.single.path!,
+        modelName: manifest['artifact'] as String,
+        sha256: manifest['sha256'] as String);
+      final inspected = await inference.inspect(
+        modelName: manifest['artifact'] as String,
+        sha256: manifest['sha256'] as String);
+      if (!(inspected['inputs'] as List).contains('pixel_values') ||
+          !(inspected['outputs'] as List).contains('embedding')) {
+        throw const FormatException('Installed model has incompatible tensor names');
+      }
+      if (mounted) setState(() => visionStatus =
+        'DINOv2 model installed and checksum verified. Physical inference parity remains unverified.');
+    } catch (error) {
+      if (mounted) setState(() => visionStatus = 'Vision model installation failed: $error');
+    } finally {
+      if (mounted) setState(() => installingVision = false);
+    }
+  }
   int tab = 0;
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -102,7 +152,7 @@ class _OtakuShellState extends State<OtakuShell> {
             const Padding(padding: EdgeInsets.only(right: 16), child: CircleAvatar(radius: 15, backgroundColor: softer, child: Icon(Icons.person_outline, color: lavender, size: 19))),
           ],
         ),
-        body: IndexedStack(index: tab, children: [const DiscoverPage(), StudioPage(importing: importing, error: intakeError, onImport: importVideo, language: targetLanguage, onLanguage: (v) => setState(() => targetLanguage = v)), ProjectsPage(records: records), DepartmentsPage(records: records, verifiedIntakes: verifiedIntakes)]),
+        body: IndexedStack(index: tab, children: [const DiscoverPage(), StudioPage(importing: importing, error: intakeError, onImport: importVideo, language: targetLanguage, onLanguage: (v) => setState(() => targetLanguage = v), installingVision: installingVision, visionStatus: visionStatus, onInstallVision: installVisionModel), ProjectsPage(records: records), DepartmentsPage(records: records, verifiedIntakes: verifiedIntakes)]),
         bottomNavigationBar: NavigationBar(
           selectedIndex: tab,
           onDestinationSelected: (i) => setState(() => tab = i),
@@ -195,12 +245,15 @@ class _FeatureTile extends StatelessWidget {
 }
 
 class StudioPage extends StatelessWidget {
-  const StudioPage({super.key, required this.importing, required this.error, required this.onImport, required this.language, required this.onLanguage});
+  const StudioPage({super.key, required this.importing, required this.error, required this.onImport, required this.language, required this.onLanguage, this.installingVision = false, this.visionStatus, this.onInstallVision});
   final bool importing;
   final String? error;
   final VoidCallback onImport;
   final String language;
   final ValueChanged<String> onLanguage;
+  final bool installingVision;
+  final String? visionStatus;
+  final VoidCallback? onInstallVision;
   @override
   Widget build(BuildContext context) => ListView(padding: const EdgeInsets.all(18), children: [
     const Text('DUBBING STUDIO', style: TextStyle(fontSize: 27, fontWeight: FontWeight.w900)),
@@ -227,6 +280,22 @@ class StudioPage extends StatelessWidget {
           onPressed: importing ? null : onImport, icon: const Icon(Icons.add), label: const Text('IMPORT VIDEO'),
           style: FilledButton.styleFrom(backgroundColor: lavender, foregroundColor: canvas),
         ),
+      ]),
+    ),
+    const SizedBox(height: 22),
+    if (onInstallVision != null) Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(color: surface, borderRadius: BorderRadius.circular(14)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('DEPARTMENT 01 · LOCAL VISION MODEL',
+          style: TextStyle(fontWeight: FontWeight.w800, color: lavender)),
+        const SizedBox(height: 8),
+        const Text('Choose the acquisition manifest.json, then its matching dinov2_small_cls.onnx. Both remain local. The native installer verifies the complete model checksum.'),
+        const SizedBox(height: 12),
+        if (installingVision) const CircularProgressIndicator(),
+        OutlinedButton.icon(onPressed: installingVision ? null : onInstallVision,
+          icon: const Icon(Icons.memory), label: const Text('INSTALL DINOv2 MODEL')),
+        if (visionStatus != null) SelectableText(visionStatus!),
       ]),
     ),
     const SizedBox(height: 22),
