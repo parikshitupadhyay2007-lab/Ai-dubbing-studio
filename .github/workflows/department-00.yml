@@ -31,13 +31,25 @@ jobs:
         working-directory: android
         run: |
           test -s assets/otakudub_icon.png
+          python3 -m pip install 'Pillow==11.3.0'
           python3 - <<'PY'
-          import pathlib, struct
-          icon = pathlib.Path('assets/otakudub_icon.png').read_bytes()
-          assert icon[:8] == b'\\x89PNG\\r\\n\\x1a\\n', 'Launcher icon must be PNG'
-          width, height = struct.unpack('>II', icon[16:24])
-          assert width == height and width >= 512, 'Launcher icon must be square and at least 512px'
-          print(f'Validated branded launcher source: {width}x{height}')
+          from pathlib import Path
+          from PIL import Image, ImageOps, UnidentifiedImageError
+          source = Path('assets/otakudub_icon.png')
+          try:
+              with Image.open(source) as opened:
+                  opened.verify()
+              with Image.open(source) as opened:
+                  icon = ImageOps.exif_transpose(opened)
+                  icon.load()
+                  width, height = icon.size
+                  assert width == height and width >= 512, 'Launcher icon must be square and at least 512px'
+                  assert width <= 4096, 'Launcher icon dimensions exceed limit'
+                  icon.convert('RGBA').save(source, format='PNG', optimize=True)
+          except (UnidentifiedImageError, OSError, ValueError) as exc:
+              raise SystemExit(f'Invalid launcher image: {exc}')
+          assert source.read_bytes().startswith(bytes.fromhex('89504e470d0a1a0a'))
+          print(f'Normalised branded launcher image to genuine PNG: {width}x{height}')
           PY
           dart run flutter_launcher_icons
           test -s android/app/src/main/res/mipmap-hdpi/ic_launcher.png
